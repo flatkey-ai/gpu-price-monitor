@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flatkey-gpu-price-monitor"
+version = "0.1.0.dev0"
+description = "GPU cloud price monitoring project scaffold"
+readme = "README.en.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = []
+
+[project.scripts]
+gpu-price-monitor = "gpu_price_monitor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

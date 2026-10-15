@@ -1,0 +1,28 @@
+name: 接入平台或修复采集
+description: 提供官方依据、地区条件和价格口径
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: 平台与产品线
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: 官方来源与地区条件
+      description: 请附公开链接，勿提交账号凭据或私有响应。
+    validations:
+      required: true
+  - type: textarea
+    id: pricing
+    attributes:
+      label: 价格单位、资源配置及优惠条件
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果与验收方式
+    validations:
+      required: true

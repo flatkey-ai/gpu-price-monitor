@@ -1,0 +1,24 @@
+name: Project checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check Python syntax
+        run: python -m compileall -q src
+      - name: Check project status
+        run: PYTHONPATH=src python -m gpu_price_monitor status
+      - name: Validate disabled configuration example
+        run: PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/monitor.example.json

@@ -1,0 +1,17 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.env
+.env.*
+!.env.example
+configs/monitor.local.json
+data/
+evidence/
+playwright/.auth/
+*.sqlite
+*.sqlite3
+*.db
