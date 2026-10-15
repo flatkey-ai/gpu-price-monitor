@@ -1,7 +1,8 @@
-"""Reusable GPU price collection scaffold; live adapters are not implemented."""
+"""Reusable public GPU price collection with JSON-serializable results."""
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 from .settings import ConfigurationError, Settings
+from .collector import collect_prices
 
-__all__ = ["ConfigurationError", "Settings", "__version__"]
+__all__ = ["ConfigurationError", "Settings", "collect_prices", "__version__"]

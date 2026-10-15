@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install collection library
+        run: python -m pip install -e .
       - name: Check Python syntax
         run: python -m compileall -q src
       - name: Check project status

@@ -1,0 +1,664 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-10-15T09:16:39.483983+00:00",
+  "status": "success",
+  "prices": [
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "B300",
+      "raw_name": "NVIDIA® B300 NVLink",
+      "raw_sku": "gpu-b300-sxm",
+      "gpu_variant": "NVLink",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "9.50",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "uk-south1",
+        "eu-west2",
+        "us-north1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "B200",
+      "raw_name": "NVIDIA® B200 NVLink",
+      "raw_sku": "gpu-b200-sxm",
+      "gpu_variant": "NVLink",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "8.50",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "us-central1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "B200",
+      "raw_name": "NVIDIA® B200 NVLink",
+      "raw_sku": "gpu-b200-sxm-a",
+      "gpu_variant": "NVLink",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "8.50",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "me-west1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "H200",
+      "raw_name": "NVIDIA® H200 NVLink",
+      "raw_sku": null,
+      "gpu_variant": "NVLink",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "5.40",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "eu-north1",
+        "eu-north2",
+        "eu-west1",
+        "us-central1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel.",
+        "The platform's region list includes a private-region footnote; access may be restricted."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "H100",
+      "raw_name": "NVIDIA® H100 NVLink",
+      "raw_sku": null,
+      "gpu_variant": "NVLink",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "4.50",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "eu-north1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "RTX PRO 6000",
+      "raw_name": "NVIDIA® RTX PRO™ 6000",
+      "raw_sku": "gpu-rtx6000",
+      "gpu_variant": null,
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "1.80",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "us-central1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "RTX PRO 6000",
+      "raw_name": "NVIDIA® RTX PRO™ 6000",
+      "raw_sku": "gpu-rtx6000-a",
+      "gpu_variant": null,
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "1.80",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [
+        "uk-south2",
+        "eu-south1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": "2026-10-08",
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel."
+      ],
+      "components": []
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "L40S",
+      "raw_name": "NVIDIA® L40S Intel. GPU",
+      "raw_sku": null,
+      "gpu_variant": "Intel",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "1.35",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "gpu_component",
+      "quote_status": "quoted",
+      "regions": [
+        "eu-north1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel.",
+        "GPU component only; CPU and RAM are billed separately."
+      ],
+      "components": [
+        {
+          "resource": "cpu",
+          "amount": "0.012",
+          "currency": "USD",
+          "unit": "cpu_hour"
+        },
+        {
+          "resource": "ram",
+          "amount": "0.0032",
+          "currency": "USD",
+          "unit": "gib_hour"
+        }
+      ]
+    },
+    {
+      "provider": "nebius",
+      "product_type": "gpu_instance",
+      "gpu_model": "L40S",
+      "raw_name": "NVIDIA® L40S AMD. GPU",
+      "raw_sku": null,
+      "gpu_variant": "AMD",
+      "vram_gb": null,
+      "gpu_count": null,
+      "amount": "1.35",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "gpu_component",
+      "quote_status": "quoted",
+      "regions": [
+        "eu-north1"
+      ],
+      "geographic_scope": "regions",
+      "account_scope": "public_catalog",
+      "tax_scope": "excluded",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://docs.nebius.com/compute/resources/pricing",
+      "source_type": "official_pricing_document",
+      "availability": "unknown",
+      "notes": [
+        "Published platform availability is not a region-specific price quote.",
+        "USD prices apply to customers except companies from Israel.",
+        "GPU component only; CPU and RAM are billed separately."
+      ],
+      "components": [
+        {
+          "resource": "cpu",
+          "amount": "0.01",
+          "currency": "USD",
+          "unit": "cpu_hour"
+        },
+        {
+          "resource": "ram",
+          "amount": "0.0032",
+          "currency": "USD",
+          "unit": "gib_hour"
+        }
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "GB200",
+      "raw_name": "NVIDIA GB200",
+      "raw_sku": null,
+      "gpu_variant": "NVL72",
+      "vram_gb": 186,
+      "gpu_count": null,
+      "amount": null,
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "contact_sales",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance.",
+        "The source requests contacting sales and provides no numeric price."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "B200",
+      "raw_name": "NVIDIA B200",
+      "raw_sku": null,
+      "gpu_variant": "HGX",
+      "vram_gb": 180,
+      "gpu_count": null,
+      "amount": null,
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "contact_sales",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance.",
+        "The source requests contacting sales and provides no numeric price."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "H200",
+      "raw_name": "NVIDIA H200",
+      "raw_sku": null,
+      "gpu_variant": "HGX",
+      "vram_gb": 141,
+      "gpu_count": null,
+      "amount": "4.29",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "H100",
+      "raw_name": "NVIDIA H100",
+      "raw_sku": null,
+      "gpu_variant": "HGX",
+      "vram_gb": 80,
+      "gpu_count": null,
+      "amount": "3.90",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "A100",
+      "raw_name": "NVIDIA A100",
+      "raw_sku": null,
+      "gpu_variant": "SXM",
+      "vram_gb": 80,
+      "gpu_count": null,
+      "amount": "2.30",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "A100",
+      "raw_name": "NVIDIA A100",
+      "raw_sku": null,
+      "gpu_variant": "PCIe",
+      "vram_gb": 80,
+      "gpu_count": null,
+      "amount": "2.00",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "L40S",
+      "raw_name": "NVIDIA L40S",
+      "raw_sku": null,
+      "gpu_variant": null,
+      "vram_gb": 48,
+      "gpu_count": null,
+      "amount": "1.50",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "MI355X",
+      "raw_name": "AMD MI355X",
+      "raw_sku": null,
+      "gpu_variant": null,
+      "vram_gb": 288,
+      "gpu_count": null,
+      "amount": null,
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "contact_sales",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance.",
+        "The source requests contacting sales and provides no numeric price."
+      ]
+    },
+    {
+      "provider": "crusoe",
+      "product_type": "gpu_instance",
+      "gpu_model": "MI300X",
+      "raw_name": "AMD MI300X",
+      "raw_sku": null,
+      "gpu_variant": null,
+      "vram_gb": 192,
+      "gpu_count": null,
+      "amount": "3.45",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "advertised_per_gpu",
+      "quote_status": "quoted",
+      "regions": [],
+      "geographic_scope": "unspecified",
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "official_pricing_page",
+      "availability": "unknown",
+      "notes": [
+        "Public GPU instances list price; availability and orderability were not verified.",
+        "The source does not specify a region or the number of GPUs per instance."
+      ]
+    }
+  ],
+  "provider_results": [
+    {
+      "provider": "nebius",
+      "source_url": "https://docs.nebius.com/compute/resources/pricing.md",
+      "status": "success",
+      "observed_at": "2026-10-15T09:16:38.242385+00:00",
+      "fetched_count": 36,
+      "returned_count": 9,
+      "filters": {
+        "currencies": {
+          "requested": [
+            "USD"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicitly published quote fields; no regional inquiry was performed."
+        },
+        "billing_modes": {
+          "requested": [
+            "on_demand"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicitly published quote fields; no regional inquiry was performed."
+        }
+      },
+      "error": null
+    },
+    {
+      "provider": "crusoe",
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "status": "success",
+      "observed_at": "2026-10-15T09:16:39.453631+00:00",
+      "fetched_count": 18,
+      "returned_count": 9,
+      "filters": {
+        "currencies": {
+          "requested": [
+            "USD"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicitly published quote fields; no regional inquiry was performed."
+        },
+        "billing_modes": {
+          "requested": [
+            "on_demand"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicitly published quote fields; no regional inquiry was performed."
+        }
+      },
+      "error": null
+    }
+  ]
+}

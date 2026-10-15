@@ -97,7 +97,7 @@ class CollectionBoundaryTests(unittest.TestCase):
         self.assertTrue(validate_config(self.config))
 
     def test_unimplemented_collector_cannot_be_enabled(self):
-        self.config["providers"][0]["enabled"] = True
+        self.config["providers"][2]["enabled"] = True
         self.assertTrue(validate_config(self.config))
 
     def test_extreme_timeout_is_a_validation_error_not_an_overflow(self):

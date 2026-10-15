@@ -3,11 +3,11 @@
   "request": {"timeout_seconds": 30, "max_retries": 2},
   "providers": [
     {
-      "id": "nebius", "enabled": false, "planned_source": "public_documentation",
+      "id": "nebius", "enabled": true, "planned_source": "public_documentation",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
-      "id": "crusoe", "enabled": false, "planned_source": "public_page",
+      "id": "crusoe", "enabled": true, "planned_source": "public_page",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
