@@ -5,10 +5,11 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+/work/
 .env
 .env.*
 !.env.example
-configs/monitor.local.json
+configs/*.local.json
 data/
 evidence/
 playwright/.auth/

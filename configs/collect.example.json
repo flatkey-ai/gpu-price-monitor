@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "request": {"timeout_seconds": 30, "max_retries": 2},
+  "providers": [
+    {
+      "id": "nebius", "enabled": false, "planned_source": "public_documentation",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "crusoe", "enabled": false, "planned_source": "public_page",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "lambda", "enabled": false, "planned_source": "official_api",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "ucloud", "enabled": false, "planned_source": "official_quote_api",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "autodl", "enabled": false, "planned_source": "authorized_browser",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    }
+  ]
+}

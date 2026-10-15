@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flatkey-gpu-price-monitor"
 version = "0.1.0.dev0"
-description = "GPU cloud price monitoring project scaffold"
+description = "Reusable GPU cloud price collection library scaffold"
 readme = "README.en.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
