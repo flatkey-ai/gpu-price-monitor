@@ -1,0 +1,14 @@
+{
+  "_fixture_note": "Synthetic offline fixture shaped after the official GetUHostInstancePrice documentation; these are not live prices.",
+  "Action": "GetUHostInstancePriceResponse",
+  "RetCode": 0,
+  "PriceSet": [
+    {
+      "ChargeType": "Dynamic",
+      "Price": 8.4,
+      "OriginalPrice": 10.5,
+      "PriceDetail": {"UHost": 8, "UDisk": 0.4},
+      "OriginalPriceDetail": {"UHost": 10, "UDisk": 0.5}
+    }
+  ]
+}

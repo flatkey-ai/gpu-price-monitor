@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
-from .collector import IMPLEMENTED_PROVIDERS, collect_prices
+from .collector import IMPLEMENTED_PROVIDERS, PROVIDER_SOURCES, collect_prices
 from .filters import normalize_filters
 from .settings import ConfigurationError, PROVIDERS, SOURCES, Settings
 
@@ -57,7 +57,7 @@ def validate_config(config: object) -> list[str]:
         elif provider["enabled"]:
             if not isinstance(provider_id, str) or provider_id not in IMPLEMENTED_PROVIDERS:
                 errors.append(f"{prefix}: provider adapter is not implemented; keep enabled=false")
-            elif source != {"nebius": "public_documentation", "crusoe": "public_page"}[provider_id]:
+            elif source != PROVIDER_SOURCES[provider_id]:
                 errors.append(f"{prefix}.planned_source does not match the implemented adapter")
         try:
             if not isinstance(provider.get("filters"), dict):
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings.from_env()
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
-            print("Available public collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
+            print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
             print("Providers not implemented: " + ", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())))
             print("Configured providers: " + ", ".join(settings.providers))
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")

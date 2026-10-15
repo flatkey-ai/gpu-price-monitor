@@ -33,6 +33,8 @@ class Settings:
     nebius_access_token: str | None = field(default=None, repr=False)
     ucloud_public_key: str | None = field(default=None, repr=False)
     ucloud_private_key: str | None = field(default=None, repr=False)
+    ucloud_project_id: str | None = field(default=None, repr=False)
+    ucloud_price_targets_json: str | None = field(default=None, repr=False)
     autodl_token: str | None = field(default=None, repr=False)
     autodl_storage_state_path: str | None = field(default=None, repr=False)
 
@@ -81,6 +83,8 @@ class Settings:
             nebius_access_token=credential("NEBIUS_ACCESS_TOKEN"),
             ucloud_public_key=credential("UCLOUD_PUBLIC_KEY"),
             ucloud_private_key=credential("UCLOUD_PRIVATE_KEY"),
+            ucloud_project_id=credential("UCLOUD_PROJECT_ID"),
+            ucloud_price_targets_json=credential("UCLOUD_PRICE_TARGETS_JSON"),
             autodl_token=credential("AUTODL_TOKEN"),
             autodl_storage_state_path=credential("AUTODL_STORAGE_STATE_PATH"),
         )

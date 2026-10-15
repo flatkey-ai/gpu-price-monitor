@@ -1,0 +1,15 @@
+[
+  {
+    "Region": "cn-bj2",
+    "Zone": "cn-bj2-02",
+    "MachineType": "G",
+    "GpuType": "T4",
+    "GPU": 1,
+    "CPU": 4,
+    "Memory": 8192,
+    "ChargeType": "Dynamic",
+    "Disks": [
+      {"IsBoot": true, "Type": "CLOUD_SSD", "Size": 40}
+    ]
+  }
+]

@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
 from gpu_price_monitor import Settings
-from gpu_price_monitor.transport import FetchError, fetch_text
+from gpu_price_monitor.transport import FetchError, _NoRedirect, fetch_text, request_json
+from decimal import Decimal
 
 
 class TransportTests(unittest.TestCase):
@@ -65,6 +66,53 @@ class TransportTests(unittest.TestCase):
             with self.assertRaises(FetchError) as raised:
                 fetch_text("https://example.com", Settings(max_retries=0))
         self.assertEqual(raised.exception.code, "response_incomplete")
+
+    def test_authenticated_redirect_is_rejected_without_exposing_credentials(self):
+        opener = MagicMock()
+        opener.open.side_effect = HTTPError("https://example.com", 302, "secret-message", {}, None)
+        with patch("gpu_price_monitor.transport.build_opener", return_value=opener):
+            with self.assertRaises(FetchError) as raised:
+                request_json("https://example.com", Settings(max_retries=0), headers={"Authorization": "Bearer secret-key"}, authenticated=True)
+        self.assertEqual(raised.exception.code, "redirect_rejected")
+        self.assertNotIn("secret", str(raised.exception))
+        self.assertIsNone(_NoRedirect().redirect_request(None, None, 302, "", {}, "https://other.example"))
+        self.assertEqual(opener.open.call_count, 1)
+
+    def test_authenticated_unauthorized_becomes_safe_authentication_error(self):
+        opener = MagicMock()
+        opener.open.side_effect = HTTPError("https://example.com", 401, "secret", {}, None)
+        with patch("gpu_price_monitor.transport.build_opener", return_value=opener):
+            with self.assertRaises(FetchError) as raised:
+                request_json("https://example.com", Settings(max_retries=0), authenticated=True)
+        self.assertEqual(raised.exception.code, "authentication_error")
+
+    def test_json_money_remains_decimal_and_invalid_json_is_safe(self):
+        with patch("gpu_price_monitor.transport.urlopen", return_value=self.response(b'{"Price":0.42}')):
+            payload = request_json("https://example.com", Settings(max_retries=0))
+        self.assertEqual(payload["Price"], Decimal("0.42"))
+        for body in (b'secret-upstream-body', b'[]', b'{"Price":NaN}'):
+            with self.subTest(body=body):
+                with patch("gpu_price_monitor.transport.urlopen", return_value=self.response(body)):
+                    with self.assertRaises(FetchError) as raised:
+                        request_json("https://example.com", Settings(max_retries=0))
+                self.assertEqual(raised.exception.code, "invalid_json")
+                self.assertNotIn("secret", str(raised.exception))
+
+    def test_authenticated_plain_http_and_header_injection_never_send_request(self):
+        with patch("gpu_price_monitor.transport.build_opener") as opener:
+            with self.assertRaises(FetchError):
+                request_json("http://example.com", Settings(), authenticated=True)
+            with self.assertRaises(FetchError):
+                request_json("https://example.com", Settings(), authenticated=True, headers={"Authorization": "secret\r\ninjection"})
+        opener.assert_not_called()
+
+    def test_excessively_deep_json_is_a_safe_structured_error(self):
+        with patch("gpu_price_monitor.transport._request_text", return_value="{}"):
+            with patch("gpu_price_monitor.transport.json.loads", side_effect=RecursionError("private response")):
+                with self.assertRaises(FetchError) as raised:
+                    request_json("https://example.com", Settings(max_retries=0))
+        self.assertEqual(raised.exception.code, "invalid_json")
+        self.assertNotIn("private response", str(raised.exception))
 
 
 if __name__ == "__main__":

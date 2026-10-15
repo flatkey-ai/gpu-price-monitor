@@ -24,7 +24,8 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_all_credentials_are_optional_and_hidden_from_repr(self):
         names = ("LAMBDA_API_KEY", "NEBIUS_ACCESS_TOKEN", "UCLOUD_PUBLIC_KEY",
-                 "UCLOUD_PRIVATE_KEY", "AUTODL_TOKEN", "AUTODL_STORAGE_STATE_PATH")
+                 "UCLOUD_PRIVATE_KEY", "UCLOUD_PROJECT_ID", "UCLOUD_PRICE_TARGETS_JSON",
+                 "AUTODL_TOKEN", "AUTODL_STORAGE_STATE_PATH")
         env = {name: f"secret-value-{index}" for index, name in enumerate(names)}
         settings = Settings.from_env(env)
         self.assertEqual(settings.ucloud_private_key, env["UCLOUD_PRIVATE_KEY"])
@@ -97,7 +98,7 @@ class CollectionBoundaryTests(unittest.TestCase):
         self.assertTrue(validate_config(self.config))
 
     def test_unimplemented_collector_cannot_be_enabled(self):
-        self.config["providers"][2]["enabled"] = True
+        self.config["providers"][4]["enabled"] = True
         self.assertTrue(validate_config(self.config))
 
     def test_extreme_timeout_is_a_validation_error_not_an_overflow(self):

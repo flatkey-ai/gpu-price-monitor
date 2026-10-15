@@ -43,12 +43,18 @@ def filter_support(provider: str, filters: dict[str, list]) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
     if provider == "nebius":
         supported.add("regions")
+    if provider == "lambda":
+        supported.add("gpu_counts")
+    if provider == "ucloud":
+        supported.update({"regions", "zones", "gpu_counts"})
     return {
         name: {
             "requested": values,
             "status": "applied_locally" if name in supported else "unsupported",
             "reason": (
-                "Matched against explicitly published quote fields; no regional inquiry was performed."
+                ("Matched against the configured quotation request context; availability was not verified."
+                 if provider == "ucloud" else
+                 "Matched against explicit quote fields; capacity regions do not establish regional prices.")
                 if name in supported else
                 "This public source does not provide verifiable values for this condition."
             ),
@@ -64,8 +70,10 @@ def apply_filters(prices: list[dict], filters: dict[str, list]) -> list[dict]:
         for name, values in filters.items():
             if not values:
                 continue
-            if name == "regions":
-                match = bool(set(values) & set(quote["regions"]))
+            if name in {"regions", "zones"}:
+                match = bool(set(values) & set(quote.get(name, [])))
+            elif name == "gpu_counts":
+                match = quote.get("gpu_count") in values
             else:
                 field = {"gpu_models": "gpu_model", "currencies": "currency", "billing_modes": "billing_mode"}[name]
                 match = str(quote[field]).casefold() in {value.casefold() for value in values}

@@ -1,6 +1,6 @@
-"""Reusable public GPU price collection with JSON-serializable results."""
+"""Reusable GPU price collection with JSON-serializable results."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .settings import ConfigurationError, Settings
 from .collector import collect_prices

@@ -1,4 +1,4 @@
-"""Collect public quotes and return JSON-serializable data, with no persistence."""
+"""Collect public or authenticated quotes and return data without persistence."""
 
 from __future__ import annotations
 
@@ -7,19 +7,21 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from .filters import apply_filters, filter_support, normalize_filters
-from .providers import crusoe, nebius
+from .providers import crusoe, lambda_cloud, nebius, ucloud
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
-IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe}
+IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_cloud, "ucloud": ucloud}
+PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
+                    "lambda": "official_api", "ucloud": "official_quote_api"}
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _check_prices(prices: list[dict], provider: str) -> None:
-    if not isinstance(prices, list) or not prices:
+def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = False) -> None:
+    if not isinstance(prices, list) or (not prices and not allow_empty):
         raise ValueError("No recognizable GPU price records were found.")
     for quote in prices:
         if quote["provider"] != provider or quote["unit"] != "gpu_hour":
@@ -43,7 +45,7 @@ def collect_prices(
     settings: Settings | None = None,
     provider_filters: Mapping[str, Mapping] | None = None,
 ) -> dict:
-    """Fetch current public prices. This function never uploads or saves data.
+    """Fetch configured prices. This function never uploads or saves data.
 
     Explicit providers override settings.providers. Global filters override
     per-provider filters by key. Unsupported filter dimensions fail that source
@@ -87,11 +89,16 @@ def collect_prices(
             result["error"] = {"code": "unsupported_filter", "message": "The source cannot verify one or more requested conditions.", "retryable": False}
         else:
             try:
-                content = fetch_text(module.SOURCE_URL, settings)
-                observed_at = _now()
+                is_api = provider in {"lambda", "ucloud"}
+                if is_api:
+                    observed_at = _now()
+                    quotes = module.collect_quotes(settings=settings, observed_at=observed_at)
+                else:
+                    content = fetch_text(module.SOURCE_URL, settings)
+                    observed_at = _now()
+                    quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
                 result["observed_at"] = observed_at
-                quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
-                _check_prices(quotes, provider)
+                _check_prices(quotes, provider, allow_empty=is_api)
                 result["fetched_count"] = len(quotes)
                 other_conditions = {k: v for k, v in conditions[provider].items() if k != "regions"}
                 relevant = apply_filters(quotes, other_conditions)

@@ -1,6 +1,6 @@
 # 贡献指南
 
-本项目是可复用的 GPU 云算力价格采集库。贡献前请阅读 [路线图](ROADMAP.md)、[数据契约](docs/DATA_MODEL.md) 和 [平台依据](docs/PROVIDERS.md)。当前支持 Nebius 和 Crusoe 的公开价格采集，其他来源尚未实现。
+本项目是可复用的 GPU 云算力价格采集库。贡献前请阅读 [路线图](ROADMAP.md)、[数据契约](docs/DATA_MODEL.md) 和 [平台依据](docs/PROVIDERS.md)。当前支持 Nebius、Crusoe 公开来源及 Lambda、UCloud 认证接口；后两者已用离线样本验证，尚未完成真实账号报价联调。AutoDL 尚未实现。
 
 ## 贡献范围
 

@@ -85,7 +85,7 @@ class CollectionTests(unittest.TestCase):
         self.assertTrue(all(p["error"]["code"] == "parse_failed" for p in failed["provider_results"]))
 
     def test_unimplemented_provider_does_not_erase_supported_results(self):
-        result = collect_prices(["nebius", "lambda"], settings=self.settings)
+        result = collect_prices(["nebius", "autodl"], settings=self.settings)
         self.assertEqual(result["status"], "partial")
         self.assertEqual(result["provider_results"][1]["error"]["code"], "not_implemented")
 

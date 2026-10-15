@@ -1,0 +1,57 @@
+{
+  "data": {
+    "gpu_8x_h100_sxm5": {
+      "instance_type": {
+        "name": "gpu_8x_h100_sxm5",
+        "description": "8x H100 (80 GB SXM5)",
+        "gpu_description": "H100 (80 GB SXM5)",
+        "price_cents_per_hour": 3592,
+        "specs": {
+          "vcpus": 208,
+          "memory_gib": 1800,
+          "storage_gib": 24780,
+          "gpus": 8
+        },
+        "architecture": "x86_64"
+      },
+      "regions_with_capacity_available": [
+        {"name": "us-west-1", "description": "California, USA"},
+        {"name": "us-east-1", "description": "Virginia, USA"}
+      ]
+    },
+    "gpu_1x_a10": {
+      "instance_type": {
+        "name": "gpu_1x_a10",
+        "description": "1x A10 (24 GB PCIe)",
+        "gpu_description": "NVIDIA A10 (24 GB PCIe)",
+        "price_cents_per_hour": 75,
+        "specs": {
+          "vcpus": 30,
+          "memory_gib": 200,
+          "storage_gib": 0,
+          "gpus": 1
+        },
+        "architecture": "x86_64"
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_2x_unknown": {
+      "instance_type": {
+        "name": "gpu_2x_unknown",
+        "description": "2x Example GPU",
+        "gpu_description": "Example GPU",
+        "price_cents_per_hour": 201,
+        "specs": {
+          "vcpus": 16,
+          "memory_gib": 64,
+          "storage_gib": 512,
+          "gpus": 2
+        },
+        "architecture": "arm64"
+      },
+      "regions_with_capacity_available": [
+        {"name": "us-west-1", "description": "California, USA"}
+      ]
+    }
+  }
+}
