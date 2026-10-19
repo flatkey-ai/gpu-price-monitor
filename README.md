@@ -6,7 +6,7 @@
 
 ## 当前支持
 
-0.2.0 支持 **Nebius、Crusoe、Lambda 和 UCloud**。Nebius / Crusoe 使用公开来源；Lambda / UCloud 使用调用方凭据，只读查询价格。AutoDL 尚未实现，返回 `not_implemented`。当前版本尚未发布到 PyPI，请从源码安装。
+0.3.0 支持 **Nebius、Crusoe、Lambda 和 UCloud**，并提供显式 env 文件及本地询价文件加载。Nebius / Crusoe 使用公开来源；Lambda / UCloud 使用调用方凭据，只读查询价格。AutoDL 尚未实现，返回 `not_implemented`。当前版本尚未发布到 PyPI，请从源码安装。
 
 Lambda 和 UCloud 已通过离线样本验证，当前环境未配置凭据，**尚未完成真实认证报价联调**。下方公开抓取示例不证明这两家的账号接口已经实测成功。
 
@@ -77,7 +77,7 @@ gpu-price-monitor collect --config configs/collect.example.json --pretty
 
 示例配置启用 Nebius 和 Crusoe，其余来源关闭。可在每个来源的 `filters` 中分别设置条件；配置检查不联网、不验证凭据有效性。请求选项可通过 `--timeout`、`--max-retries` 设置。
 
-环境变量字段见 [`.env.example`](.env.example)。**只读取进程环境，不自动加载 `.env`**；由调用方、容器或运行器注入。
+环境变量字段见 [`.env.example`](.env.example)。默认仅读取进程环境；需要本地文件时显式使用 CLI `--env-file .env` 或 Python `Settings.from_env(env_file=".env")`。不搜索父目录，不修改进程环境，不执行文件内的 shell 命令或变量插值。
 
 | 环境变量 | 用途 / 默认值 |
 | --- | --- |
@@ -87,7 +87,7 @@ gpu-price-monitor collect --config configs/collect.example.json --pretty
 | `LAMBDA_API_KEY` | Lambda 必填，只读实例目录认证 |
 | `NEBIUS_ACCESS_TOKEN` | 为后续认证估价分支保留；当前公开采集无需凭据 |
 | `UCLOUD_PUBLIC_KEY` / `UCLOUD_PRIVATE_KEY` | UCloud 必填，账号询价认证 |
-| `UCLOUD_PRICE_TARGETS_JSON` | UCloud 必填，完整配置目标的 JSON 数组，最多 20 项 |
+| `UCLOUD_PRICE_TARGETS_JSON` / `UCLOUD_PRICE_TARGETS_FILE` | UCloud 二选一：内联完整配置 JSON 数组或 UTF-8 JSON 文件，最多 20 项 |
 | `UCLOUD_PROJECT_ID` | UCloud 可选项目 ID；子账号通常需要 |
 | `AUTODL_TOKEN` / `AUTODL_STORAGE_STATE_PATH` | 为后续 AutoDL 适配器保留 |
 
@@ -95,16 +95,30 @@ gpu-price-monitor collect --config configs/collect.example.json --pretty
 
 ## Lambda / UCloud 认证采集
 
-通过自己的 secrets 配置 `LAMBDA_API_KEY`、`UCLOUD_PUBLIC_KEY` 和 `UCLOUD_PRIVATE_KEY`。UCloud 还必须明确完整实例配置，由调用方加载目标文件：
+本地使用不入 Git 的 `.env` 和 `configs/ucloud-targets.local.json`。`.env` 中填写 `LAMBDA_API_KEY`、`UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，并设置：
+
+```dotenv
+GPU_PRICE_MONITOR_PROVIDERS=lambda,ucloud
+UCLOUD_PRICE_TARGETS_FILE=configs/ucloud-targets.local.json
+```
+
+先核对本地询价文件中的实际地区和完整规格，再运行只读本地检查：
 
 ```bash
-export UCLOUD_PRICE_TARGETS_JSON="$(cat configs/ucloud-targets.example.json)"
-gpu-price-monitor collect --providers lambda,ucloud --pretty
+gpu-price-monitor status --env-file .env
 ```
+
+该命令不联网，也不验证密钥有效性。填好密钥和实际配置后，再由操作者明确执行真实采集：
+
+```bash
+gpu-price-monitor collect --env-file .env --providers lambda,ucloud --pretty
+```
+
+Python 使用 `settings=Settings.from_env(env_file=".env")`。文件路径相对 `.env` 所在目录解析；未指定 env 文件时相对当前工作目录。进程环境覆盖文件配置，空值也覆盖；同一层不能同时配置非空的 JSON 和 FILE。细节见 [接入说明](docs/DEPLOYMENT.md)。
 
 [UCloud 目标示例](configs/ucloud-targets.example.json)仅说明结构，不代表示例地区或规格当前可售。必须指定 Region、Zone、GPU、CPU、内存 MB 和磁盘，当前仅支持 `MachineType=G`、`ChargeType=Dynamic`、`Count=1` 的完整 GPU 实例。支持范围与凭据操作见 [接入说明](docs/DEPLOYMENT.md)。不要对这两家统一指定 `--currency USD`，否则会筛掉 UCloud 的 CNY 结果。
 
-缺少凭据返回 `missing_credentials`，UCloud 缺少或不合法目标返回 `missing_price_targets` / `invalid_price_targets`；不会阻止其他来源返回成功报价。
+缺少凭据及内联 JSON 目标错误分别返回来源级 `missing_credentials`、`missing_price_targets` / `invalid_price_targets`，保留其他来源的成功报价。FILE 读取或校验失败则属于全局 `ConfigurationError`，会在任何来源开始采集前终止。
 
 ## 价格口径
 

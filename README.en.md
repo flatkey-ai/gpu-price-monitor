@@ -8,7 +8,7 @@ An open-source library that collects GPU cloud rental prices from official sourc
 
 ## Supported sources
 
-Version 0.2.0 supports **Nebius, Crusoe, Lambda and UCloud**. Nebius and Crusoe use public sources; Lambda and UCloud require your own credentials for read-only price requests. AutoDL is not implemented and returns `not_implemented`. Install from source; this version has not been published to PyPI.
+Version 0.3.0 supports **Nebius, Crusoe, Lambda and UCloud**, with explicit env-file and local target-file loading. Nebius and Crusoe use public sources; Lambda and UCloud require your own credentials for read-only price requests. AutoDL is not implemented and returns `not_implemented`. Install from source; this version has not been published to PyPI.
 
 Lambda and UCloud have offline fixture coverage. Credentials are absent in the current environment, so **authenticated live pricing has not been verified**. The public snapshot above does not include authenticated provider results.
 
@@ -65,7 +65,7 @@ gpu-price-monitor collect --config configs/collect.example.json --pretty
 
 The example enables Nebius and Crusoe; authenticated sources remain disabled until configured. It supports per-provider filters. Validation does not access providers or verify credentials. Use `--timeout` and `--max-retries` for request options.
 
-Use [`.env.example`](.env.example) as a reference. **The program reads process environment variables; it does not automatically load `.env` files.** Your application, container or runner injects them.
+Use [`.env.example`](.env.example) as a reference. By default, settings read only the process environment. To load a local file, explicitly pass CLI `--env-file .env` or Python `Settings.from_env(env_file=".env")`. The library does not search parent directories, modify `os.environ`, interpolate variables or execute shell expressions from the file.
 
 | Variable | Purpose / default |
 | --- | --- |
@@ -75,7 +75,7 @@ Use [`.env.example`](.env.example) as a reference. **The program reads process e
 | `LAMBDA_API_KEY` | Required for Lambda read-only catalog requests |
 | `NEBIUS_ACCESS_TOKEN` | Reserved for authenticated estimates; not needed for current collection |
 | `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY` | Required for UCloud account quotations |
-| `UCLOUD_PRICE_TARGETS_JSON` | Required UCloud complete-config JSON array, up to 20 targets |
+| `UCLOUD_PRICE_TARGETS_JSON` / `UCLOUD_PRICE_TARGETS_FILE` | Choose an inline array or UTF-8 JSON target file; up to 20 complete configurations |
 | `UCLOUD_PROJECT_ID` | Optional UCloud project; subaccounts may require it |
 | `AUTODL_TOKEN`, `AUTODL_STORAGE_STATE_PATH` | Reserved for the future AutoDL adapter |
 
@@ -83,16 +83,30 @@ Use [`.env.example`](.env.example) as a reference. **The program reads process e
 
 ## Authenticated collection
 
-Inject your own `LAMBDA_API_KEY`, `UCLOUD_PUBLIC_KEY` and `UCLOUD_PRIVATE_KEY` through your secrets system. UCloud also requires explicit instance targets loaded by your runner:
+Use a local `.env` and `configs/ucloud-targets.local.json`, both excluded from Git. Fill your own `LAMBDA_API_KEY`, `UCLOUD_PUBLIC_KEY` and `UCLOUD_PRIVATE_KEY` in `.env`, then set:
+
+```dotenv
+GPU_PRICE_MONITOR_PROVIDERS=lambda,ucloud
+UCLOUD_PRICE_TARGETS_FILE=configs/ucloud-targets.local.json
+```
+
+Replace target locations and specifications with configurations you have checked. Inspect local settings without network access:
 
 ```bash
-export UCLOUD_PRICE_TARGETS_JSON="$(cat configs/ucloud-targets.example.json)"
-gpu-price-monitor collect --providers lambda,ucloud --pretty
+gpu-price-monitor status --env-file .env
 ```
+
+After filling keys and confirming the targets, explicitly run live verification:
+
+```bash
+gpu-price-monitor collect --env-file .env --providers lambda,ucloud --pretty
+```
+
+Python uses `settings=Settings.from_env(env_file=".env")`. Relative target paths resolve against the env file directory, or the working directory without an env file. Process variables override file values, including empty strings. Nonempty JSON and FILE sources in the same layer conflict. See [integration details](docs/DEPLOYMENT.md).
 
 The [target file](configs/ucloud-targets.example.json) is a format example, not proof of availability. UCloud targets require Region, Zone, GPU type/count, CPU, memory in MB and disk definitions. Only full GPU instances with `MachineType=G`, `ChargeType=Dynamic` and `Count=1` are supported. See [integration details](docs/DEPLOYMENT.md). Do not apply a shared USD-only filter to Lambda and UCloud, since UCloud returns CNY.
 
-Missing keys return `missing_credentials`; absent or invalid UCloud targets return `missing_price_targets` / `invalid_price_targets`. Failures remain isolated per provider.
+Missing credentials and inline JSON target errors return provider-level `missing_credentials`, `missing_price_targets` / `invalid_price_targets`, preserving other providers' results. FILE read or validation failures raise a global `ConfigurationError` before any provider starts collection.
 
 ## Price semantics and license
 

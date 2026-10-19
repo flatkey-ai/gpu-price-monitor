@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flatkey-gpu-price-monitor"
-version = "0.2.0"
+version = "0.3.0"
 description = "GPU cloud price collection library with Python and JSON CLI interfaces"
 readme = "README.en.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
-dependencies = ["beautifulsoup4>=4.12,<5"]
+dependencies = ["beautifulsoup4>=4.12,<5", "python-dotenv>=1.0,<2"]
 
 [project.scripts]
 gpu-price-monitor = "gpu_price_monitor.cli:main"

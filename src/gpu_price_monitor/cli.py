@@ -86,11 +86,15 @@ def _print_json(result: dict, pretty: bool = False) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect GPU cloud prices and return JSON")
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--env-file", type=Path, help="explicit dotenv file; process environment overrides its values")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("status", help="show implemented providers and non-secret environment options")
+    status = commands.add_parser("status", help="show implemented providers and non-secret environment options")
     validate = commands.add_parser("validate-config", help="check environment and configuration without making requests")
     validate.add_argument("--config", type=Path, required=True)
     collect = commands.add_parser("collect", help="fetch current public prices; stdout is JSON")
+    for command in (status, validate, collect):
+        command.add_argument("--env-file", type=Path, default=argparse.SUPPRESS,
+                             help="explicit dotenv file; process environment overrides its values")
     collect.add_argument("--providers", "--provider", help="comma-separated provider names; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--pretty", action="store_true")
@@ -105,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         collect.add_argument(f"--{option}", dest=name, action="append", type=int if name == "gpu_counts" else str)
     args = parser.parse_args(argv)
     try:
-        settings = Settings.from_env()
+        settings = Settings.from_env(env_file=args.env_file)
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))

@@ -70,7 +70,7 @@ def load_targets(settings: Settings) -> list[dict]:
     if raw is None or raw == "":
         raise FetchError(
             "missing_price_targets",
-            "Set UCLOUD_PRICE_TARGETS_JSON to an explicit JSON array of UCloud GPU quote targets.",
+            "Set UCLOUD_PRICE_TARGETS_JSON or load UCLOUD_PRICE_TARGETS_FILE with Settings.from_env to supply explicit UCloud GPU quote targets.",
         )
     if not isinstance(raw, str):
         raise _target_error()
