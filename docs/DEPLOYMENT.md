@@ -4,13 +4,25 @@
 
 ## 安装和免费采集
 
-Python 3.11+。AutoDL 需要可选 Playwright 和本地 Chromium；其他 HTTP 来源只需基础包：
+准备 Git、Python 3.11+ 和可访问平台官网的网络。AutoDL 需要可选 Playwright 和本地 Chromium；其他 HTTP 来源只需基础包。从全新 clone 开始：
 
 ```bash
-python3 -m pip install -e '.[browser]'
-python3 -m playwright install chromium
-gpu-price-monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
+git clone https://github.com/flatkey-ai/gpu-price-monitor.git
+cd gpu-price-monitor
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[browser]'
+python -m playwright install chromium
+python -m gpu_price_monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty > prices.json
 ```
+
+无需 `.env`、key、登录、充值或 GPU。`prices.json` 由调用方重定向生成，库本身不写数据库或上传。安装会从 PyPI 下载依赖；首次安装 Chromium 还需下载浏览器。采集不会创建、启动或购买 GPU 资源；执行机器及网络由使用者提供。
+
+Windows PowerShell 使用 `py -3 -m venv .venv` 创建环境，使用 `.\.venv\Scripts\Activate.ps1` 激活；其余 `python -m ...` 命令相同。也可直接调用 `.venv\Scripts\python.exe`，不依赖激活脚本。Linux 若缺少系统包，使用 `python -m playwright install --with-deps chromium`；该步骤可能需要管理员权限。无法安装浏览器时先不选择 AutoDL，其他 10 家仍可独立采集。
+
+`python -m gpu_price_monitor` 和安装后的 `gpu-price-monitor` 等价。开发者需修改源码时可将安装命令改为 `python -m pip install -e '.[browser]'`；普通使用者无需 editable 安装。更新时执行 `git pull` 后重新运行安装命令；依赖版本范围位于 `pyproject.toml`，外部网页和目录仍可能变化，调用方应处理结构化的来源失败。
+
+2026-10-20 北京时间 16:40，以公开 GitHub 仓库的全新 clone、独立 Python 3.11.15 虚拟环境和普通 wheel 安装验证上述路径：未创建 `.env`，排除凭据环境变量后，CLI 全部 11 家成功返回 746 条记录，覆盖 34 / 34 个目标型号族。新环境的 256 项离线测试与 `pip check` 均通过；Python `Settings()` 调用 Lambda / RunPod 也成功返回 90 条记录。该验证使用 macOS ARM64，Windows / Linux 的系统安装步骤仍须按各自环境执行。
 
 Python 返回标准字典，可由调用方序列化、存储或上传：
 

@@ -18,15 +18,21 @@ The library owns fetching, parsing, filter verification and structured results. 
 
 ## Install and collect
 
-Python 3.11+ is required. No GPU is needed.
+Git, Python 3.11+ and network access to provider websites are required. No GPU is needed. Use an isolated virtual environment; public collection does not require an `.env` file.
 
 ```bash
 git clone https://github.com/flatkey-ai/gpu-price-monitor.git
 cd gpu-price-monitor
-python3 -m pip install -e '.[browser]'
-python3 -m playwright install chromium
-gpu-price-monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[browser]'
+python -m playwright install chromium
+python -m gpu_price_monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
 ```
+
+On Windows PowerShell, replace the virtual environment lines with `py -3 -m venv .venv` and `.\.venv\Scripts\Activate.ps1`; the remaining commands are the same. On a fresh Linux host or container, install Chromium's system dependencies with `python -m playwright install --with-deps chromium` (this may need administrator privileges). See [integration details](docs/DEPLOYMENT.md).
+
+The installed `gpu-price-monitor` command is equivalent to `python -m gpu_price_monitor`. HTTP-only sources need just `python -m pip install .` and no Chromium; for example, `python -m gpu_price_monitor collect --providers nebius,lambda,runpod --pretty`.
 
 The `collect` command writes JSON to stdout and diagnostics to stderr. Your application can capture the result or redirect stdout to a file.
 

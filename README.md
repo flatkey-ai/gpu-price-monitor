@@ -18,15 +18,21 @@ Lambda 公开页已完成实际采样：2026-10-20 获取 4 张规格表、22 �
 
 ## 安装与抓取
 
-要求 Python 3.11+，运行仅需普通 CPU。
+要求 Git、Python 3.11+ 和可访问各平台官网的网络，运行仅需普通 CPU。推荐创建独立虚拟环境，避免修改系统 Python；免费公开采集不需要创建 `.env`。
 
 ```bash
 git clone https://github.com/flatkey-ai/gpu-price-monitor.git
 cd gpu-price-monitor
-python3 -m pip install -e '.[browser]'
-python3 -m playwright install chromium
-gpu-price-monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[browser]'
+python -m playwright install chromium
+python -m gpu_price_monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
 ```
+
+Windows PowerShell 将虚拟环境创建和激活两行换成 `py -3 -m venv .venv` 和 `.\.venv\Scripts\Activate.ps1`；其余命令相同。Linux 容器或新服务器若缺少 Chromium 系统库，使用 `python -m playwright install --with-deps chromium`（系统依赖安装可能需要管理员权限）。安装细节见 [接入说明](docs/DEPLOYMENT.md)。
+
+安装后也可直接使用 `gpu-price-monitor` 命令。只抓 HTTP 来源时可安装 `python -m pip install .`，跳过 Chromium；例如 `python -m gpu_price_monitor collect --providers nebius,lambda,runpod --pretty`。
 
 `collect` 的 stdout 仅包含 JSON，日志写入 stderr。需要保存文件时，可由调用方使用重定向：
 
