@@ -1,0 +1,119 @@
+<main><h1>Droplet Pricing</h1><p>Last verified 25 Aug 2026</p><h2 id="cpu-droplet-pricing">CPU Droplet Pricing</h2><table><thead><tr><th>Resource</th><th>Rate</th></tr></thead><tbody><tr><td>Shared vCPU</td><td>$0.0158219/hour</td></tr></tbody></table><h2 id="on-demand-gpu-droplet-pricing">On-Demand GPU Droplet Pricing
+    <a class="anchor has-fa" href="#on-demand-gpu-droplet-pricing" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#on-demand-gpu-droplet-pricing');">
+<i class="fa-solid fa-link"></i>
+</a>
+</h2>
+<p>On-demand GPU Droplet plans are billed at the following hourly rates:</p>
+<div class="overflow-auto">
+<table>
+<thead>
+<tr>
+<th>GPU</th>
+<th>Price</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AMD MI300X</td>
+<td>$2.59 per hour</td>
+</tr><tr>
+<td>AMD MI300X (8x)</td>
+<td>$20.72 per hour</td>
+</tr><tr>
+<td>AMD MI325X</td>
+<td>$3.80 per hour</td>
+</tr><tr>
+<td>AMD MI325X (8x)</td>
+<td>$30.40 per hour</td>
+</tr><tr>
+<td>NVIDIA H100</td>
+<td>$4.41 per hour</td>
+</tr><tr>
+<td>NVIDIA H100 (8x)</td>
+<td>$35.28 per hour</td>
+</tr><tr>
+<td>NVIDIA L40s</td>
+<td>$1.57 per hour</td>
+</tr><tr>
+<td>NVIDIA RTX 4000</td>
+<td>$0.76 per hour</td>
+</tr><tr>
+<td>NVIDIA RTX 6000</td>
+<td>$1.57 per hour</td>
+</tr><tr>
+<td>NVIDIA H200</td>
+<td>$4.47 per hour</td>
+</tr><tr>
+<td>NVIDIA H200 (8x)</td>
+<td>$35.76 per hour</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>If you are a newer DigitalOcean customer, we may charge your team’s primary payment method partway through the monthly billing cycle when you create GPU Droplets, but your total cost is not increased. This is a precautionary measure to prevent abuse of our platform.</p>
+<h3 id="on-demand-gpu-droplet-billing">On-Demand GPU Droplet Billing
+    <a class="anchor has-fa" href="#on-demand-gpu-droplet-billing" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#on-demand-gpu-droplet-billing');">
+<i class="fa-solid fa-link"></i>
+</a>
+</h3>
+<p>GPU Droplets are billed per second with a minimum charge of 60 seconds or $0.01, whichever is higher.</p>
+<p>Billing begins when you create the GPU Droplet and ends when you <a href="/products/droplets/how-to/destroy/">destroy it</a>. You are still billed for GPU Droplets that are powered off. The GPU and other compute resources stay reserved on the hypervisor even when the Droplet is not running. Powering off a GPU Droplet does not stop billing. To end billing, <a href="/products/droplets/how-to/destroy/">destroy the GPU Droplet</a>.</p>
+<h2 id="spot-gpu-droplet-pricing">Spot GPU Droplet Pricing
+        <span class="pill pill-in-header pill-public">public</span>
+<a class="anchor has-fa" href="#spot-gpu-droplet-pricing" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#spot-gpu-droplet-pricing');">
+<i class="fa-solid fa-link"></i>
+</a>
+</h2>
+<article class="notice notice-note">
+<header>
+<span aria-hidden="true" class="notice-icon"></span>
+<span class="notice-title">Note</span>
+</header>
+<div class="notice-body"><p>Spot GPU Droplets are in <a href="/platform/product-lifecycle/#public-preview">public preview</a>. Spot GPU Droplet pricing is separate from on-demand pricing and may change daily based on available idle GPU capacity.</p>
+</div>
+</article>
+<p>Spot GPU Droplets provide supported GPU configurations at a variable rate based on available capacity. The Spot GPU Droplet price is always equal to or less than the on-demand price for the same configuration. Spot GPU Droplet prices may change daily.</p>
+<div class="overflow-auto">
+<table>
+<thead>
+<tr>
+<th style="text-align: left">GPU</th>
+<th style="text-align: left">Price</th>
+</tr>
+</thead>
+<tbody><tr>
+<td style="text-align: left">AMD MI350X</td>
+<td style="text-align: left">$3.50 per hour</td>
+</tr><tr>
+<td style="text-align: left">AMD MI350X (8x)</td>
+<td style="text-align: left">$28.00 per hour</td>
+</tr><tr>
+<td style="text-align: left">AMD MI355X</td>
+<td style="text-align: left">$5.50 per hour</td>
+</tr><tr>
+<td style="text-align: left">AMD MI355X (8x)</td>
+<td style="text-align: left">$44.00 per hour</td>
+</tr><tr>
+<td style="text-align: left">NVIDIA B300, air-cooled</td>
+<td style="text-align: left">$6.17 per hour</td>
+</tr><tr>
+<td style="text-align: left">NVIDIA B300, air-cooled (8x)</td>
+<td style="text-align: left">$49.36 per hour</td>
+</tr><tr>
+<td style="text-align: left">NVIDIA B300, liquid-cooled</td>
+<td style="text-align: left">$6.17 per hour</td>
+</tr><tr>
+<td style="text-align: left">NVIDIA B300, liquid-cooled (8x)</td>
+<td style="text-align: left">$49.36 per hour</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="spot-gpu-droplet-billing">Spot GPU Droplet Billing
+        <span class="pill pill-in-header pill-public">public</span>
+<a class="anchor has-fa" href="#spot-gpu-droplet-billing" onclick="navigator.clipboard.writeText(window.location.origin + window.location.pathname + '#spot-gpu-droplet-billing');">
+<i class="fa-solid fa-link"></i>
+</a>
+</h3>
+<p>Spot GPU Droplets use the same per-second billing model as on-demand GPU Droplets, with a minimum charge of 60 seconds or $0.01, whichever is higher.</p>
+<p>Billing begins when you create the Spot GPU Droplet and ends when you destroy it or DigitalOcean reclaims it. DigitalOcean may reclaim Spot GPU Droplets with at least two hours’ notice.</p>
+<h2 id="contract-gpu-droplet-pricing">Contract GPU Droplet Pricing</h2><table><thead><tr><th>GPU</th><th>Price</th></tr></thead><tbody><tr><td>AMD MI350X</td><td>Per contract after contacting sales</td></tr></tbody></table></main>

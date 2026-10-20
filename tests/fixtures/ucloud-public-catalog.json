@@ -49,9 +49,32 @@
         "TotalQuota": 0,
         "UserRegisterTime": 0,
         "UserType": "personal,company,institution"
+      },
+      {
+        "ActivityId": "10248",
+        "ActivityPurpose": "增收",
+        "BeginTime": 1717171200,
+        "Channel": 1,
+        "DependOnIDList": "",
+        "Description": "",
+        "DiscountStrategy": "折扣",
+        "Duration": 0,
+        "DurationUnit": "",
+        "EndTime": 1924876800,
+        "HistoryIDList": "",
+        "OnlyNewUser": false,
+        "Owner": "",
+        "ProductType": "",
+        "Quota": 5,
+        "RenewStrategy": "",
+        "State": "published",
+        "Title": "4090（48G）&5090主站促销活动",
+        "TotalQuota": 0,
+        "UserRegisterTime": 0,
+        "UserType": "personal,company,institution"
       }
     ],
-    "TotalCount": 2
+    "TotalCount": 3
   },
   "regions": {
     "Action": "ListAllRegionsResponse",
@@ -540,6 +563,59 @@
       ],
       "RetCode": 0,
       "TotalCount": 1
+    },
+    "10248": {
+      "Action": "ListPackageResponse",
+      "Data": [
+        {
+          "ActivityId": "10248",
+          "Channel": 1,
+          "CurPrice": 199965,
+          "DiscountAllowRenew": 1,
+          "DiscountStrategy": "折扣",
+          "DurationUnit": "month",
+          "Durations": [
+            1
+          ],
+          "OriginalPrice": 538600,
+          "PackageDetails": "{\"MachineType\":\"G\",\"UHostFamily\":\"\",\"Cpu\":\"16\",\"Mem\":\"98304\",\"Gpu\":\"1\",\"gpu_type\":\"4090_48G\",\"Disk\":\"200\",\"DiskType\":\"CLOUD_SSD\",\"Bandwidth\":\"2\",\"NetEnhancedV2\":\"\",\"CpuPlatform\":\"intel\"}",
+          "PackageGroupId": "4b3e50b0-0605-448e-ab1c-b5c829d6dd60",
+          "PackageId": "da68a90a-734d-4099-b9f7-d1b46e821d69",
+          "PackageType": "uhost",
+          "RuleIds": [
+            "102481",
+            "102489"
+          ],
+          "Zones": [
+            "cn-wlcb-01"
+          ]
+        },
+        {
+          "ActivityId": "10248",
+          "Channel": 1,
+          "CurPrice": 189960,
+          "DiscountAllowRenew": 1,
+          "DiscountStrategy": "折扣",
+          "DurationUnit": "month",
+          "Durations": [
+            1
+          ],
+          "OriginalPrice": 521800,
+          "PackageDetails": "{\"MachineType\":\"G\",\"UHostFamily\":\"\",\"Cpu\":\"16\",\"Mem\":\"98304\",\"Gpu\":\"1\",\"gpu_type\":\"5090\",\"Disk\":\"200\",\"DiskType\":\"CLOUD_SSD\",\"Bandwidth\":\"2\",\"NetEnhancedV2\":\"\",\"CpuPlatform\":\"intel\"}",
+          "PackageGroupId": "61f76a0e-4918-475c-a6ab-d382d468bb43",
+          "PackageId": "bdcb6d09-bc3b-4d1f-8650-93fa86bc8808",
+          "PackageType": "uhost",
+          "RuleIds": [
+            "102485",
+            "102489"
+          ],
+          "Zones": [
+            "cn-wlcb-01"
+          ]
+        }
+      ],
+      "RetCode": 0,
+      "TotalCount": 2
     }
   },
   "flags": {
@@ -592,6 +668,22 @@
           "FlagType": "Zone",
           "Value": "offline"
         },
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-wlcb-01"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        }
+      ],
+      "RetCode": 0
+    },
+    "10248": {
+      "Action": "GetActivityFlagsResponse",
+      "Data": [
         {
           "FlagList": [
             {

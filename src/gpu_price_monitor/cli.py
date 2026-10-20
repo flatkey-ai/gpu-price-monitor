@@ -95,9 +95,10 @@ def main(argv: list[str] | None = None) -> int:
     for command in (status, validate, collect):
         command.add_argument("--env-file", type=Path, default=argparse.SUPPRESS,
                              help="explicit dotenv file; process environment overrides its values")
-    collect.add_argument("--providers", "--provider", help="comma-separated provider names; defaults to ENV")
+    collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--pretty", action="store_true")
+    collect.add_argument("--coverage", action="store_true", help="include GPU family coverage for the returned quotes")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
     collect.add_argument("--max-retries", type=int)
     collect.add_argument("--lambda-source", choices=("public", "api"),
@@ -133,7 +134,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Collection configuration and environment are valid. Provider access was not tested; no collection ran.")
             return 0
 
-        providers = None if args.providers is None else [p.strip().lower() for p in args.providers.split(",")]
+        select_all = args.providers is not None and args.providers.strip().lower() == "all"
+        providers = None if args.providers is None or select_all else [p.strip().lower() for p in args.providers.split(",")]
         by_provider = None
         if args.config is not None:
             config = _load_config(args.config, settings)
@@ -144,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
             if any(p not in enabled for p in providers):
                 raise ConfigurationError("Requested providers must be enabled in the configuration file.")
             by_provider = {p: enabled[p] for p in providers}
+        elif select_all:
+            providers = list(IMPLEMENTED_PROVIDERS)
         overrides = {}
         if args.timeout is not None:
             overrides["timeout_seconds"] = args.timeout
@@ -151,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
             overrides["max_retries"] = args.max_retries
         settings = replace(settings, **overrides)
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
-        result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider)
+        result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
+                                include_coverage=args.coverage)
         _print_json(result, args.pretty)
         for provider in result["provider_results"]:
             if provider["error"]:

@@ -1,6 +1,6 @@
 # 配置与调用方接入
 
-0.5.0 提供 Lambda 实例页、AutoDL 首页和 UCloud 匿名促销月卡的免费采集，不需要登录、API key、充值或绑卡。Nebius / Crusoe 同为公开来源；Lambda / UCloud 只在显式 API 模式使用认证，认证分支尚未完成成功的真实报价联调。
+0.6.0 提供 Nebius、Crusoe、Lambda、AutoDL、UCloud、RunPod、DigitalOcean、Verda、EBCloud、Suanli、Azure 共 11 家免费公开来源，不需要登录、API key、充值或绑卡。Lambda / UCloud 只在显式 API 模式使用认证，认证分支尚未完成成功的真实报价联调。
 
 ## 安装和免费采集
 
@@ -9,7 +9,7 @@ Python 3.11+。AutoDL 需要可选 Playwright 和本地 Chromium；其他 HTTP �
 ```bash
 python3 -m pip install -e '.[browser]'
 python3 -m playwright install chromium
-gpu-price-monitor collect --providers lambda,autodl,ucloud --lambda-source public --ucloud-source public --pretty
+gpu-price-monitor collect --providers all --coverage --lambda-source public --ucloud-source public --pretty
 ```
 
 Python 返回标准字典，可由调用方序列化、存储或上传：
@@ -19,25 +19,52 @@ import json
 from gpu_price_monitor import collect_prices, Settings
 
 result = collect_prices(
-    providers=["lambda", "autodl", "ucloud"],
-    settings=Settings(lambda_source="public", ucloud_source="public"),
+    providers="all",
+    settings=Settings(),
+    include_coverage=True,
 )
 print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
 
-Lambda 为 USD，AutoDL / UCloud 为 CNY；UCloud 促销保留月价，其他两家为小时价。不要统一筛选 USD 或按需，以免删掉另一来源；调用方必须核对 `unit`、`billing_mode`、资格条件及每来源状态，不能直接比较不同单位的数值。
+价格保留来源 USD / EUR / CNY 等币种；UCloud 促销保留月价，其他公开来源为小时价。不要统一筛选 USD 或按需，以免删掉另一来源；调用方必须核对 `unit`、`billing_mode`、资格条件及每来源状态，不能直接比较不同单位的数值。
 
 显式免费配置启用三家公开来源：
 
 ```bash
 gpu-price-monitor collect --config configs/collect.free.example.json --lambda-source public --ucloud-source public --pretty
+gpu-price-monitor collect --config configs/collect.all.example.json --coverage --lambda-source public --ucloud-source public --pretty
 ```
 
 默认来源仍为 `nebius,crusoe`，保持原调用行为。仅使用 HTTP 来源时，`python3 -m pip install -e .` 足够；不需要安装浏览器。
 
+`--providers all` / Python `collect_prices("all", settings=Settings())` 选择全部 11 家已实现来源；`--coverage` / Python `include_coverage=True` 增加本次返回数据的型号族索引，不增加网络请求、不合并不同价格。报告区分正常数值挂牌、仅下线挂牌、仅询价和本次未找到，不验证库存或改变来源失败状态。见 [实抓 JSON](../examples/all-providers-2026-10-20.json) 和 [覆盖报告](../examples/mainstream-coverage-2026-10-20.json)。
+
+2026-10-20 北京时间 16:01 的全部来源 CLI 采集成功返回 746 条记录（734 条数值价格、12 条联系销售）；内置 34 个目标型号族均有数值挂牌，零缺口。该次覆盖不证明库存、所有地区、显存及硬件变体或所有资源类型已覆盖；`extra_models` 的保守别名也不是额外唯一物理型号数。
+
+## RunPod、DigitalOcean 与 Verda 免费采集
+
+```bash
+gpu-price-monitor collect --providers runpod,digitalocean,verda --coverage --pretty
+```
+
+无需 `.env`、密钥或询价目标文件。RunPod 通过匿名 GraphQL 读取 GPU Pods 目录，将 Secure / Community 云层分开；不采集 Serverless、MIG 分区或部署接口。DigitalOcean 解析官方 GPU Droplet 按需 / Spot 表，保留完整实例价格与明确的单卡 / 8 卡数量。Verda 解析公开网页的按需 / Spot、USD / EUR 价目。
+
+这些来源未给出与报价直接关联的地区 / 可用区，不能按这些维度筛选。DigitalOcean / Verda 支持按明确卡数筛选；RunPod 目录没有实例卡数。Spot 的公开数值可变化、资源可被回收；挂牌不代表库存。详细价格字段见 [数据口径](DATA_MODEL.md)。
+
+## EBCloud、Suanli 与 Azure
+
+```bash
+gpu-price-monitor collect --providers ebcloud,suanli,azure --coverage --pretty
+gpu-price-monitor collect --providers azure --region eastus --gpu T4 --pretty
+```
+
+三家均无必填 env 或浏览器依赖。EBCloud 仅读取默认明确选中的按量 / 1 卡 GPU 容器配置，支持按卡数筛选；不推算多卡或包月。Suanli 读取官方明示云主机与弹性部署共用的 GPU 卡时价，按秒计费，保留产品范围；当前没有实例卡数、CPU 或 RAM 信息，不支持卡数或地区筛选，也不采 NPU 或 Token API 价格。
+
+Azure 匿名 Retail Prices API 只查 T4 `Standard_NC4as_T4_v3` 和 GB200 `Standard_ND128isr_NDR_GB200_v6` 两个固定规格；按 ARM 地区返回按需 / Spot 零售价，支持 `--region` 和 `--gpu-count`，不支持可用区或国家。价格是基础 VM 实例总价按 1 / 4 GPU 分摊，管理磁盘、网络等另计；不是配额、容量或订阅可购性检查。[官方身份认证与接口说明](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)及硬件依据见 [平台核查](PROVIDERS.md)。
+
 ## UCloud 免费月卡和地区筛选
 
-默认 `UCLOUD_SOURCE=public`，使用官网匿名接口 `ListPackage`、`ListActivity`、`GetActivityFlags`、`ListAllRegions` 和 `ListAllZones`。覆盖活动 `10204` / `10216`；不使用 keys、登录态或购买接口。
+默认 `UCLOUD_SOURCE=public`，使用官网匿名接口 `ListPackage`、`ListActivity`、`GetActivityFlags`、`ListAllRegions` 和 `ListAllZones`。覆盖活动 `10204` / `10216` / `10248`；不使用 keys、登录态或购买接口。
 
 ```bash
 gpu-price-monitor collect --providers ucloud --ucloud-source public --pretty
@@ -61,7 +88,7 @@ result = collect_prices(
 
 当前只采集明确的一月套餐。`CurPrice` / `OriginalPrice` 的分值除以 100 得到 CNY 整实例月价，再按 GPU 数量分摊为 `gpu_month`。`instance_price.unit=instance_month`，**不除以 720 计算小时价**，不标为标准按需市场价。
 
-活动公布的新老用户条件、限购和优惠续费标志会保留。10204 / 10216 元数据限购分别为 3 / 5，但官网规则与元数据有资格文案不一致，`eligibility_verified=false`；购买资格仍须平台核验。`offline`、`ended`、`upcoming` 保留；无这些标记时也仅为 `unknown`，不表示有库存或可购买。
+活动公布的新老用户条件、限购和优惠续费标志会保留。10204 / 10216 / 10248 元数据限购分别为 3 / 5 / 5，但官网规则与元数据有资格文案不一致，`eligibility_verified=false`；购买资格仍须平台核验。当前三活动采样 374 条均为 `offline`。`ended`、`upcoming` 等状态同样保留；无这些标记时也仅为 `unknown`，不表示有库存或可购买。
 
 2026-10-20 的 [北京2 T4S 示例](../examples/ucloud-public-cn-bj2-2026-10-20.json) 是实际筛选结果，均有下线标记。它是历史挂牌证据，不是可购承诺或实时回退数据。
 
@@ -112,15 +139,15 @@ UCloud API target 为 1–20 个完整对象组成的 UTF-8 JSON 数组：
 
 ## 配置文件与 CLI
 
-`collect.example.json` 默认只启用 Nebius / Crusoe；`collect.free.example.json` 启用 Lambda / AutoDL / UCloud。每来源筛选用数组字段 `compute_countries`、`sales_countries`、`regions`、`zones`、`gpu_models`、`gpu_counts`、`billing_modes`、`currencies`；实际支持范围见 [数据口径](DATA_MODEL.md)。
+`collect.example.json` 默认只启用 Nebius / Crusoe；`collect.free.example.json` 启用 Lambda / AutoDL / UCloud；`collect.all.example.json` 启用全部 11 家。每来源筛选用数组字段 `compute_countries`、`sales_countries`、`regions`、`zones`、`gpu_models`、`gpu_counts`、`billing_modes`、`currencies`；实际支持范围见 [数据口径](DATA_MODEL.md)。
 
-配置来源必须与模式一致：Lambda 公开 / API 分别为 `public_page` / `official_api`，UCloud 分别为 `official_public_api` / `official_quote_api`。API 还需显式模式选择，不会只因 key 存在而切换。
+配置来源必须与模式一致：Lambda 公开 / API 分别为 `public_page` / `official_api`，UCloud 分别为 `official_public_api` / `official_quote_api`。RunPod / Azure 为 `official_public_api`，DigitalOcean 为 `public_documentation`，Verda / EBCloud / Suanli 为 `public_page`。API 还需显式模式选择，不会只因 key 存在而切换。
 
 ```bash
 gpu-price-monitor validate-config --config configs/collect.free.example.json
 ```
 
-配置检查不联网，不验证账号权限、价格或可售性。CLI 支持 `--lambda-source public|api`、`--ucloud-source public|api`、`--env-file`、`--timeout`、`--max-retries`、`--pretty`，以及可重复的 `--gpu`、`--region`、`--zone`、`--gpu-count`、`--currency`、`--billing-mode`、`--country`、`--sales-country`。
+配置检查不联网，不验证账号权限、价格或可售性。CLI 支持 `--providers all`、`--coverage`、`--lambda-source public|api`、`--ucloud-source public|api`、`--env-file`、`--timeout`、`--max-retries`、`--pretty`，以及可重复的 `--gpu`、`--region`、`--zone`、`--gpu-count`、`--currency`、`--billing-mode`、`--country`、`--sales-country`。
 
 `collect` stdout 只写 JSON，日志写 stderr。退出码 `0` 为全部成功或无匹配，`2` 为部分来源失败，`1` 为全部失败或全局配置错误。库保留下线挂牌，不将下线、询价或失败写成零元。
 

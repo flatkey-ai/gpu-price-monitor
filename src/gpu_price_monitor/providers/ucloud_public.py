@@ -1,9 +1,11 @@
 """Anonymous UCloud GPU promotion catalog, with native monthly price units.
 
 The official GPU product page publicly loads these read-only website APIs.
-Only its two long-rental activities are supported. These published packages are
-not standard on-demand/account quotes, and listing a price does not mean it can
-currently be purchased. No API keys, cookies or caller credentials are used.
+Its observed monthly activities cover the general GPU sale (10204), RTX 4090
+(10216), and RTX 4090 48G / RTX 5090 (10248). The page's public product-gpu.js
+requests those exact activity IDs; other account-specific campaigns are excluded.
+These packages are not standard on-demand/account quotes, and listing a price
+does not mean it can be purchased. No API keys, cookies or credentials are used.
 """
 
 from datetime import datetime, timezone
@@ -17,7 +19,7 @@ from ..transport import FetchError, request_json
 
 SOURCE_URL = "https://www.ucloud.cn/site/product/gpu.html"
 API_URL = "https://api.ucloud.cn/"
-ACTIVITY_IDS = ("10204", "10216")
+ACTIVITY_IDS = ("10204", "10216", "10248")
 _LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}\Z")
 _WHOLE_GPUS = {"K80", "P40", "V100", "V100S", "T4", "T4A", "T4S", "2080", "2080Ti",
                "2080TiS", "2080TiPro", "1080Ti", "MI100", "3080Ti", "3090", "4090",

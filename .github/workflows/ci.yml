@@ -24,5 +24,9 @@ jobs:
         run: PYTHONPATH=src python -m gpu_price_monitor status
       - name: Validate collection configuration example
         run: PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.example.json
+      - name: Validate all public source configurations
+        run: |
+          PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.free.example.json
+          PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.all.example.json
       - name: Check environment configuration and collection boundary
         run: PYTHONPATH=src python -m unittest discover -s tests -v

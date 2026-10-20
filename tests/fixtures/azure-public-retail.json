@@ -1,0 +1,145 @@
+{
+  "_fixture_note": "Reduced anonymous Microsoft Azure Retail Prices API response observed 2026-10-20. Two explicitly documented VM sizes, base non-Windows product only. Historical fixture, not a current offer.",
+  "skus": {
+    "Standard_NC4as_T4_v3": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.526,
+          "unitPrice": 0.526,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2022-08-01T00:00:00Z",
+          "meterId": "48b7a490-15da-51cc-b8ea-678d283ec727",
+          "meterName": "NC4as T4 v3",
+          "productId": "DZH318Z0DF49",
+          "skuId": "DZH318Z0DF49/0092",
+          "productName": "Virtual Machines NCasT4 v3 Series",
+          "skuName": "NC4as T4 v3",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC4as_T4_v3",
+          "savingsPlan": [
+            {
+              "unitPrice": 0.2908254,
+              "retailPrice": 0.2908254,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 0.3973404,
+              "retailPrice": 0.3973404,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.105,
+          "unitPrice": 0.105,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2022-08-01T00:00:00Z",
+          "meterId": "65e63ab5-2441-5170-af9a-1ef7c97d3ec1",
+          "meterName": "NC4as T4 v3 Low Priority",
+          "productId": "DZH318Z0DF49",
+          "skuId": "DZH318Z0DF49/0091",
+          "productName": "Virtual Machines NCasT4 v3 Series",
+          "skuName": "NC4as T4 v3 Low Priority",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC4as_T4_v3"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.149174,
+          "unitPrice": 0.149174,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2026-09-01T00:00:00Z",
+          "meterId": "8ce069e2-e9a5-54eb-8aa5-884c29fabcce",
+          "meterName": "NC4as T4 v3 Spot",
+          "productId": "DZH318Z0DF49",
+          "skuId": "DZH318Z0DF49/0090",
+          "productName": "Virtual Machines NCasT4 v3 Series",
+          "skuName": "NC4as T4 v3 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC4as_T4_v3"
+        }
+      ],
+      "NextPageLink": null,
+      "Count": 3
+    },
+    "Standard_ND128isr_NDR_GB200_v6": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 108.16,
+          "unitPrice": 108.16,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2025-04-01T00:00:00Z",
+          "meterId": "0add24b1-03d9-59ee-b2fb-ffceeed4980c",
+          "meterName": "ND128isrNDRGB200v6",
+          "productId": "DZH318Z0N4S3",
+          "skuId": "DZH318Z0N4S3/000N",
+          "productName": "Virtual Machines NDsrGB200NDRv6 Series",
+          "skuName": "ND128isrNDRGB200v6",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND128isr_NDR_GB200_v6"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 108.16,
+          "unitPrice": 108.16,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2025-08-01T00:00:00Z",
+          "meterId": "47a0e795-42b3-51b5-9dea-451eeeca0487",
+          "meterName": "ND128isrNDRGB200v6 Spot",
+          "productId": "DZH318Z0N4S3",
+          "skuId": "DZH318Z0N4S3/000F",
+          "productName": "Virtual Machines NDsrGB200NDRv6 Series",
+          "skuName": "ND128isrNDRGB200v6 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND128isr_NDR_GB200_v6"
+        }
+      ],
+      "NextPageLink": null,
+      "Count": 2
+    }
+  }
+}

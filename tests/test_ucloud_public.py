@@ -28,8 +28,8 @@ def parse(data=None, observed_at=OBSERVED):
 class UCloudPublicTests(unittest.TestCase):
     def test_monthly_configuration_prices_locations_and_eligibility(self):
         quotes = parse()
-        self.assertEqual(len(quotes), 2)
-        first, second = quotes
+        self.assertEqual(len(quotes), 4)
+        first, second = quotes[:2]
         self.assertEqual(first["unit"], "gpu_month")
         self.assertEqual(second["instance_price"]["amount"], "2877.24")
         self.assertEqual(second["amount"], "1438.62")
@@ -50,8 +50,20 @@ class UCloudPublicTests(unittest.TestCase):
             self.assertIsNone(quote["effective_from"])
             self.assertIsNone(quote["effective_until"])
             self.assertIn("activity_end_at", quote["promotion"])
-        self.assertEqual([q["promotion"]["purchase_limit"] for q in quotes], [3, 5])
+        self.assertEqual([q["promotion"]["purchase_limit"] for q in quotes], [3, 5, 5, 5])
         self.assertEqual(json.loads(json.dumps(quotes)), quotes)
+
+    def test_modern_public_campaign_preserves_both_gpu_models_and_offline_state(self):
+        modern = [q for q in parse() if q["promotion"]["activity_id"] == "10248"]
+        self.assertEqual({q["gpu_model"] for q in modern}, {"4090_48G", "5090"})
+        for quote in modern:
+            self.assertEqual(quote["regions"], ["cn-wlcb"])
+            self.assertEqual(quote["zones"], ["cn-wlcb-01"])
+            self.assertEqual(quote["availability"], "offline")
+            self.assertEqual(quote["promotion"]["activity_status"], "published")
+            self.assertFalse(quote["promotion"]["eligibility_verified"])
+            self.assertFalse(quote["promotion"]["only_new_users"])
+        self.assertIn("5090", modern[1]["promotion"]["title"])
 
     def test_cents_and_gpu_allocation_do_not_use_callers_decimal_precision(self):
         data = source()
@@ -89,7 +101,7 @@ class UCloudPublicTests(unittest.TestCase):
         row = data["packages"]["10204"]["Data"][0]
         row["Zones"] = ["cn-bj2-02", "cn-wlcb-01"]
         quotes = parse(data)
-        self.assertEqual(len(quotes), 3)
+        self.assertEqual(len(quotes), 5)
         self.assertEqual([q["regions"] for q in quotes[:2]], [["cn-bj2"], ["cn-wlcb"]])
         self.assertTrue(all(len(q["zones"]) == len(q["regions"]) == 1 for q in quotes))
 
@@ -131,7 +143,7 @@ class UCloudPublicTests(unittest.TestCase):
         self.assertNotIn("test-secret", str(captured.exception))
 
     @patch("gpu_price_monitor.providers.ucloud_public.request_json")
-    def test_collection_is_only_seven_anonymous_readonly_requests(self, request):
+    def test_collection_is_only_nine_anonymous_readonly_requests(self, request):
         data = source()
         def respond(url, settings, **kwargs):
             self.assertEqual(url, "https://api.ucloud.cn/")
@@ -154,7 +166,7 @@ class UCloudPublicTests(unittest.TestCase):
         request.side_effect = respond
         settings = Settings(providers=("ucloud",), ucloud_public_key="unused-public", ucloud_private_key="unused-private")
         quotes = ucloud_public.collect_quotes(settings=settings, observed_at=OBSERVED)
-        self.assertEqual(request.call_count, 7)
+        self.assertEqual(request.call_count, 9)
         self.assertNotIn("unused-", json.dumps(quotes))
 
 

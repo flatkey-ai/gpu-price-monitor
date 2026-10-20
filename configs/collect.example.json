@@ -21,6 +21,30 @@
     {
       "id": "autodl", "enabled": false, "planned_source": "public_page",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "runpod", "enabled": false, "planned_source": "official_public_api",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "digitalocean", "enabled": false, "planned_source": "public_documentation",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "verda", "enabled": false, "planned_source": "public_page",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "ebcloud", "enabled": false, "planned_source": "public_page",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "suanli", "enabled": false, "planned_source": "public_page",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
+    },
+    {
+      "id": "azure", "enabled": false, "planned_source": "official_public_api",
+      "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     }
   ]
 }

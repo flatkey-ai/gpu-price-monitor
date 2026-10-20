@@ -41,9 +41,9 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
 
 def filter_support(provider: str, filters: dict[str, list], *, settings: Settings | None = None) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
-    if provider == "nebius":
+    if provider in {"nebius", "azure"}:
         supported.add("regions")
-    if provider == "lambda":
+    if provider in {"lambda", "digitalocean", "verda", "ebcloud", "azure"}:
         supported.add("gpu_counts")
     if provider == "ucloud":
         supported.update({"regions", "zones", "gpu_counts"})

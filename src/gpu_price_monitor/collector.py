@@ -7,14 +7,19 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from .filters import apply_filters, filter_support, normalize_filters
-from .providers import autodl, crusoe, lambda_cloud, lambda_public, nebius, ucloud, ucloud_public
+from .providers import (autodl, azure, crusoe, digitalocean, ebcloud, lambda_cloud, lambda_public,
+                        nebius, runpod, suanli, ucloud, ucloud_public, verda)
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
 IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
-                         "ucloud": ucloud_public, "autodl": autodl}
+                         "ucloud": ucloud_public, "autodl": autodl,
+                         "runpod": runpod, "digitalocean": digitalocean, "verda": verda,
+                         "ebcloud": ebcloud, "azure": azure, "suanli": suanli}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
-                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page"}
+                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
+                    "runpod": "official_public_api", "digitalocean": "public_documentation", "verda": "public_page",
+                    "ebcloud": "public_page", "azure": "official_public_api", "suanli": "public_page"}
 
 
 def provider_source(provider: str, settings: Settings | None = None) -> str:
@@ -55,23 +60,31 @@ def collect_prices(
     *,
     settings: Settings | None = None,
     provider_filters: Mapping[str, Mapping] | None = None,
+    include_coverage: bool = False,
 ) -> dict:
     """Fetch configured prices. This function never uploads or saves data.
 
-    Explicit providers override settings.providers. Global filters override
+    Explicit providers override settings.providers; "all" selects every
+    implemented collector. Global filters override
     per-provider filters by key. Unsupported filter dimensions fail that source
     rather than returning an unverified match. Runtime errors stay per-source;
     invalid call configuration raises ConfigurationError before any requests.
+    Optional coverage describes GPU families represented by the returned
+    records, without combining prices, currencies or purchase conditions.
     """
     settings = settings if settings is not None else Settings.from_env()
     if not isinstance(settings, Settings):
         raise ConfigurationError("settings must be a Settings instance")
+    if type(include_coverage) is not bool:
+        raise ConfigurationError("include_coverage must be boolean")
     if providers is None:
         selected = settings.providers
+    elif isinstance(providers, str) and providers == "all":
+        selected = tuple(IMPLEMENTED_PROVIDERS)
     elif isinstance(providers, (list, tuple)):
         selected = tuple(providers)
     else:
-        raise ConfigurationError("providers must be a list or tuple")
+        raise ConfigurationError("providers must be a list, tuple or the string all")
     if (not selected or any(not isinstance(p, str) or p not in PROVIDERS for p in selected)
             or len(set(selected)) != len(selected)):
         raise ConfigurationError("providers must contain unique supported provider names")
@@ -139,10 +152,15 @@ def collect_prices(
                     item["status"] = "not_applied"
         results.append(result)
     successful = sum(result["status"] in {"success", "no_matches"} for result in results)
-    return {
+    result = {
         "schema_version": 1,
         "collected_at": _now(),
         "status": "success" if successful == len(results) else "partial" if successful else "failed",
         "prices": prices,
         "provider_results": results,
     }
+    if include_coverage:
+        from .coverage import report_coverage
+
+        result["coverage"] = report_coverage(result)
+    return result

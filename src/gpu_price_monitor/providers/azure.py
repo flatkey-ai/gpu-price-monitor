@@ -1,0 +1,233 @@
+"""Anonymous Azure retail rates for two explicitly documented GPU VM sizes.
+
+Only base VM Consumption products are collected. Windows-license products,
+Low Priority, reservations, Dev/Test and savings-plan nested rates are outside
+this scope. A regional retail meter is not a current capacity assertion.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from decimal import Context, Decimal, localcontext
+import re
+from urllib.parse import parse_qs, urlencode, urlsplit
+
+from ..settings import Settings
+from ..transport import FetchError, request_json
+
+SOURCE_URL = "https://prices.azure.com/api/retail/prices"
+SOURCE_TYPE = "official_public_api"
+DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices"
+API_VERSION = "2023-01-01-preview"
+MAX_PAGES_PER_SKU = 5
+MAX_ITEMS_PER_PAGE = 1000
+_SPECS = {
+    "Standard_NC4as_T4_v3": {
+        "gpu_model": "T4", "gpu_count": 1, "vram_gb": 16, "vcpus": 4, "memory_gib": 28,
+        "product": "Virtual Machines NCasT4 v3 Series", "meter": "NC4as T4 v3",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series",
+    },
+    "Standard_ND128isr_NDR_GB200_v6": {
+        "gpu_model": "GB200", "gpu_count": 4, "vram_gb": 192, "vcpus": 128, "memory_gib": 900,
+        "product": "Virtual Machines NDsrGB200NDRv6 Series", "meter": "ND128isrNDRGB200v6",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series",
+    },
+}
+
+
+def _invalid() -> ValueError:
+    return ValueError("The Azure regional retail meter, unit, scope or effective date was not recognized.")
+
+
+def _parameters(arm_sku: str) -> dict[str, str]:
+    spec = _SPECS[arm_sku]
+    return {
+        "api-version": API_VERSION, "currencyCode": "USD", "meterRegion": "'primary'",
+        "$filter": ("serviceName eq 'Virtual Machines' and armSkuName eq '" + arm_sku
+                    + "' and priceType eq 'Consumption' and productName eq '" + spec["product"] + "'"),
+    }
+
+
+def query_url(arm_sku: str, *, skip: int = 0) -> str:
+    """Build only fixed public retail queries, never arbitrary user filters."""
+    parameters = _parameters(arm_sku)
+    if skip:
+        parameters["$skip"] = str(skip)
+    return SOURCE_URL + "?" + urlencode(parameters)
+
+
+def _next_skip(value: object, arm_sku: str, previous_skip: int) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > 8192:
+        raise FetchError("invalid_pagination", "Azure returned an invalid retail-price continuation link.")
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme != "https" or parsed.hostname != "prices.azure.com"
+                or parsed.port not in (None, 443) or parsed.username is not None or parsed.password is not None
+                or parsed.path != "/api/retail/prices" or parsed.fragment):
+            raise ValueError
+        query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+        expected = _parameters(arm_sku)
+        if (set(query) - set(expected) - {"$skip"} or any(len(values) != 1 for values in query.values())
+                or query.get("$filter") != [expected["$filter"]]
+                or any(query[key] != [value] for key, value in expected.items() if key in query)):
+            raise ValueError
+        offset = query.get("$skip", [""])[0]
+        if not re.fullmatch(r"[1-9]\d{0,5}", offset):
+            raise ValueError
+        skip = int(offset)
+        if skip <= previous_skip or skip > MAX_PAGES_PER_SKU * MAX_ITEMS_PER_PAGE:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise FetchError("invalid_pagination", "Azure returned an invalid retail-price continuation link.") from None
+    return skip
+
+
+def _text(value: object, *, limit: int = 200) -> str:
+    if (not isinstance(value, str) or not value or len(value) > limit
+            or any(ord(char) < 32 for char in value)):
+        raise _invalid()
+    return value
+
+
+def _instant(value: object) -> datetime:
+    if not isinstance(value, str) or len(value) > 40 or "T" not in value:
+        raise _invalid()
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if instant.tzinfo is None or instant.utcoffset() is None:
+            raise ValueError
+        return instant.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        raise _invalid() from None
+
+
+def _number(value: object, *, positive: bool) -> Decimal:
+    if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
+        raise _invalid()
+    amount = Decimal(value)
+    if (not amount.is_finite() or amount < 0 or (positive and amount == 0)
+            or (amount and (amount.adjusted() > 12 or amount.as_tuple().exponent < -50))):
+        raise _invalid()
+    return amount
+
+
+def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[dict]:
+    """Return the latest already-effective base VM rate per region and mode."""
+    if arm_sku not in _SPECS or not isinstance(items, list) or len(items) > MAX_PAGES_PER_SKU * MAX_ITEMS_PER_PAGE:
+        raise _invalid()
+    spec, observed = _SPECS[arm_sku], _instant(observed_at)
+    selected, seen = {}, set()
+    for row in items:
+        if not isinstance(row, dict):
+            raise _invalid()
+        if (row.get("armSkuName") != arm_sku or row.get("serviceName") != "Virtual Machines"
+                or row.get("serviceFamily") != "Compute" or row.get("type") != "Consumption"
+                or row.get("productName") != spec["product"] or row.get("currencyCode") != "USD"
+                or row.get("isPrimaryMeterRegion") is not True):
+            raise _invalid()
+        meter = row.get("meterName")
+        if row.get("skuName") != meter:
+            raise _invalid()
+        if meter == spec["meter"] + " Low Priority":
+            # This legacy purchasing option is neither ordinary nor Spot.
+            continue
+        if meter == spec["meter"]:
+            mode = "on_demand"
+        elif meter == spec["meter"] + " Spot":
+            mode = "spot"
+        else:
+            raise _invalid()
+        if (row.get("unitOfMeasure") != "1 Hour" or row.get("reservationTerm")
+                or _number(row.get("tierMinimumUnits"), positive=False) != 0):
+            raise _invalid()
+        total = _number(row.get("retailPrice"), positive=True)
+        if total != _number(row.get("unitPrice"), positive=True):
+            raise _invalid()
+        region = _text(row.get("armRegionName"), limit=80)
+        if not re.fullmatch(r"[a-z][a-z0-9]{0,79}", region):
+            raise _invalid()
+        location = _text(row.get("location"))
+        meter_id, sku_id, product_id = (_text(row.get(field)) for field in ("meterId", "skuId", "productId"))
+        effective = _instant(row.get("effectiveStartDate"))
+        revision = (meter_id, effective)
+        if revision in seen:
+            raise _invalid()
+        seen.add(revision)
+        if effective > observed:
+            continue
+        identity = (region, mode)
+        if identity in selected:
+            previous_effective, _ = selected[identity]
+            if previous_effective == effective:
+                raise _invalid()
+            if previous_effective > effective:
+                continue
+        with localcontext(Context(prec=max(80, len(total.as_tuple().digits) + 10))):
+            amount = total / spec["gpu_count"]
+        notes = [
+            "Anonymous Microsoft retail rate for the explicitly named base VM product in the returned ARM region; Windows-license products are excluded.",
+            "The instance hourly retail total is allocated across the GPU count documented for this exact VM size; managed disks, networking and other services are not included.",
+            "Only already-effective Consumption primary meters are returned; Low Priority, Dev/Test, reservations and nested savings-plan rates are excluded.",
+            "Regional retail listings do not verify quota, capacity, subscription access, availability zones, tax or orderability.",
+        ]
+        if mode == "spot":
+            notes.append("Spot has separate interruption and capacity conditions; its published retail rate is not a guaranteed future price or available offer.")
+        quote = {
+            "provider": "azure", "product_type": "gpu_instance", "gpu_model": spec["gpu_model"],
+            "gpu_variant": None, "raw_name": meter, "raw_sku": arm_sku,
+            "vram_gb": spec["vram_gb"], "gpu_count": spec["gpu_count"],
+            "amount": format(amount, "f"), "currency": "USD", "unit": "gpu_hour",
+            "billing_mode": mode, "price_basis": "instance_total_allocated", "quote_status": "quoted",
+            "instance_price": {"amount": format(total, "f"), "currency": "USD", "unit": "instance_hour"},
+            "resources": {"vcpus": spec["vcpus"], "memory_gib": spec["memory_gib"]},
+            "conditions": {"product_scope": "base_vm_without_windows_license", "purchase_option": mode},
+            "regions": [region], "zones": [], "geographic_scope": "regions",
+            "location": {"region": region, "region_name": location},
+            "account_scope": "public_catalog", "tax_scope": "unspecified", "availability": "unknown",
+            "observed_at": observed_at, "effective_from": effective.isoformat(), "effective_until": None,
+            "source_url": query_url(arm_sku), "source_type": SOURCE_TYPE,
+            "api_documentation_url": DOCUMENTATION_URL, "hardware_source_url": spec["source"],
+            "azure_meter": {"meter_id": meter_id, "product_id": product_id, "sku_id": sku_id,
+                            "product_name": spec["product"], "meter_name": meter,
+                            "is_primary_meter_region": True, "tier_minimum_units": "0"},
+            "normalization": {"formula": "instance_price.amount / gpu_count", "rounding": "exact"},
+            "notes": notes,
+        }
+        selected[identity] = (effective, quote)
+    return [selected[key][1] for key in sorted(selected)]
+
+
+def _fetch_items(arm_sku: str, settings: Settings) -> list[dict]:
+    items, skip = [], 0
+    for page in range(MAX_PAGES_PER_SKU):
+        # Rebuild every URL from fixed scope and a validated monotonic offset.
+        # No URL supplied by the response is ever requested directly.
+        payload = request_json(query_url(arm_sku, skip=skip), settings, authenticated=False)
+        if (payload.get("BillingCurrency") != "USD" or payload.get("CustomerEntityType") != "Retail"
+                or not isinstance(payload.get("Items"), list) or type(payload.get("Count")) is not int
+                or payload["Count"] != len(payload["Items"]) or payload["Count"] > MAX_ITEMS_PER_PAGE
+                or "NextPageLink" not in payload):
+            raise FetchError("invalid_public_catalog", "Azure returned an incomplete or unexpected retail-price page.")
+        items.extend(payload["Items"])
+        next_skip = _next_skip(payload["NextPageLink"], arm_sku, skip)
+        if next_skip is None:
+            return items
+        if next_skip != skip + payload["Count"]:
+            raise FetchError("invalid_pagination", "Azure returned a noncontiguous retail-price continuation.")
+        if not payload["Items"] or page + 1 == MAX_PAGES_PER_SKU:
+            raise FetchError("pagination_limit", "Azure retail-price pagination did not complete within the collection limit.")
+        skip = next_skip
+    raise FetchError("pagination_limit", "Azure retail-price pagination did not complete within the collection limit.")
+
+
+def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:
+    """Read both fixed GPU sizes without credentials or resource operations."""
+    quotes = []
+    for arm_sku in _SPECS:
+        prices = parse_items(_fetch_items(arm_sku, settings), arm_sku=arm_sku, observed_at=observed_at)
+        if not prices:
+            raise FetchError("empty_public_catalog", "Azure returned no already-effective rates for a configured GPU size.")
+        quotes.extend(prices)
+    return quotes
