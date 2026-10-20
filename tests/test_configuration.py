@@ -97,8 +97,9 @@ class CollectionBoundaryTests(unittest.TestCase):
         filters["gpu_counts"] = [True]
         self.assertTrue(validate_config(self.config))
 
-    def test_unimplemented_collector_cannot_be_enabled(self):
+    def test_mismatched_collector_source_cannot_be_enabled(self):
         self.config["providers"][4]["enabled"] = True
+        self.config["providers"][4]["planned_source"] = "authorized_browser"
         self.assertTrue(validate_config(self.config))
 
     def test_extreme_timeout_is_a_validation_error_not_an_overflow(self):

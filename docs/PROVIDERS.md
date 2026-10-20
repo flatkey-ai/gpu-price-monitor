@@ -1,16 +1,17 @@
 # 平台能力与官方依据
 
-文档核查日期：2026-10-15。Nebius / Crusoe 已有公开来源实际采样；Lambda / UCloud 适配器已通过离线样本验证，但当前未配置账号凭据，**没有成功的真实认证询价记录**。未创建、启动或购买资源。
+文档核查日期：2026-10-20。Nebius / Crusoe 和 Lambda / AutoDL 公开来源已有实际采样；可选 Lambda API / UCloud 认证分支仅有离线样本验证，没有成功的真实认证报价记录。公开页面读取无需充值、绑卡或购买 GPU 资源。
 
-## Lambda：已实现，待真实认证联调
+## Lambda：默认免费公开页，可选认证 API
 
-- 来源：`GET https://cloud.lambda.ai/api/v1/instance-types`，使用 `LAMBDA_API_KEY` Bearer 认证。
-- `price_cents_per_hour` 是整实例每小时美分价；先除以 100 保留 USD `instance_price`，再除以 `specs.gpus` 得到 `amount`，即套餐分摊单卡小时成本。
-- `account_scope=authenticated_catalog`。来源需要认证不表示已证实是账号专属折扣，公开发布范围仍需使用者确认。
-- `capacity_regions` 来自 `regions_with_capacity_available`，仅表示容量。它不填入价格 `regions`，也不用于逐地区价格筛选；请求地区、国家或可用区返回结构化错误。
-- 支持 GPU 型号、GPU 卡数、币种和计费方式本地筛选；保留 CPU、内存、磁盘及架构等目录资源信息。
-- 缺少凭据返回 `missing_credentials`。离线样本不能代替账号权限、当前目录价格和 API 限制的真实联调。
-- [官方 API](https://docs.lambda.ai/api/cloud#listInstanceTypes) · [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json) · [价格页](https://lambda.ai/pricing)
+- 默认 `LAMBDA_SOURCE=public`，来源 [官方实例页](https://lambda.ai/instances)。不使用 API key；即使调用方已有 key，也不会自动发认证请求。
+- 2026-10-20 公开页采样得到 4 张规格表、22 条价格，分别覆盖 8 / 4 / 2 / 1 卡实例。该数量仅描述一次采样，后续来源内容可能变化。
+- 公开 `amount` 为挂牌 USD / GPU / 小时，`price_basis=advertised_per_gpu`、`account_scope=public_catalog`。`instance_price` 是单卡价乘卡数推导的实例价，不是独立来源报价。
+- 保留 CPU、内存 GiB、磁盘 GiB / TiB 单位。国家、地区和可用区未在价格表明确，保持未知；挂牌不证明库存或可下单。
+- 可用 `collect --lambda-source api` 或环境变量 `LAMBDA_SOURCE=api` 显式选择旧目录 API，才要求 `LAMBDA_API_KEY`。API 为 `GET https://cloud.lambda.ai/api/v1/instance-types`。
+- API `price_cents_per_hour` 为整实例每小时美分价，除以 100 保存原价，再按 `specs.gpus` 分摊。`account_scope=authenticated_catalog`；该认证模式尚未完成真实账号联调。
+- API `capacity_regions` 仅表达容量，不变成报价 `regions`；两种模式均不支持按地区、国家或可用区查询独立价格。
+- [实例价格页](https://lambda.ai/instances) · [官方 API](https://docs.lambda.ai/api/cloud#listInstanceTypes) · [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)
 
 ## Nebius：公开文档已实现
 
@@ -30,7 +31,7 @@
 
 ## UCloud：显式配置询价已实现，待真实联调
 
-- 只调用 `GetUHostInstancePrice`。使用 `UCLOUD_PUBLIC_KEY` / `UCLOUD_PRIVATE_KEY` 签名认证，以及必填 `UCLOUD_PRICE_TARGETS_JSON`；可选 `UCLOUD_PROJECT_ID` 指定项目，子账号可能需要。
+- 只调用 `GetUHostInstancePrice`。使用 `UCLOUD_PUBLIC_KEY` / `UCLOUD_PRIVATE_KEY` 签名认证，以及二选一的 `UCLOUD_PRICE_TARGETS_JSON` / `UCLOUD_PRICE_TARGETS_FILE`；可选 `UCLOUD_PROJECT_ID` 指定项目，子账号可能需要。
 - 目标为最多 20 项的完整配置数组。必填 Region、Zone、MachineType=G、GpuType、GPU、CPU、Memory（MB）和 Disks（Size，单位 GB / Type / IsBoot）。只支持完整 GPU 实例、`ChargeType=Dynamic`、`Count=1`，不支持共享分片、裸金属、购买操作或 `Action` 覆盖。
 - 当前不自动调用可售规格发现；[目标示例](../configs/ucloud-targets.example.json)不是已验证的可售配置。后续可接 `DescribeAvailableInstanceTypes` 辅助确认，仍须使用者在真实账号下验证。
 - 业务成功必须校验 `RetCode=0`，HTTP 200 不足以表示报价成功。Price 为 CNY 整实例成本，按 GPU 数量分摊到 `amount`，保留 `instance_price` 和请求资源。
@@ -38,10 +39,13 @@
 - 支持按目标 / 结果本地筛选地区、可用区、卡数、GPU、币种、计费方式；国家无可靠映射。凭据缺失、目标缺失和无效分别返回 `missing_credentials`、`missing_price_targets`、`invalid_price_targets`。
 - [规格查询](https://docs.ucloud.cn/api/uhost-api/describe_available_instance_types) · [询价文档](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price) · [官方文档源文件](https://github.com/UCloudDoc-Team/api/blob/master/uhost-api/get_uhost_instance_price.md)
 
-## AutoDL：尚未实现
+## AutoDL：免费公开首页普通 / 会员价
 
-- 当前返回 `not_implemented`。后续以授权市场页面为主，登录与筛选稳定性待联调。
-- Pro snapshot 需要已有 `instance_uuid`；折前 / 折后价格不代表全市场，单位需核对。
-- 弹性部署 container/list 需要已有 `deployment_uuid`，`price` 文档单位“元 × 1000”；响应可能包含访问凭据，只能提取必要报价字段。
-- 公网 `POST /api/v1/dev/machine/region/gpu_stock` 返回库存，没有报价；支持价格筛选也不能当作价格目录。
-- [市场](https://www.autodl.com/market/list) · [计费说明](https://www.autodl.com/docs/price/) · [Pro API](https://www.autodl.com/docs/instance_pro_api/) · [弹性部署 API](https://www.autodl.com/docs/esd_api_doc/)
+- 2026-10-20 北京时间 14:55 的完整 Python / CLI 采集成功返回 12 条普通价和 12 条会员价，与 Lambda 22 条共同构成 [46 条公开采样示例](../examples/lambda-autodl-2026-10-20.json)。数量仅描述该次采样，不代表库存。
+- 来源为 [公开首页](https://www.autodl.com/home) 的“炼丹会员及租用价格”卡片，页面由 JavaScript 渲染。需可选 Playwright 及本地 Chromium，不需要登录、充值或绑卡。
+- 在新的未登录浏览器上下文中依次读取“普通用户”和“炼丹会员”标签；不使用 `AUTODL_TOKEN`、保存的 storage state 或用户 Cookie。
+- 每个 GPU 返回 ordinary / member 两种 `pricing_tier`，会员条目带 `membership_required=true` 和显示折扣 `membership_discount`。会员优惠条件保留，未购买或核验会员资格。
+- 金额为公开 CNY / GPU / 小时挂牌，`account_scope=public_catalog`、`source_type=public_page`。首页未给实例卡数、机房、国家、可用区或 CPU / 内存 / 磁盘配置，均不猜测。
+- 不支持地区、国家、可用区和卡数筛选；这些卡片不等于逐地区市场报价或实时库存。两标签结构、型号集合或显示折扣发生无法解释的变化时采集失败，不静默输出未验证价格。
+- 市场页面的逐机器 / 地区报价另需联调；Pro / 弹性部署的已有资源 API 也不等于完整市场目录。当前免费路径不调用这些账号接口。
+- [公开首页](https://www.autodl.com/home) · [市场](https://www.autodl.com/market/list) · [计费说明](https://www.autodl.com/docs/price/) · [Pro API](https://www.autodl.com/docs/instance_pro_api/) · [弹性部署 API](https://www.autodl.com/docs/esd_api_doc/)

@@ -10,12 +10,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
-from .collector import IMPLEMENTED_PROVIDERS, PROVIDER_SOURCES, collect_prices
+from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
 from .filters import normalize_filters
 from .settings import ConfigurationError, PROVIDERS, SOURCES, Settings
 
 
-def validate_config(config: object) -> list[str]:
+def validate_config(config: object, *, settings: Settings | None = None) -> list[str]:
     if not isinstance(config, dict):
         return ["configuration must be a JSON object"]
     errors: list[str] = []
@@ -57,7 +57,7 @@ def validate_config(config: object) -> list[str]:
         elif provider["enabled"]:
             if not isinstance(provider_id, str) or provider_id not in IMPLEMENTED_PROVIDERS:
                 errors.append(f"{prefix}: provider adapter is not implemented; keep enabled=false")
-            elif source != PROVIDER_SOURCES[provider_id]:
+            elif source != provider_source(provider_id, settings):
                 errors.append(f"{prefix}.planned_source does not match the implemented adapter")
         try:
             if not isinstance(provider.get("filters"), dict):
@@ -68,12 +68,12 @@ def validate_config(config: object) -> list[str]:
     return errors
 
 
-def _load_config(path: Path) -> dict:
+def _load_config(path: Path, settings: Settings | None = None) -> dict:
     try:
         config = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError):
         raise ConfigurationError("Cannot read a valid JSON configuration file.") from None
-    errors = validate_config(config)
+    errors = validate_config(config, settings=settings)
     if errors:
         raise ConfigurationError("; ".join(errors))
     return config
@@ -100,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--pretty", action="store_true")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
     collect.add_argument("--max-retries", type=int)
+    collect.add_argument("--lambda-source", choices=("public", "api"),
+                         help="Lambda source; public page is the free default, api requires a key")
     options = {
         "gpu": "gpu_models", "region": "regions", "currency": "currencies",
         "billing-mode": "billing_modes", "country": "compute_countries",
@@ -110,23 +112,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         settings = Settings.from_env(env_file=args.env_file)
+        if getattr(args, "lambda_source", None) is not None:
+            settings = replace(settings, lambda_source=args.lambda_source)
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
-            print("Providers not implemented: " + ", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())))
+            print("Providers not implemented: " + (", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())) or "none"))
             print("Configured providers: " + ", ".join(settings.providers))
+            print("Lambda source: " + settings.lambda_source)
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")
             print("No requests were made. Scheduling, storage and uploads belong to the caller.")
             return 0
         if args.command == "validate-config":
-            _load_config(args.config)
+            _load_config(args.config, settings)
             print("Collection configuration and environment are valid. Provider access was not tested; no collection ran.")
             return 0
 
         providers = None if args.providers is None else [p.strip().lower() for p in args.providers.split(",")]
         by_provider = None
         if args.config is not None:
-            config = _load_config(args.config)
+            config = _load_config(args.config, settings)
             settings = replace(settings, **config["request"])
             enabled = {p["id"]: p["filters"] for p in config["providers"] if p["enabled"]}
             if providers is None:

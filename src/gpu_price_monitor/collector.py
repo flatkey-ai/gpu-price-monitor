@@ -7,13 +7,21 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from .filters import apply_filters, filter_support, normalize_filters
-from .providers import crusoe, lambda_cloud, nebius, ucloud
+from .providers import autodl, crusoe, lambda_cloud, lambda_public, nebius, ucloud
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
-IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_cloud, "ucloud": ucloud}
+IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
+                         "ucloud": ucloud, "autodl": autodl}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
-                    "lambda": "official_api", "ucloud": "official_quote_api"}
+                    "lambda": "public_page", "ucloud": "official_quote_api", "autodl": "public_page"}
+
+
+def provider_source(provider: str, settings: Settings | None = None) -> str:
+    """Return the selected source type without making any requests."""
+    if provider == "lambda" and settings is not None and settings.lambda_source == "api":
+        return "official_api"
+    return PROVIDER_SOURCES[provider]
 
 
 def _now() -> str:
@@ -77,8 +85,11 @@ def collect_prices(
     prices, results = [], []
     for provider in selected:
         module = IMPLEMENTED_PROVIDERS.get(provider)
+        if provider == "lambda" and settings.lambda_source == "api":
+            module = lambda_cloud
         result = {
             "provider": provider, "source_url": module.SOURCE_URL if module else None,
+            "source_type": provider_source(provider, settings) if module else None,
             "status": "failed", "observed_at": None, "fetched_count": 0,
             "returned_count": 0, "filters": filter_support(provider, conditions[provider]),
             "error": None,
@@ -89,8 +100,8 @@ def collect_prices(
             result["error"] = {"code": "unsupported_filter", "message": "The source cannot verify one or more requested conditions.", "retryable": False}
         else:
             try:
-                is_api = provider in {"lambda", "ucloud"}
-                if is_api:
+                is_authenticated = module in (lambda_cloud, ucloud)
+                if hasattr(module, "collect_quotes"):
                     observed_at = _now()
                     quotes = module.collect_quotes(settings=settings, observed_at=observed_at)
                 else:
@@ -98,7 +109,7 @@ def collect_prices(
                     observed_at = _now()
                     quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
                 result["observed_at"] = observed_at
-                _check_prices(quotes, provider, allow_empty=is_api)
+                _check_prices(quotes, provider, allow_empty=is_authenticated)
                 result["fetched_count"] = len(quotes)
                 other_conditions = {k: v for k, v in conditions[provider].items() if k != "regions"}
                 relevant = apply_filters(quotes, other_conditions)

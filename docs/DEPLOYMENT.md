@@ -1,39 +1,56 @@
 # 配置与调用方接入
 
-0.3.0 支持显式 env 文件 / 本地询价文件加载，以及 Nebius / Crusoe 公开来源和 Lambda / UCloud 认证只读询价。AutoDL 仍返回 `not_implemented`。Lambda / UCloud 已通过离线样本验证，但当前环境没有凭据，**尚未成功完成真实账号报价联调**。
+0.4.0 提供 Lambda 实例页和 AutoDL 首页的免费公开采集，无需账号、充值、绑卡或 API key。Nebius / Crusoe 同为公开采集；UCloud 和显式选择的 Lambda API 保留认证只读路径，尚未成功完成真实认证报价联调。
 
-## 安装和公开采集
+## 免费 Lambda + AutoDL
 
-要求 Python 3.11+。当前从源码安装，尚未发布 PyPI 版本：
+要求 Python 3.11+。Lambda 公开页仅使用基础依赖；AutoDL 首页由 JavaScript 渲染，需安装可选浏览器依赖和本地 Chromium：
 
 ```bash
-python3 -m pip install -e .
-gpu-price-monitor status
-gpu-price-monitor collect --providers nebius,crusoe --currency USD --billing-mode on_demand --pretty
+python3 -m pip install -e '.[browser]'
+python3 -m playwright install chromium
+gpu-price-monitor collect --providers lambda,autodl --lambda-source public --pretty
 ```
 
-Python API 返回可 JSON 序列化的标准字典：
+该路径不需要创建账号、充值、绑卡、API key 或浏览器登录会话。Lambda 默认请求公开实例页；AutoDL 使用新的未登录浏览器上下文读取公开首页的普通 / 会员价目。已有 Lambda key 或 AutoDL token / storage state 不会让免费路径改成认证请求。
+
+Python API 同样返回可 JSON 序列化的字典：
 
 ```python
+import json
 from gpu_price_monitor import collect_prices, Settings
 
 result = collect_prices(
-    providers=["nebius", "crusoe"],
-    filters={"currencies": ["USD"], "billing_modes": ["on_demand"]},
-    settings=Settings.from_env(),
+    providers=["lambda", "autodl"],
+    settings=Settings(lambda_source="public"),
 )
+print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
 
-调用方检查 `status`、`provider_results` 和报价数量后，将返回值交给自己的存储或上传函数。API 正常返回不代表所有来源都成功。
+Lambda 为 USD，AutoDL 为 CNY，示例不设置统一币种筛选，避免误删其中一家的结果。调用方检查 `status`、`provider_results`、价格条件和报价数量，再决定保存或上传。
+
+可使用显式免费配置：
+
+```bash
+gpu-price-monitor collect --config configs/collect.free.example.json --pretty
+```
+
+不传来源 / 配置时，默认来源仍为 `nebius,crusoe`，保持既有调用行为。需要自定义时设置 `GPU_PRICE_MONITOR_PROVIDERS` 或显式传 `--providers`。
+
+## AutoDL 公开首页的覆盖边界
+
+当前免费来源为 [公开首页](https://www.autodl.com/home) 的普通价和会员价卡片，不登录，不读取用户 Cookie 或已保存会话。会员价格必须保留会员条件，不能当作所有人可享的普通价格。
+
+首页挂牌不包含逐机器、逐地区的当前报价或库存。地区、国家、可用区和实例卡数未知；不支持这些筛选，不由卡片数量推断库存。后续如扩展市场页，需另行核对实际选中的条件。
 
 ## 本地准备：先填文件，再验证
 
 本地使用 `.env` 和 `configs/ucloud-targets.local.json`，两者均被 Git 忽略。已有本地文件应保留；首次使用可分别复制 `.env.example` 和 `configs/ucloud-targets.example.json`，再填写自己的配置。
 
-在 `.env` 中填写 `LAMBDA_API_KEY`、`UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，并按需填写 `UCLOUD_PROJECT_ID`。使用以下非敏感设置指向完整询价配置：
+以下仅用于可选认证来源，免费 Lambda / AutoDL 路径不需要这些文件。UCloud 在 `.env` 中填写 `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，按需填写 `UCLOUD_PROJECT_ID`；只有显式使用 Lambda API 才填写其 key。UCloud 设置示例：
 
 ```dotenv
-GPU_PRICE_MONITOR_PROVIDERS=lambda,ucloud
+GPU_PRICE_MONITOR_PROVIDERS=ucloud
 UCLOUD_PRICE_TARGETS_FILE=configs/ucloud-targets.local.json
 ```
 
@@ -43,10 +60,10 @@ UCLOUD_PRICE_TARGETS_FILE=configs/ucloud-targets.local.json
 gpu-price-monitor status --env-file .env
 ```
 
-`status` 不显示密钥值、不验证账号权限，也不查询报价。完成填写和配置核对后，再由操作者明确执行真实验证；本次文件准备不发起认证采集：
+`status` 不显示密钥值、不验证账号权限，也不查询报价。真实认证验证需要填写配置后显式执行采集：
 
 ```bash
-gpu-price-monitor collect --env-file .env --providers lambda,ucloud --pretty
+gpu-price-monitor collect --env-file .env --providers ucloud --pretty
 ```
 
 Python 显式加载方式：
@@ -56,20 +73,22 @@ from gpu_price_monitor import collect_prices, Settings
 
 settings = Settings.from_env(env_file=".env")
 # 只有显式调用采集函数才会请求来源。
-result = collect_prices(providers=["lambda", "ucloud"], settings=settings)
+result = collect_prices(providers=["ucloud"], settings=settings)
 ```
 
-## Lambda 凭据与报价
+## Lambda 免费公开模式与可选 API
 
-`LAMBDA_API_KEY` 可从显式 `.env` 或调用方 secrets 注入的进程环境读取。只验证 Lambda 时执行：
+默认 `LAMBDA_SOURCE=public` 请求 [官方实例页](https://lambda.ai/instances)。即使环境中已有 `LAMBDA_API_KEY`，也不会自动发出认证请求：
 
 ```bash
-gpu-price-monitor collect --env-file .env --providers lambda --pretty
+gpu-price-monitor collect --providers lambda --pretty
 ```
 
-适配器只请求官方实例目录，不创建或启动资源。返回 `instance_price` 为 USD 整实例小时价，`amount` 为按实例 GPU 数量分摊的单卡小时成本，`account_scope=authenticated_catalog`。
+公开表明确给出每 GPU / 小时价格和实例卡数，USD 币种依据官方目录文档确认。返回 `amount` 为公开单卡价，`instance_price` 由单卡价乘卡数推导；CPU、内存、磁盘保留官网 GiB / TiB 等单位。当前实际采样覆盖 4 张表、22 行，实例有 8 / 4 / 2 / 1 卡。没有公布的国家、地区和可用区保持未知，对应筛选返回结构化错误；挂牌不是实时容量。
 
-`capacity_regions` 仅表示可用容量地区，不是价格适用地区。支持 GPU、卡数、币种和计费方式本地筛选；`--region`、国家和可用区筛选无法从该价格响应验证，返回结构化错误。
+只有调用方明确选择 `LAMBDA_SOURCE=api` 时才使用 `LAMBDA_API_KEY`。例如在专用 env 文件中同时配置来源模式与自己的 key，再运行 Lambda 采集。CLI 也可显式传 `--lambda-source api`。API 模式返回 `amount` 为整实例小时成本按卡数分摊，`instance_price` 保留 USD 整实例原价，`account_scope=authenticated_catalog`。
+
+API `capacity_regions` 仅表示容量，不是逐地区报价，两种模式均不以该信息支持地区、国家或可用区价格筛选。API 认证实测尚未完成，公开页采样不能作为认证成功证据。
 
 ## UCloud 凭据与完整配置
 
@@ -118,7 +137,7 @@ GPU、地区、可用区、卡数、币种和计费方式可按目标与结果�
 | `invalid_price_targets` | UCloud 目标不满足结构或支持范围 |
 | `unsupported_filter` | 来源不能支持请求筛选 |
 | `unverifiable_filter` | 来源数据不足以核对筛选 |
-| `not_implemented` | 当前未实现，如 AutoDL |
+| `browser_dependency_missing` 等浏览器错误 | AutoDL 可选浏览器环境缺失或页面采集失败，详见返回错误 |
 
 缺少凭据以及 UCloud 内联目标错误只使对应来源失败；FILE 读取或校验错误属于全局配置错误，在开始采集前终止。`collect` 的 stdout 仅写 JSON，诊断写 stderr。退出码 `0` 为全部成功或没有匹配，`2` 为部分来源失败，`1` 为全部失败或配置无效。调用方应同时检查返回码和每来源状态。
 
@@ -129,13 +148,16 @@ gpu-price-monitor validate-config --config configs/collect.example.json
 gpu-price-monitor collect --config configs/collect.example.json --pretty
 ```
 
-示例配置默认启用 Nebius / Crusoe；认证来源默认关闭。启用 Lambda / UCloud 前应准备好对应 env。每来源 `filters` 支持数组字段：`compute_countries`、`sales_countries`、`regions`、`zones`、`gpu_models`、`gpu_counts`、`billing_modes`、`currencies`，空数组表示不限。各来源支持范围见 [数据口径](DATA_MODEL.md)。
+`collect.example.json` 默认启用 Nebius / Crusoe；`collect.free.example.json` 启用免费 Lambda / AutoDL。UCloud 及 Lambda API 是可选分支，调用前自行准备认证设置。每来源 `filters` 支持数组字段：`compute_countries`、`sales_countries`、`regions`、`zones`、`gpu_models`、`gpu_counts`、`billing_modes`、`currencies`，空数组表示不限。各来源支持范围见 [数据口径](DATA_MODEL.md)。
+
+配置中的 Lambda `planned_source` 应与显式模式一致：公开模式为 `public_page`，API 模式为 `official_api`。使用 API 时还需显式设置 `LAMBDA_SOURCE=api` 或 `--lambda-source api`，不能只改配置文件就让工具悄悄切换到认证来源。
 
 UCloud 的完整 CPU / 内存 / 磁盘等通过 `UCLOUD_PRICE_TARGETS_FILE` 或 `UCLOUD_PRICE_TARGETS_JSON` 配置，不放入上述通用筛选对象。配置检查不联网，不测试凭据有效性或可售性。
 
 | CLI 选项 | 作用 |
 | --- | --- |
 | `--providers`、`--config` | 选择来源，或每来源启用状态及筛选 |
+| `--lambda-source public\|api` | 显式选择 Lambda 模式，默认公开页 |
 | `--env-file PATH` | 显式加载 env 文件，适用于 `status`、配置检查及 `collect` |
 | `--gpu`、`--currency`、`--billing-mode` | 可重复的报价筛选 |
 | `--region`、`--zone`、`--gpu-count` | 可重复，按来源实际能力验证 |
@@ -162,13 +184,14 @@ FILE 在读取设置时就校验文件存在、UTF-8 JSON 数组及 UCloud 完�
 | `GPU_PRICE_MONITOR_PROVIDERS` | 默认 `nebius,crusoe`，可设 `lambda,ucloud` |
 | `GPU_PRICE_MONITOR_TIMEOUT_SECONDS` | `30` 秒 |
 | `GPU_PRICE_MONITOR_MAX_RETRIES` | `2` 次 |
-| `LAMBDA_API_KEY` | Lambda 必填 |
+| `LAMBDA_SOURCE` | 默认 `public`，可显式设 `api` 使用认证目录 |
+| `LAMBDA_API_KEY` | 仅 Lambda API 模式必填；公开模式不使用 |
 | `UCLOUD_PUBLIC_KEY` / `UCLOUD_PRIVATE_KEY` | UCloud 必填 |
 | `UCLOUD_PRICE_TARGETS_JSON` | UCloud 目标来源之一：内联完整 JSON 数组 |
 | `UCLOUD_PRICE_TARGETS_FILE` | UCloud 目标来源之一：UTF-8 JSON 数组文件路径 |
 | `UCLOUD_PROJECT_ID` | UCloud 可选项目，子账号可能需要 |
 | `NEBIUS_ACCESS_TOKEN` | 后续认证估价保留，当前公开文档不需要 |
-| `AUTODL_TOKEN` / `AUTODL_STORAGE_STATE_PATH` | 后续 AutoDL 适配器保留 |
+| `AUTODL_TOKEN` / `AUTODL_STORAGE_STATE_PATH` | 认证功能保留；当前免费首页路径不使用 |
 
 读取设置不会发起采集，提供凭据不代表认证已成功。密钥、请求签名和账号原始响应不进入价格返回或日志。真实联调仅使用只读询价，不创建、启动或购买收费实例。
 
@@ -186,4 +209,4 @@ FILE 在读取设置时就校验文件存在、UTF-8 JSON 数组及 UCloud 完�
 
 使用 GitHub Actions 时，调用方自行考虑调度延迟、凭据隔离和结果保存。[GitHub 调度规则](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 
-后续浏览器来源的授权会话由调用方持有和续期，不绕过验证码或访问控制。[Playwright 认证说明](https://playwright.dev/python/docs/auth)
+AutoDL 免费路径使用新的未登录浏览器上下文。后续如接入授权来源，其会话由调用方持有和续期，不绕过验证码或访问控制。[Playwright 认证说明](https://playwright.dev/python/docs/auth)

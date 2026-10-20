@@ -11,7 +11,7 @@
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
-      "id": "lambda", "enabled": false, "planned_source": "official_api",
+      "id": "lambda", "enabled": false, "planned_source": "public_page",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
@@ -19,7 +19,7 @@
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
-      "id": "autodl", "enabled": false, "planned_source": "authorized_browser",
+      "id": "autodl", "enabled": false, "planned_source": "public_page",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     }
   ]

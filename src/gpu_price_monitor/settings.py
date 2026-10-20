@@ -78,6 +78,7 @@ class Settings:
     autodl_token: str | None = field(default=None, repr=False)
     autodl_storage_state_path: str | None = field(default=None, repr=False)
     ucloud_price_targets_file: str | None = field(default=None, repr=False)
+    lambda_source: str = "public"
 
     def __post_init__(self) -> None:
         if not isinstance(self.providers, tuple) or not self.providers:
@@ -92,6 +93,8 @@ class Settings:
             raise ConfigurationError("timeout_seconds must be finite and in (0, 300]")
         if type(self.max_retries) is not int or not 0 <= self.max_retries <= 10:
             raise ConfigurationError("max_retries must be an integer in [0, 10]")
+        if self.lambda_source not in ("public", "api"):
+            raise ConfigurationError("LAMBDA_SOURCE must be public or api")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, *,
@@ -151,6 +154,7 @@ class Settings:
             ucloud_price_targets_file=targets_file,
             autodl_token=credential("AUTODL_TOKEN"),
             autodl_storage_state_path=credential("AUTODL_STORAGE_STATE_PATH"),
+            lambda_source=values.get("LAMBDA_SOURCE", "public"),
         )
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at

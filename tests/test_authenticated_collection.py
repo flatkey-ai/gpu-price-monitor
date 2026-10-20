@@ -31,6 +31,7 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(
             providers=("lambda", "ucloud"), max_retries=0,
+            lambda_source="api",
             lambda_api_key="synthetic-lambda-key",
             ucloud_public_key="synthetic-public", ucloud_private_key="synthetic-private",
             ucloud_project_id="org-synthetic",
@@ -64,7 +65,7 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
 
     def test_missing_keys_are_structured_without_any_network_request(self):
         with patch("gpu_price_monitor.transport.build_opener") as opener:
-            result = collect_prices(["lambda", "ucloud"], settings=Settings())
+            result = collect_prices(["lambda", "ucloud"], settings=Settings(lambda_source="api"))
         self.assertEqual(result["status"], "failed")
         self.assertTrue(all(p["error"]["code"] == "missing_credentials" for p in result["provider_results"]))
         opener.assert_not_called()
@@ -128,10 +129,11 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
     def test_authenticated_config_enabled_and_cli_json_failure_contract(self):
         config = json.loads((ROOT / "configs/collect.example.json").read_text())
         config["providers"][2]["enabled"] = True
+        config["providers"][2]["planned_source"] = "official_api"
         config["providers"][3]["enabled"] = True
-        self.assertEqual(validate_config(config), [])
+        self.assertEqual(validate_config(config, settings=self.settings), [])
         out, err = io.StringIO(), io.StringIO()
-        with patch.dict("os.environ", {}, clear=True), redirect_stdout(out), redirect_stderr(err):
+        with patch.dict("os.environ", {"LAMBDA_SOURCE": "api"}, clear=True), redirect_stdout(out), redirect_stderr(err):
             code = main(["collect", "--providers", "lambda,ucloud"])
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(out.getvalue())["status"], "failed")

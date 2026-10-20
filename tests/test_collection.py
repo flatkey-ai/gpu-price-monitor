@@ -84,10 +84,12 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(failed["status"], "failed")
         self.assertTrue(all(p["error"]["code"] == "parse_failed" for p in failed["provider_results"]))
 
-    def test_unimplemented_provider_does_not_erase_supported_results(self):
-        result = collect_prices(["nebius", "autodl"], settings=self.settings)
+    def test_missing_optional_browser_does_not_erase_supported_results(self):
+        with patch("gpu_price_monitor.providers.autodl.collect_quotes",
+                   side_effect=FetchError("browser_dependency_missing", "Install the optional browser extra.")):
+            result = collect_prices(["nebius", "autodl"], settings=self.settings)
         self.assertEqual(result["status"], "partial")
-        self.assertEqual(result["provider_results"][1]["error"]["code"], "not_implemented")
+        self.assertEqual(result["provider_results"][1]["error"]["code"], "browser_dependency_missing")
 
     def test_invalid_call_configuration_fails_before_network(self):
         for args in ({"providers": []}, {"providers": "nebius"}, {"filters": {"upload": ["secret"]}}, {"filters": {"gpu_counts": [True]}}):
