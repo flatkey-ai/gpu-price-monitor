@@ -1,0 +1,1557 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-10-20T07:23:07.976128+00:00",
+  "status": "success",
+  "prices": [
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "1ad53749-5088-4456-b543-135dd34e25ce",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "594.41",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "594.41",
+        "original_amount": "2492",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "5ed490f7-bf41-4036-9812-1324fdd1fc8e",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "544.73",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "544.73",
+        "original_amount": "2276",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "662941e4-55e7-4d26-8dd8-2bfb38ba3ee5",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "807.98",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "807.98",
+        "original_amount": "3476",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "b40de486-56bd-47d7-b225-624ede8d5ce2",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "1139.18",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "1139.18",
+        "original_amount": "4916",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 65536,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "bbaa1010-c59c-4352-8544-b5bca5f467ee",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "642.38",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "642.38",
+        "original_amount": "2756",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "dee87cc2-fc59-4011-a859-2d1c60d73b8a",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "1169.18",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "1169.18",
+        "original_amount": "4991",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 65536,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "e6bfef39-2bd0-4856-a563-dab3b919477f",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "672.38",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "672.38",
+        "original_amount": "2831",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "1e930a46-983f-4276-9c7d-ae8332859d51",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "466.89",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "466.89",
+        "original_amount": "1993",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 8192,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "1fb363ff-1214-42e0-8886-99a760f5ae6f",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "640.41",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "640.41",
+        "original_amount": "2692",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "210a7d61-2cf2-4a57-8da3-5f80785d5101",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "660.09",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "660.09",
+        "original_amount": "2833",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "35a1f61a-eb98-4990-91a3-97f8a6fb3dec",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "837.98",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "837.98",
+        "original_amount": "3551",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 10,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "555ada16-4ea6-4a8c-b4af-4359be0af497",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "690.09",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "690.09",
+        "original_amount": "2908",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "87d52cab-7bbb-47df-8d04-25661e881b5d",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "496.89",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "496.89",
+        "original_amount": "2068",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 8192,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "a920936a-2601-43c6-ba99-5e6cf41f9d7f",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "881.45",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "881.45",
+        "original_amount": "3740",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 65536,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 5,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "aa31da63-a772-42d2-a235-de35efd66cd7",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "610.41",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "610.41",
+        "original_amount": "2617",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 32768,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "d220c927-34fc-4126-b360-1149d276429a",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "514.73",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "514.73",
+        "original_amount": "2201",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 4,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "d7ae8f5f-eee7-4fb0-afaf-5c8f07627abd",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "851.45",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "851.45",
+        "original_amount": "3665",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 65536,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    },
+    {
+      "provider": "ucloud",
+      "product_type": "gpu_instance",
+      "gpu_model": "T4S",
+      "gpu_variant": "T4S",
+      "raw_name": "UHost G T4S",
+      "raw_sku": "e626897f-4db7-420d-99ad-42ce62a3b37c",
+      "vram_gb": null,
+      "gpu_count": 1,
+      "amount": "564.41",
+      "currency": "CNY",
+      "unit": "gpu_month",
+      "billing_mode": "monthly",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "regions": [
+        "cn-bj2"
+      ],
+      "zones": [
+        "cn-bj2-02"
+      ],
+      "location": {
+        "region": "cn-bj2",
+        "zone_name": "华北（北京2）可用区B",
+        "country_code": "CN",
+        "region_name": "华北（北京2）",
+        "zone": "cn-bj2-02"
+      },
+      "geographic_scope": "zone",
+      "account_scope": "public_promotion",
+      "tax_scope": "unspecified",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "effective_from": null,
+      "effective_until": null,
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "availability": "offline",
+      "instance_price": {
+        "amount": "564.41",
+        "original_amount": "2417",
+        "currency": "CNY",
+        "unit": "instance_month"
+      },
+      "normalization": {
+        "formula": "CurPrice / 100 / gpu_count",
+        "decimal_places": 12,
+        "rounding": "ROUND_HALF_UP"
+      },
+      "resources": {
+        "vcpu_count": 8,
+        "memory_mb": 16384,
+        "disk_gb": 100,
+        "disk_type": "CLOUD_SSD",
+        "bandwidth_mbps": 2,
+        "cpu_platform": "intel",
+        "machine_type": "G",
+        "uhost_family": "",
+        "network_enhancement": ""
+      },
+      "promotion": {
+        "activity_id": "10204",
+        "title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "only_new_users": false,
+        "purchase_limit": 3,
+        "user_types": "personal,company,institution",
+        "activity_state": "published",
+        "activity_status": "published",
+        "duration": 1,
+        "duration_unit": "month",
+        "activity_begin_at": "2024-05-31T16:00:00+00:00",
+        "activity_end_at": "2030-12-29T16:00:00+00:00",
+        "discount_allow_renew": true,
+        "eligibility_verified": false
+      },
+      "notes": [
+        "Published promotional package price, not a standard on-demand or account-specific quote.",
+        "Current and original prices are published in cents per instance-month; the per-GPU amount allocates the entire CPU/RAM/disk/bandwidth package.",
+        "No hourly equivalent was calculated; a one-month commitment applies.",
+        "Activity dates describe the promotion window, not a guarantee that this price remains fixed throughout that window.",
+        "Published activity metadata and website eligibility text may differ; purchase eligibility must be checked with UCloud and was not verified.",
+        "An offline flag marks this zone's activity as unavailable; absence of a flag does not prove stock or orderability."
+      ]
+    }
+  ],
+  "provider_results": [
+    {
+      "provider": "ucloud",
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "status": "success",
+      "observed_at": "2026-10-20T07:22:59.871785+00:00",
+      "fetched_count": 358,
+      "returned_count": 18,
+      "filters": {
+        "gpu_models": {
+          "requested": [
+            "T4S"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        },
+        "regions": {
+          "requested": [
+            "cn-bj2"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        },
+        "currencies": {
+          "requested": [
+            "CNY"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        },
+        "billing_modes": {
+          "requested": [
+            "monthly"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        },
+        "zones": {
+          "requested": [
+            "cn-bj2-02"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        },
+        "gpu_counts": {
+          "requested": [
+            1
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability."
+        }
+      },
+      "error": null
+    }
+  ]
+}

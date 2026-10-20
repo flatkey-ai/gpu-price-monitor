@@ -7,3 +7,17 @@
 这是接口返回样例，不是持续更新价目表，库不会将它作为实时请求的回退数据。请自行运行 `collect` 获取新报价。样例的存储由演示调用方完成，库的 API 不写入该文件或其他价格文件。
 
 原始来源链接保留在记录中；第三方内容使用范围见 [数据说明](../docs/DATA_POLICY.md)。
+
+## UCloud 免费公开月卡，2026-10-20
+
+[ucloud-public-cn-bj2-2026-10-20.json](ucloud-public-cn-bj2-2026-10-20.json) 是北京时间 15:23 通过 CLI 匿名抓取官网公开接口的完整返回。无需密钥或登录，未加载本地 `.env`。
+
+```bash
+gpu-price-monitor collect --providers ucloud --ucloud-source public \
+  --region cn-bj2 --zone cn-bj2-02 --gpu T4S --gpu-count 1 \
+  --billing-mode monthly --currency CNY --pretty
+```
+
+来源共返回 358 个具体月卡套餐（活动 10204 / 10216），本次筛出北京2可用区B的 18 条单卡 T4S 配置。独立的 Python API 采集也成功返回全部 358 条，覆盖北京2、上海2、乌兰察布三个地区。
+
+金额为整机套餐月价按卡数分摊后的 `CNY / gpu_month`，保留 CPU、内存、磁盘和带宽，不换算成小时。官方活动接口在该次采样中将所有相关可用区标为下线，返回 `availability=offline`；公开挂牌不能视为当前可购价格。活动资格和限购条件保留在 `promotion` 中，购买资格未经核验。

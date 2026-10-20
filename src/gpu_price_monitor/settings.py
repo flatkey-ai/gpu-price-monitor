@@ -14,7 +14,7 @@ from dotenv.parser import parse_stream
 PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl"})
 SOURCES = frozenset({
     "official_api", "public_documentation", "public_page",
-    "official_quote_api", "authorized_browser",
+    "official_quote_api", "official_public_api", "authorized_browser",
 })
 
 
@@ -79,6 +79,7 @@ class Settings:
     autodl_storage_state_path: str | None = field(default=None, repr=False)
     ucloud_price_targets_file: str | None = field(default=None, repr=False)
     lambda_source: str = "public"
+    ucloud_source: str = "public"
 
     def __post_init__(self) -> None:
         if not isinstance(self.providers, tuple) or not self.providers:
@@ -95,6 +96,8 @@ class Settings:
             raise ConfigurationError("max_retries must be an integer in [0, 10]")
         if self.lambda_source not in ("public", "api"):
             raise ConfigurationError("LAMBDA_SOURCE must be public or api")
+        if self.ucloud_source not in ("public", "api"):
+            raise ConfigurationError("UCLOUD_SOURCE must be public or api")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, *,
@@ -155,6 +158,7 @@ class Settings:
             autodl_token=credential("AUTODL_TOKEN"),
             autodl_storage_state_path=credential("AUTODL_STORAGE_STATE_PATH"),
             lambda_source=values.get("LAMBDA_SOURCE", "public"),
+            ucloud_source=values.get("UCLOUD_SOURCE", "public"),
         )
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at

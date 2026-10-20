@@ -54,6 +54,13 @@ class FreeCollectionTests(unittest.TestCase):
             "fetch": patch("gpu_price_monitor.collector.fetch_text",
                            return_value=(FIXTURES / "lambda-public-pricing.html").read_text()),
             "render": patch("gpu_price_monitor.browser.fetch_autodl_pages", return_value=autodl_pages()),
+            "ucloud_public": patch("gpu_price_monitor.providers.ucloud_public.collect_quotes", return_value=[{
+                "provider": "ucloud", "unit": "gpu_month", "amount": "999.00",
+                "quote_status": "quoted", "gpu_model": "4090", "gpu_count": 1,
+                "currency": "CNY", "billing_mode": "monthly", "regions": ["cn-wlcb"],
+                "zones": ["cn-wlcb-01"], "account_scope": "public_catalog",
+                "source_type": "official_public_api",
+            }]),
             "authenticated": patch("gpu_price_monitor.providers.lambda_cloud.request_json",
                                    side_effect=AssertionError("Authentication was not explicitly enabled")),
             "transport": patch("gpu_price_monitor.transport._request_text",
@@ -167,7 +174,7 @@ class FreeCollectionTests(unittest.TestCase):
 
     def test_free_config_source_types_match_selected_lambda_mode_without_network(self):
         config = json.loads((ROOT / "configs" / "collect.free.example.json").read_text())
-        self.assertEqual({p["id"] for p in config["providers"] if p["enabled"]}, {"lambda", "autodl"})
+        self.assertEqual({p["id"] for p in config["providers"] if p["enabled"]}, {"lambda", "autodl", "ucloud"})
         self.assertEqual(validate_config(config), [])
         self.assertTrue(validate_config(config, settings=Settings(lambda_source="api")))
         api_config = deepcopy(config)
@@ -185,7 +192,7 @@ class FreeCollectionTests(unittest.TestCase):
         self.assertEqual(code, 0)
         result = json.loads(stdout)
         self.assertEqual(result["status"], "success")
-        self.assertEqual({p["source_type"] for p in result["provider_results"]}, {"public_page"})
+        self.assertEqual({p["source_type"] for p in result["provider_results"]}, {"public_page", "official_public_api"})
         self.assertEqual(stderr, "")
         self.authenticated.assert_not_called()
 

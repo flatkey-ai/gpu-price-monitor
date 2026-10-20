@@ -7,20 +7,22 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from .filters import apply_filters, filter_support, normalize_filters
-from .providers import autodl, crusoe, lambda_cloud, lambda_public, nebius, ucloud
+from .providers import autodl, crusoe, lambda_cloud, lambda_public, nebius, ucloud, ucloud_public
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
 IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
-                         "ucloud": ucloud, "autodl": autodl}
+                         "ucloud": ucloud_public, "autodl": autodl}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
-                    "lambda": "public_page", "ucloud": "official_quote_api", "autodl": "public_page"}
+                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page"}
 
 
 def provider_source(provider: str, settings: Settings | None = None) -> str:
     """Return the selected source type without making any requests."""
     if provider == "lambda" and settings is not None and settings.lambda_source == "api":
         return "official_api"
+    if provider == "ucloud" and settings is not None and settings.ucloud_source == "api":
+        return "official_quote_api"
     return PROVIDER_SOURCES[provider]
 
 
@@ -28,11 +30,12 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = False) -> None:
+def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = False,
+                  expected_unit: str = "gpu_hour") -> None:
     if not isinstance(prices, list) or (not prices and not allow_empty):
         raise ValueError("No recognizable GPU price records were found.")
     for quote in prices:
-        if quote["provider"] != provider or quote["unit"] != "gpu_hour":
+        if quote["provider"] != provider or quote["unit"] != expected_unit:
             raise ValueError("Unrecognized provider or price unit.")
         if quote["quote_status"] == "contact_sales":
             if quote["amount"] is not None:
@@ -87,11 +90,13 @@ def collect_prices(
         module = IMPLEMENTED_PROVIDERS.get(provider)
         if provider == "lambda" and settings.lambda_source == "api":
             module = lambda_cloud
+        if provider == "ucloud" and settings.ucloud_source == "api":
+            module = ucloud
         result = {
             "provider": provider, "source_url": module.SOURCE_URL if module else None,
             "source_type": provider_source(provider, settings) if module else None,
             "status": "failed", "observed_at": None, "fetched_count": 0,
-            "returned_count": 0, "filters": filter_support(provider, conditions[provider]),
+            "returned_count": 0, "filters": filter_support(provider, conditions[provider], settings=settings),
             "error": None,
         }
         if module is None:
@@ -109,7 +114,8 @@ def collect_prices(
                     observed_at = _now()
                     quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
                 result["observed_at"] = observed_at
-                _check_prices(quotes, provider, allow_empty=is_authenticated)
+                _check_prices(quotes, provider, allow_empty=is_authenticated,
+                              expected_unit="gpu_month" if module is ucloud_public else "gpu_hour")
                 result["fetched_count"] = len(quotes)
                 other_conditions = {k: v for k, v in conditions[provider].items() if k != "regions"}
                 relevant = apply_filters(quotes, other_conditions)

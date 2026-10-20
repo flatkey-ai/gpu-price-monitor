@@ -8,7 +8,7 @@ An open-source library that collects GPU cloud rental prices from official sourc
 
 ## Supported sources
 
-Version 0.4.0 provides **free public Lambda and AutoDL price collection** without login, API keys, top-ups or a payment card. Lambda defaults to its public instances page; AutoDL reads ordinary and member tariffs from its public homepage in a fresh unauthenticated browser context. Existing keys, tokens or saved login state are not used for these paths. Nebius and Crusoe remain public sources; UCloud is an optional authenticated quote source. Install from source; this version has not been published to PyPI.
+Version 0.5.0 provides **free public Lambda, AutoDL and UCloud collection** without login, API keys, top-ups or a payment card. Lambda reads its instances page, AutoDL reads ordinary/member homepage tariffs in a fresh context, and UCloud reads anonymous promotional monthly packages. Existing keys do not automatically select authenticated sources. Nebius and Crusoe remain public sources. Install from source; this version has not been published to PyPI.
 
 The Lambda public page was sampled on 2026-10-20: 22 rows across 4 tables for 8-, 4-, 2- and 1-GPU instances. Listed prices do not prove current capacity. The optional Lambda API and UCloud authenticated quotes have offline coverage, but no successful authenticated live pricing verification.
 
@@ -23,7 +23,7 @@ git clone https://github.com/flatkey-ai/gpu-price-monitor.git
 cd gpu-price-monitor
 python3 -m pip install -e '.[browser]'
 python3 -m playwright install chromium
-gpu-price-monitor collect --providers lambda,autodl --lambda-source public --pretty
+gpu-price-monitor collect --providers lambda,autodl,ucloud --lambda-source public --ucloud-source public --pretty
 ```
 
 The `collect` command writes JSON to stdout and diagnostics to stderr. Your application can capture the result or redirect stdout to a file.
@@ -33,8 +33,8 @@ import json
 from gpu_price_monitor import collect_prices, Settings
 
 result = collect_prices(
-    providers=["lambda", "autodl"],
-    settings=Settings(lambda_source="public"),
+    providers=["lambda", "autodl", "ucloud"],
+    settings=Settings(lambda_source="public", ucloud_source="public"),
 )
 print(json.dumps(result, ensure_ascii=False, indent=2))
 ```
@@ -47,9 +47,9 @@ The returned standard `dict` includes `schema_version`, `status`, UTC `collected
 | --- | --- | --- |
 | `gpu_models` | `--gpu` | Applied to provider price records |
 | `currencies` | `--currency` | Lambda USD; AutoDL / UCloud CNY; no conversion |
-| `billing_modes` | `--billing-mode` | According to explicit source terms; UCloud Dynamic only |
+| `billing_modes` | `--billing-mode` | Public UCloud packages are `monthly`; optional API is on-demand |
 | `regions` | `--region` | Nebius and UCloud only; Lambda / AutoDL / Crusoe unsupported |
-| `compute_countries`, `sales_countries` | `--country`, `--sales-country` | No reliable mapping in current providers; structured error |
+| `compute_countries`, `sales_countries` | `--country`, `--sales-country` | Filtering not enabled; public UCloud still retains official `country_code` metadata |
 | `zones` | `--zone` | UCloud only |
 | `gpu_counts` | `--gpu-count` | Lambda and UCloud only |
 
@@ -63,10 +63,10 @@ gpu-price-monitor validate-config --config configs/collect.example.json
 gpu-price-monitor collect --config configs/collect.example.json --pretty
 ```
 
-The standard example enables Nebius and Crusoe. `configs/collect.free.example.json` enables Lambda and AutoDL. Without explicit providers or configuration, the default remains `nebius,crusoe`. Per-provider filters are supported; validation makes no network requests. Use `--timeout` and `--max-retries` for request options.
+The standard example enables Nebius and Crusoe. `configs/collect.free.example.json` enables Lambda, AutoDL and UCloud. Without explicit providers or configuration, the default remains `nebius,crusoe`. Per-provider filters are supported; validation makes no network requests. Use `--timeout` and `--max-retries` for request options.
 
 ```bash
-gpu-price-monitor collect --config configs/collect.free.example.json --pretty
+gpu-price-monitor collect --config configs/collect.free.example.json --lambda-source public --ucloud-source public --pretty
 ```
 
 For HTTP-only sources, a base `python3 -m pip install -e .` is sufficient. AutoDL requires the optional browser dependency and Chromium installation above.
@@ -81,8 +81,9 @@ Use [`.env.example`](.env.example) as a reference. By default, settings read onl
 | `LAMBDA_SOURCE` | `public` by default; explicitly select `api` for the authenticated catalog |
 | `LAMBDA_API_KEY` | Required only for `LAMBDA_SOURCE=api`; unused for public collection |
 | `NEBIUS_ACCESS_TOKEN` | Reserved for authenticated estimates; not needed for current collection |
-| `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY` | Required for UCloud account quotations |
-| `UCLOUD_PRICE_TARGETS_JSON` / `UCLOUD_PRICE_TARGETS_FILE` | Choose an inline array or UTF-8 JSON target file; up to 20 complete configurations |
+| `UCLOUD_SOURCE` | `public` by default; explicitly select `api` for authenticated quotes |
+| `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY` | Required only for `UCLOUD_SOURCE=api` |
+| `UCLOUD_PRICE_TARGETS_JSON` / `UCLOUD_PRICE_TARGETS_FILE` | API mode only: inline array or UTF-8 file, up to 20 complete targets |
 | `UCLOUD_PROJECT_ID` | Optional UCloud project; subaccounts may require it |
 | `AUTODL_TOKEN`, `AUTODL_STORAGE_STATE_PATH` | Reserved for authenticated features; unused by the free homepage route |
 
@@ -104,12 +105,28 @@ The source is [AutoDL's public homepage](https://www.autodl.com/home). It expose
 
 The homepage does not provide per-machine regional quotes or live inventory. GPU count is unknown. Region, country, zone and card-count filters therefore return structured errors. Lambda and AutoDL have different currencies, so the shared example does not apply a USD-only filter.
 
+## Free UCloud monthly packages
+
+`UCLOUD_SOURCE=public` reads complete promotional packages for activities `10204` / `10216` through anonymous website APIs. Region and zone IDs are checked against official public mappings:
+
+```bash
+gpu-price-monitor collect --providers ucloud --ucloud-source public --pretty
+gpu-price-monitor collect --providers ucloud --region cn-bj2 --zone cn-bj2-02 --billing-mode monthly --pretty
+```
+
+The unit is `gpu_month`, with `instance_price.unit=instance_month`. Monthly prices are preserved and **never divided by 720**. Per-GPU values allocate a complete package, including CPU, RAM, disk and bandwidth.
+
+These are conditional promotions, not standard on-demand market rates. Eligibility, purchase limits, renewal-discount information and offline flags remain part of the result. No offline flag is not proof of stock or purchase eligibility. See [provider research](docs/PROVIDERS.md).
+
+The 2026-10-20 full capture returned 358 records. This [Beijing2 / Zone B / single T4S JSON](examples/ucloud-public-cn-bj2-2026-10-20.json) contains 18 filtered records sampled at 15:23 Asia/Shanghai, all marked `offline`. It is historical listed-price evidence, not available inventory.
+
 ## Optional UCloud and Lambda API
 
-UCloud uses a local `.env` and `configs/ucloud-targets.local.json`, both excluded from Git. Provide your own UCloud public/private keys and verify target configurations. Lambda uses `LAMBDA_API_KEY` only when you explicitly set `LAMBDA_SOURCE=api`. UCloud configuration example:
+Only explicit `UCLOUD_SOURCE=api` / `--ucloud-source api` uses UCloud keys and complete targets in local files excluded from Git. Lambda likewise uses its key only in explicit API mode. Authenticated UCloud example:
 
 ```dotenv
 GPU_PRICE_MONITOR_PROVIDERS=ucloud
+UCLOUD_SOURCE=api
 UCLOUD_PRICE_TARGETS_FILE=configs/ucloud-targets.local.json
 ```
 
@@ -122,7 +139,7 @@ gpu-price-monitor status --env-file .env
 After filling keys and confirming the targets, explicitly run live verification:
 
 ```bash
-gpu-price-monitor collect --env-file .env --providers ucloud --pretty
+gpu-price-monitor collect --env-file .env --providers ucloud --ucloud-source api --pretty
 ```
 
 Python uses `settings=Settings.from_env(env_file=".env")`. Relative target paths resolve against the env file directory, or the working directory without an env file. Process variables override file values, including empty strings. Nonempty JSON and FILE sources in the same layer conflict. See [integration details](docs/DEPLOYMENT.md).
@@ -133,6 +150,6 @@ Missing credentials and inline JSON target errors return provider-level `missing
 
 ## Price semantics and license
 
-Keep original amounts, currencies, units, resource configurations, sources, observation timestamps and effective dates. Lambda public `amount` is the listed GPU-hour rate; `instance_price` is the derived whole-instance total. The optional Lambda API and UCloud instead allocate an instance total across GPU count. Lambda API capacity regions remain separate from pricing scope. UCloud locations come from requested targets and are not independently verified by the response. Component prices, starting prices and sales inquiries remain distinct; listings and quotes do not guarantee availability.
+Keep original amounts, currencies, units, resources, sources and timestamps. Lambda public `amount` is its GPU-hour rate, with a derived instance total. UCloud promotions retain monthly prices and must not be compared directly with hourly rates. Public UCloud locations use official mappings; optional authenticated quotes retain requested locations without independent response verification. Component prices, starting prices, member tariffs and sales inquiries remain distinct. Listings do not guarantee availability.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before adding a provider. Only use read-only operations; do not create or buy resources to obtain a quote. [Apache-2.0](LICENSE) covers project code. Third-party data has separate usage and redistribution constraints; see [data policy](docs/DATA_POLICY.md).

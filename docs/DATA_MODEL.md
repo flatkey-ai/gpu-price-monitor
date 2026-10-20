@@ -1,6 +1,6 @@
 # 返回数据口径与契约
 
-UCloud 报价另带 `target_index`：对应调用方 UCloud 目标数组（内联 JSON 或显式 FILE）的零起始下标，用于在过滤后关联原始目标。项目 ID 不写入报价返回；不同项目即使硬件配置相同，也可通过下标区分。
+仅 UCloud 认证 API 报价另带 `target_index`：对应调用方 UCloud 目标数组（内联 JSON 或显式 FILE）的零起始下标，用于在过滤后关联原始目标。项目 ID 不写入报价返回；不同项目即使硬件配置相同，也可通过下标区分。
 
 `collect_prices` 返回标准 Python `dict`，可使用 `json.dumps` 序列化；`collect` CLI 的 stdout 为 JSON。接口不写数据库，也不自动混入历史缓存。
 
@@ -27,22 +27,22 @@ CLI 退出码 `0` 为全部来源成功（含无匹配）、`2` 为部分来源�
 | `provider`、`product_type` | 来源名称；当前产品类型为 `gpu_instance` |
 | `gpu_model`、`raw_name`、`raw_sku` | GPU 名称、来源原始名称及 SKU；未知 SKU 为 `null` |
 | `gpu_variant`、`vram_gb`、`gpu_count` | 硬件版本、显存和实例 GPU 数量；来源不明确时为 `null` |
-| `amount`、`currency`、`unit` | 原币十进制字符串或询价 `null`；当前单位 `gpu_hour`，不换汇 |
-| `billing_mode` | 可确认的计费方式，如 `on_demand` |
+| `amount`、`currency`、`unit` | 原币十进制字符串或询价 `null`；单位为 `gpu_hour` 或 UCloud 公开促销的 `gpu_month`，不换汇 |
+| `billing_mode` | 可确认的计费方式，如 `on_demand`、公开促销 `monthly` |
 | `price_basis` | `advertised_per_gpu`、`gpu_component`、`starting_price` 或整实例分摊 `instance_total_allocated` |
 | `quote_status` | `quoted`、`starting_at` 或 `contact_sales` |
-| `regions`、`geographic_scope` | 地区列表；公开来源范围为 `regions` / `unspecified`，UCloud 为请求上下文 `requested_zone` |
-| `account_scope` | Nebius / Crusoe / Lambda / AutoDL 公开页为 `public_catalog`；Lambda API 为 `authenticated_catalog`，UCloud 为 `account_quote` |
+| `regions`、`geographic_scope` | 地区列表；公开来源范围为 `regions` / `unspecified`，UCloud 公开套餐为 `zone`，认证 API 为请求上下文 `requested_zone` |
+| `account_scope` | Nebius / Crusoe / Lambda / AutoDL 公开页为 `public_catalog`；Lambda API 为 `authenticated_catalog`，UCloud 公开促销为 `public_promotion`，认证 API 为 `account_quote` |
 | `tax_scope` | 来源可确认时 `excluded`，未知时 `unspecified`；未知值不能视作含税 |
 | `observed_at` | UTC 采样时间 |
 | `effective_from`、`effective_until` | 可确认的 ISO 生效日期，未知为 `null` |
-| `source_url`、`source_type` | 官方来源和类型；Lambda / AutoDL 公开页为 `public_page`，Lambda API 为 `official_api`，UCloud 为 `official_quote_api` |
-| `availability` | 公开页面 / UCloud 为 `unknown`；仅 Lambda API 按容量报告为 `capacity_reported` / `no_capacity_reported`，不保证下单成功 |
+| `source_url`、`source_type` | 官方来源和类型；Lambda / AutoDL 公开页为 `public_page`，Lambda API 为 `official_api`，UCloud 公开促销为 `official_public_api`，API 为 `official_quote_api` |
+| `availability` | 公开页面 / UCloud API 为 `unknown`；UCloud 公开促销保留下线 / 活动状态；仅 Lambda API 按容量报告为 `capacity_reported` / `no_capacity_reported`，不保证下单成功 |
 | `notes` | 价格限制、承诺期、购买条件等来源说明数组 |
 
 Nebius L40S 等拆分报价可额外返回 `components`，说明资源分项。Lambda 默认公开页的 `amount` 是来源挂牌每卡小时价，`price_basis=advertised_per_gpu`；`instance_price` 为该价格乘明确卡数后的派生整实例小时价，不是第二个独立报价。Lambda API / UCloud 则从来源整实例原价除以卡数，使用 `instance_total_allocated`。这些价格属于完整资源包，不等于裸 GPU 单独售价。
 
-`instance_price` 包含十进制字符串 `amount`、`currency`（USD 或 CNY）和 `unit=instance_hour`。UCloud 还可包含白名单金额字段 `original_amount`、`details`、`original_details`；不返回原始账号响应。UCloud `normalization` 明确记录公式 `instance_price.amount / gpu_count`、保留 12 位小数及 `ROUND_HALF_UP` 舍入。
+`instance_price` 包含十进制字符串 `amount`、`currency`（USD 或 CNY）和 `unit=instance_hour` / `instance_month`。UCloud 还可包含白名单金额字段 `original_amount`、`details`、`original_details`；不返回原始账号响应。UCloud `normalization` 明确记录整实例金额按卡数分摊的公式、保留 12 位小数及 `ROUND_HALF_UP` 舍入；公开接口另含分值除以 100 的转换。
 
 Nebius GPU / CPU / RAM 分项价格不等于整实例租价。Crusoe 的 Contact sales 不能生成数值；公开挂牌不代表库存充足或支持自助购买。起价与确定报价需要分别处理，不能无条件进入确定价比较。
 
@@ -55,10 +55,10 @@ Python `filters` 接受数组字段：`gpu_models`、`currencies`、`billing_mod
 | 筛选 | Nebius | Crusoe | Lambda | AutoDL | UCloud |
 | --- | --- | --- | --- | --- | --- |
 | GPU 型号、币种、计费方式 | 支持 | 支持 | 支持 | 支持 | 支持 |
-| 地区 | 依据来源范围核对 | 不支持 | 不支持 | 不支持 | 根据请求 target 本地筛选 |
-| 可用区 | 不支持 | 不支持 | 不支持 | 不支持 | 根据请求 target 本地筛选 |
+| 地区 | 依据来源范围核对 | 不支持 | 不支持 | 不支持 | 公开按官方映射；API 按请求 target |
+| 可用区 | 不支持 | 不支持 | 不支持 | 不支持 | 公开按官方映射；API 按请求 target |
 | 卡数 | 不支持 | 不支持 | 支持 | 不支持 | 支持 |
-| 服务 / 销售国家 | 无可靠映射 | 无可靠映射 | 无可靠映射 | 无可靠映射 | 无可靠映射 |
+| 服务 / 销售国家 | 无可靠映射 | 无可靠映射 | 无可靠映射 | 无可靠映射 | 未开放筛选；公开保留官方 country_code 元数据 |
 
 配置格式支持字段不代表来源支持应用。返回的每来源信息记录请求条件及应用 / 不支持情况，不静默忽略。对来源未说明地区的价格不能标注为指定地区报价，也不能由币种、网页语言或访问 IP 猜测国家。
 
@@ -70,7 +70,21 @@ Lambda 默认公开页来自 `https://lambda.ai/instances`，实例卡数由 8 /
 
 显式选择 `LAMBDA_SOURCE=api` 后，`capacity_regions` 才来自认证目录的容量响应；它不是逐地区价格，不能填入报价 `regions`。API `instance_price` 保留 USD 实例小时原价，`amount` 为按卡数分摊成本，`resources` 使用 `vcpus`、`memory_gib`、`storage_gib`、`architecture`。默认公开模式即使已有 API key 也不请求该目录。
 
-UCloud 的 `instance_price` 为 CNY 整实例小时价，`amount` 为按请求 GPU 数量分摊的值。`resources` 使用 `vcpu_count`、`memory_mb`、`disks` 保留请求资源；`requested_configuration` 保留去掉 `ProjectId` 的请求配置。地区 / 可用区来自请求 target，`geographic_scope=requested_zone`；询价响应不回显这些条件，不能视为独立核验，更不证明有库存或规格可售。
+仅 UCloud API 的 `instance_price` 为 CNY 整实例小时价，`amount` 为按请求 GPU 数量分摊的值。`resources` 使用 `vcpu_count`、`memory_mb`、`disks` 保留请求资源；`requested_configuration` 保留去掉 `ProjectId` 的请求配置。地区 / 可用区来自请求 target，`geographic_scope=requested_zone`；询价响应不回显这些条件，不能视为独立核验，更不证明有库存或规格可售。
+
+## UCloud 公开促销月卡
+
+默认 `UCLOUD_SOURCE=public`。官网匿名 `ListPackage` 返回活动 10204 / 10216 的具体套餐，`CurPrice` 和 `OriginalPrice` 以分计；当前只接受 `DurationUnit=month`、`Durations=[1]`。
+
+`amount` 为 CNY 整套餐月价按 `gpu_count` 分摊，`unit=gpu_month`、`billing_mode=monthly`、`price_basis=instance_total_allocated`。`instance_price` 保留 `amount`、`original_amount`、`currency=CNY`、`unit=instance_month`。**不除以 720 或假定一个月的使用小时数。** 它不是标准按需单价。
+
+`regions` / `zones` 各为已核对的单一 ID，`geographic_scope=zone`。`location` 保存官方 `country_code`、`region`、`zone`、`region_name`、`zone_name`。本版本未开放国家筛选，保留元数据不代表 `--country` 已支持。`resources` 保留 `vcpu_count`、`memory_mb`、`disk_gb`、`disk_type`、`bandwidth_mbps`、`cpu_platform` 等完整套餐配置。
+
+`account_scope=public_promotion`、`source_type=official_public_api`。每个具体 Package × Zone 独立返回，不能用同组最低价复制为不同带宽、资源或位置报价。促销身份和套餐配置应参与调用方的比较 / 去重条件。
+
+`promotion` 保留 `activity_id`、`title`、`only_new_users`、`purchase_limit`、`user_types`、`activity_state`、`activity_status`、`duration`、`duration_unit`、`discount_allow_renew`、`eligibility_verified` 及来源提供的活动起止时间。10204 / 10216 元数据表示新老同享、限购 3 / 5，但前端资格规则存在文案冲突，所以 `eligibility_verified=false`。优惠续费标志不保证未来价格或购买资格。
+
+`availability` 为 `offline`、`ended`、`upcoming` 或 `unknown`，无 `available` 承诺。下线仍可保留挂牌作为证据，不表示能下单。活动元数据、网页规则和实际结算资格需分别核对。
 
 ## AutoDL 普通价与会员价
 
@@ -88,6 +102,6 @@ AutoDL 公开首页每个 GPU 卡片返回两条价目，按标签区分：
 
 ## 错误和调用方责任
 
-错误区分未实现、未支持筛选、网络 / 超时、来源请求、页面 / 文档解析及其他可识别来源失败。仅可选 Lambda API / UCloud 缺凭据返回 `missing_credentials`；UCloud 内联目标缺失或无效分别返回 `missing_price_targets` / `invalid_price_targets`。FILE 读取 / 校验失败为全局 `ConfigurationError`，在来源采集前终止；公开免费路径不需要凭据。诊断不得回显 API key、Cookie、签名、会话内容或原始账号响应。
+错误区分未实现、未支持筛选、网络 / 超时、来源请求、页面 / 文档解析及其他可识别来源失败。仅可选 Lambda API / UCloud API 缺凭据返回 `missing_credentials`；UCloud 内联目标缺失或无效分别返回 `missing_price_targets` / `invalid_price_targets`。FILE 读取 / 校验失败为全局 `ConfigurationError`，在来源采集前终止；公开免费路径不需要凭据。诊断不得回显 API key、Cookie、签名、会话内容或原始账号响应。
 
 库不把错误表示成零元，不自动使用上次成功报价。换汇、数据过期、历史合并、价格变化、数据库和上传都由调用方处理；调用方应保存来源、单位和采样时刻，避免丢失价格语义。

@@ -1,0 +1,609 @@
+{
+  "_fixture_note": "Minimal response projections from the anonymous official GPU page APIs observed on 2026-10-20; historical offline fixture, not live prices or inventory.",
+  "activities": {
+    "Action": "ListActivityResponse",
+    "RetCode": 0,
+    "Data": [
+      {
+        "ActivityId": "10204",
+        "ActivityPurpose": "增收",
+        "BeginTime": 1717171200,
+        "Channel": 1,
+        "DependOnIDList": "",
+        "Description": "",
+        "DiscountStrategy": "折扣",
+        "Duration": 0,
+        "DurationUnit": "",
+        "EndTime": 1924790400,
+        "HistoryIDList": "",
+        "OnlyNewUser": false,
+        "Owner": "",
+        "ProductType": "",
+        "Quota": 3,
+        "RenewStrategy": "",
+        "State": "published",
+        "Title": "GPU促销活动-新老同享,续费同价、限购3台",
+        "TotalQuota": 0,
+        "UserRegisterTime": 0,
+        "UserType": "personal,company,institution"
+      },
+      {
+        "ActivityId": "10216",
+        "ActivityPurpose": "增收",
+        "BeginTime": 1733980926,
+        "Channel": 1,
+        "DependOnIDList": "",
+        "Description": "",
+        "DiscountStrategy": "折扣",
+        "Duration": 0,
+        "DurationUnit": "",
+        "EndTime": 2049513726,
+        "HistoryIDList": "10205",
+        "OnlyNewUser": false,
+        "Owner": "",
+        "ProductType": "",
+        "Quota": 5,
+        "RenewStrategy": "",
+        "State": "published",
+        "Title": "4090-新老同享、续费同价、限购5台(200G磁盘)",
+        "TotalQuota": 0,
+        "UserRegisterTime": 0,
+        "UserType": "personal,company,institution"
+      }
+    ],
+    "TotalCount": 2
+  },
+  "regions": {
+    "Action": "ListAllRegionsResponse",
+    "RetCode": 0,
+    "Message": "Success",
+    "Regions": [
+      {
+        "Region": "cn-bj1",
+        "LocalName": "华北（北京）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-bj2",
+        "LocalName": "华北（北京2）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-wlcb",
+        "LocalName": "华北（乌兰察布）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-wlcb2",
+        "LocalName": "华北（乌兰察布2）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-sh2",
+        "LocalName": "华东（上海2）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-jx",
+        "LocalName": "华东（嘉兴）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-sh",
+        "LocalName": "金融云-华东（上海）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-gd2",
+        "LocalName": "华南（广州2）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-gd",
+        "LocalName": "华南（广州）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "cn-guiyang1",
+        "LocalName": "西南（贵阳）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "hk",
+        "LocalName": "香港",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "tw-tp",
+        "LocalName": "台湾（台北）",
+        "CountryCode": "CN",
+        "Category": "中国"
+      },
+      {
+        "Region": "sg",
+        "LocalName": "新加坡",
+        "CountryCode": "SG",
+        "Category": "亚太"
+      },
+      {
+        "Region": "jpn-tky",
+        "LocalName": "日本（东京）",
+        "CountryCode": "JP",
+        "Category": "亚太"
+      },
+      {
+        "Region": "kr-seoul",
+        "LocalName": "韩国（首尔）",
+        "CountryCode": "KR",
+        "Category": "亚太"
+      },
+      {
+        "Region": "th-bkk",
+        "LocalName": "泰国（曼谷）",
+        "CountryCode": "TH",
+        "Category": "亚太"
+      },
+      {
+        "Region": "idn-jakarta",
+        "LocalName": "印度尼西亚（雅加达）",
+        "CountryCode": "ID",
+        "Category": "亚太"
+      },
+      {
+        "Region": "vn-sng",
+        "LocalName": "越南（胡志明）",
+        "CountryCode": "VN",
+        "Category": "亚太"
+      },
+      {
+        "Region": "ph-mnl",
+        "LocalName": "菲律宾（马尼拉）",
+        "CountryCode": "PH",
+        "Category": "亚太"
+      },
+      {
+        "Region": "ind-mumbai",
+        "LocalName": "印度（孟买）",
+        "CountryCode": "IN",
+        "Category": "亚太"
+      },
+      {
+        "Region": "pk-khi",
+        "LocalName": "巴基斯坦（卡拉奇）",
+        "CountryCode": "PK",
+        "Category": "亚太"
+      },
+      {
+        "Region": "us-den",
+        "LocalName": "美国（丹佛）",
+        "CountryCode": "US",
+        "Category": "美洲"
+      },
+      {
+        "Region": "us-ca",
+        "LocalName": "美国（洛杉矶）",
+        "CountryCode": "US",
+        "Category": "美洲"
+      },
+      {
+        "Region": "us-ws",
+        "LocalName": "美国（华盛顿）",
+        "CountryCode": "US",
+        "Category": "美洲"
+      },
+      {
+        "Region": "bra-saopaulo",
+        "LocalName": "巴西（圣保罗）",
+        "CountryCode": "BR",
+        "Category": "美洲"
+      },
+      {
+        "Region": "rus-mosc",
+        "LocalName": "俄罗斯（莫斯科）",
+        "CountryCode": "RU",
+        "Category": "欧洲、中东及非洲"
+      },
+      {
+        "Region": "ge-fra",
+        "LocalName": "德国（法兰克福）",
+        "CountryCode": "DE",
+        "Category": "欧洲、中东及非洲"
+      },
+      {
+        "Region": "uk-london",
+        "LocalName": "英国（伦敦）",
+        "CountryCode": "GB",
+        "Category": "欧洲、中东及非洲"
+      },
+      {
+        "Region": "uae-dubai",
+        "LocalName": "阿联酋（迪拜）",
+        "CountryCode": "AE",
+        "Category": "欧洲、中东及非洲"
+      },
+      {
+        "Region": "afr-nigeria",
+        "LocalName": "尼日利亚（拉各斯）",
+        "CountryCode": "NG",
+        "Category": "欧洲、中东及非洲"
+      },
+      {
+        "Region": "uz-tas",
+        "LocalName": "乌兹别克斯坦（塔什干）",
+        "CountryCode": "UZ",
+        "Category": "亚太"
+      },
+      {
+        "Region": "kz-ala",
+        "LocalName": "哈萨克斯坦（阿拉木图）",
+        "CountryCode": "KZ",
+        "Category": "亚太"
+      },
+      {
+        "Region": "mx-mex",
+        "LocalName": "墨西哥（墨西哥城）",
+        "CountryCode": "MX",
+        "Category": "美洲"
+      }
+    ]
+  },
+  "zones": {
+    "Action": "ListAllZonesResponse",
+    "RetCode": 0,
+    "Message": "Success",
+    "Zones": [
+      {
+        "Zone": "cn-bj1-01",
+        "Region": "cn-bj1",
+        "LocalName": "华北（北京）可用区A"
+      },
+      {
+        "Zone": "hk-02",
+        "Region": "hk",
+        "LocalName": "香港可用区B"
+      },
+      {
+        "Zone": "cn-bj2-02",
+        "Region": "cn-bj2",
+        "LocalName": "华北（北京2）可用区B"
+      },
+      {
+        "Zone": "cn-bj2-03",
+        "Region": "cn-bj2",
+        "LocalName": "华北（北京2）可用区C"
+      },
+      {
+        "Zone": "us-ca-01",
+        "Region": "us-ca",
+        "LocalName": "美国（洛杉矶）可用区A"
+      },
+      {
+        "Zone": "cn-gd-02",
+        "Region": "cn-gd",
+        "LocalName": "华南（广州）可用区B"
+      },
+      {
+        "Zone": "cn-gd2-01",
+        "Region": "cn-gd2",
+        "LocalName": "华南（广州2）可用区A"
+      },
+      {
+        "Zone": "cn-sh-01",
+        "Region": "cn-sh",
+        "LocalName": "金融云-华东（上海）可用区A"
+      },
+      {
+        "Zone": "cn-sh-02",
+        "Region": "cn-sh",
+        "LocalName": "金融云-华东（上海）可用区B"
+      },
+      {
+        "Zone": "cn-sh-03",
+        "Region": "cn-sh",
+        "LocalName": "金融云-华东（上海）可用区C"
+      },
+      {
+        "Zone": "cn-sh2-01",
+        "Region": "cn-sh2",
+        "LocalName": "华东（上海2）可用区A"
+      },
+      {
+        "Zone": "cn-sh2-02",
+        "Region": "cn-sh2",
+        "LocalName": "华东（上海2）可用区B"
+      },
+      {
+        "Zone": "cn-sh2-03",
+        "Region": "cn-sh2",
+        "LocalName": "华东（上海2）可用区C"
+      },
+      {
+        "Zone": "cn-bj2-05",
+        "Region": "cn-bj2",
+        "LocalName": "华北（北京2）可用区E"
+      },
+      {
+        "Zone": "us-ws-01",
+        "Region": "us-ws",
+        "LocalName": "美国（华盛顿）可用区A"
+      },
+      {
+        "Zone": "ge-fra-01",
+        "Region": "ge-fra",
+        "LocalName": "德国（法兰克福）可用区A"
+      },
+      {
+        "Zone": "kr-seoul-01",
+        "Region": "kr-seoul",
+        "LocalName": "韩国（首尔）可用区A"
+      },
+      {
+        "Zone": "sg-01",
+        "Region": "sg",
+        "LocalName": "新加坡可用区A"
+      },
+      {
+        "Zone": "rus-mosc-01",
+        "Region": "rus-mosc",
+        "LocalName": "俄罗斯（莫斯科）可用区A"
+      },
+      {
+        "Zone": "jpn-tky-01",
+        "Region": "jpn-tky",
+        "LocalName": "日本（东京）可用区A"
+      },
+      {
+        "Zone": "tw-tp-01",
+        "Region": "tw-tp",
+        "LocalName": "台湾（台北）可用区A"
+      },
+      {
+        "Zone": "uae-dubai-01",
+        "Region": "uae-dubai",
+        "LocalName": "阿联酋（迪拜）可用区A"
+      },
+      {
+        "Zone": "idn-jakarta-01",
+        "Region": "idn-jakarta",
+        "LocalName": "印度尼西亚（雅加达）可用区A"
+      },
+      {
+        "Zone": "ind-mumbai-01",
+        "Region": "ind-mumbai",
+        "LocalName": "印度（孟买）可用区A"
+      },
+      {
+        "Zone": "bra-saopaulo-01",
+        "Region": "bra-saopaulo",
+        "LocalName": "巴西（圣保罗）可用区A"
+      },
+      {
+        "Zone": "uk-london-01",
+        "Region": "uk-london",
+        "LocalName": "英国（伦敦）可用区A"
+      },
+      {
+        "Zone": "afr-nigeria-01",
+        "Region": "afr-nigeria",
+        "LocalName": "尼日利亚（拉各斯）可用区A"
+      },
+      {
+        "Zone": "vn-sng-01",
+        "Region": "vn-sng",
+        "LocalName": "越南（胡志明）可用区A"
+      },
+      {
+        "Zone": "cn-jx-01",
+        "Region": "cn-jx",
+        "LocalName": "华东（嘉兴）可用区A"
+      },
+      {
+        "Zone": "ph-mnl-01",
+        "Region": "ph-mnl",
+        "LocalName": "菲律宾（马尼拉）可用区A"
+      },
+      {
+        "Zone": "th-bkk-02",
+        "Region": "th-bkk",
+        "LocalName": "泰国（曼谷）可用区B"
+      },
+      {
+        "Zone": "cn-wlcb-01",
+        "Region": "cn-wlcb",
+        "LocalName": "华北（乌兰察布）可用区A"
+      },
+      {
+        "Zone": "sg-02",
+        "Region": "sg",
+        "LocalName": "新加坡可用区B"
+      },
+      {
+        "Zone": "cn-wlcb2-01",
+        "Region": "cn-wlcb2",
+        "LocalName": "华北（乌兰察布2）可用区A"
+      },
+      {
+        "Zone": "cn-wlcb-03",
+        "Region": "cn-wlcb",
+        "LocalName": "华北（乌兰察布）可用区C"
+      },
+      {
+        "Zone": "cn-guiyang1-01",
+        "Region": "cn-guiyang1",
+        "LocalName": "西南（贵阳）可用区A"
+      },
+      {
+        "Zone": "us-den-01",
+        "Region": "us-den",
+        "LocalName": "美国（丹佛）可用区A"
+      },
+      {
+        "Zone": "pk-khi-01",
+        "Region": "pk-khi",
+        "LocalName": "巴基斯坦（卡拉奇）可用区A"
+      },
+      {
+        "Zone": "rus-mosc-02",
+        "Region": "rus-mosc",
+        "LocalName": "俄罗斯（莫斯科）可用区B"
+      },
+      {
+        "Zone": "uz-tas-01",
+        "Region": "uz-tas",
+        "LocalName": "乌兹别克斯坦（塔什干）可用区A"
+      },
+      {
+        "Zone": "kz-ala-01",
+        "Region": "kz-ala",
+        "LocalName": "哈萨克斯坦（阿拉木图）可用区A"
+      },
+      {
+        "Zone": "mx-mex-01",
+        "Region": "mx-mex",
+        "LocalName": "墨西哥（墨西哥城）可用区A"
+      },
+      {
+        "Zone": "hk-03",
+        "Region": "hk",
+        "LocalName": "香港可用区C"
+      }
+    ]
+  },
+  "packages": {
+    "10204": {
+      "Action": "ListPackageResponse",
+      "Data": [
+        {
+          "ActivityId": "10204",
+          "Channel": 1,
+          "CurPrice": 128648,
+          "DiscountAllowRenew": 1,
+          "DiscountStrategy": "折扣",
+          "DurationUnit": "month",
+          "Durations": [
+            1
+          ],
+          "OriginalPrice": 550100,
+          "PackageDetails": "{\"MachineType\":\"G\",\"UHostFamily\":\"\",\"Cpu\":\"20\",\"Mem\":\"32768\",\"Gpu\":\"2\",\"gpu_type\":\"T4S\",\"Disk\":\"100\",\"DiskType\":\"CLOUD_SSD\",\"Bandwidth\":\"5\",\"NetEnhancedV2\":\"\",\"CpuPlatform\":\"intel\"}",
+          "PackageGroupId": "9862d8bf-71e3-460c-88ca-9db1e0c6fb33",
+          "PackageId": "0308458d-1abf-4f6a-a124-9e1f3adcfd0b",
+          "PackageType": "uhost",
+          "RuleIds": [
+            "10204121",
+            "10204161"
+          ],
+          "Zones": [
+            "cn-sh2-01"
+          ]
+        }
+      ],
+      "RetCode": 0,
+      "TotalCount": 1
+    },
+    "10216": {
+      "Action": "ListPackageResponse",
+      "Data": [
+        {
+          "ActivityId": "10216",
+          "Channel": 1,
+          "CurPrice": 287724,
+          "DiscountAllowRenew": 1,
+          "DiscountStrategy": "折扣",
+          "DurationUnit": "month",
+          "Durations": [
+            1
+          ],
+          "OriginalPrice": 941800,
+          "PackageDetails": "{\"MachineType\":\"G\",\"UHostFamily\":\"\",\"Cpu\":\"32\",\"Mem\":\"131072\",\"Gpu\":\"2\",\"gpu_type\":\"4090\",\"Disk\":\"200\",\"DiskType\":\"CLOUD_SSD\",\"Bandwidth\":\"2\",\"NetEnhancedV2\":\"\",\"CpuPlatform\":\"intel\"}",
+          "PackageGroupId": "711c87ae-ab3a-4b37-a888-9fee1544b4b1",
+          "PackageId": "050f21fd-b8fd-48f7-85fa-503e363b569d",
+          "PackageType": "uhost",
+          "RuleIds": [
+            "1021610",
+            "1021627"
+          ],
+          "Zones": [
+            "cn-sh2-02"
+          ]
+        }
+      ],
+      "RetCode": 0,
+      "TotalCount": 1
+    }
+  },
+  "flags": {
+    "10204": {
+      "Action": "GetActivityFlagsResponse",
+      "Data": [
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-bj2-02"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        },
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-sh2-01"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        },
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-wlcb-01"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        }
+      ],
+      "RetCode": 0
+    },
+    "10216": {
+      "Action": "GetActivityFlagsResponse",
+      "Data": [
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-sh2-02"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        },
+        {
+          "FlagList": [
+            {
+              "FlagKey": "Zone",
+              "FlagVal": "cn-wlcb-01"
+            }
+          ],
+          "FlagType": "Zone",
+          "Value": "offline"
+        }
+      ],
+      "RetCode": 0
+    }
+  }
+}

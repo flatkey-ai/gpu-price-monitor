@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 
-from .settings import ConfigurationError
+from .settings import ConfigurationError, Settings
 
 FILTER_FIELDS = frozenset({
     "compute_countries", "sales_countries", "regions", "zones",
@@ -39,7 +39,7 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
     return result
 
 
-def filter_support(provider: str, filters: dict[str, list]) -> dict:
+def filter_support(provider: str, filters: dict[str, list], *, settings: Settings | None = None) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
     if provider == "nebius":
         supported.add("regions")
@@ -47,16 +47,19 @@ def filter_support(provider: str, filters: dict[str, list]) -> dict:
         supported.add("gpu_counts")
     if provider == "ucloud":
         supported.update({"regions", "zones", "gpu_counts"})
+        reason = ("Matched against the configured quotation request context; availability was not verified."
+                  if settings is not None and settings.ucloud_source == "api" else
+                  "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
+    else:
+        reason = "Matched against explicit quote fields; capacity regions do not establish regional prices."
     return {
         name: {
             "requested": values,
             "status": "applied_locally" if name in supported else "unsupported",
             "reason": (
-                ("Matched against the configured quotation request context; availability was not verified."
-                 if provider == "ucloud" else
-                 "Matched against explicit quote fields; capacity regions do not establish regional prices.")
+                reason
                 if name in supported else
-                "This public source does not provide verifiable values for this condition."
+                "The selected collector does not support verifying this filter."
             ),
         }
         for name, values in filters.items() if values

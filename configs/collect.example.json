@@ -15,7 +15,7 @@
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {
-      "id": "ucloud", "enabled": false, "planned_source": "official_quote_api",
+      "id": "ucloud", "enabled": false, "planned_source": "official_public_api",
       "filters": {"compute_countries": [], "sales_countries": [], "regions": [], "zones": [], "gpu_models": [], "gpu_counts": [], "billing_modes": [], "currencies": []}
     },
     {

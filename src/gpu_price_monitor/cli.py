@@ -102,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--max-retries", type=int)
     collect.add_argument("--lambda-source", choices=("public", "api"),
                          help="Lambda source; public page is the free default, api requires a key")
+    collect.add_argument("--ucloud-source", choices=("public", "api"),
+                         help="UCloud source; public promotional packages are free to read, api requires keys and targets")
     options = {
         "gpu": "gpu_models", "region": "regions", "currency": "currencies",
         "billing-mode": "billing_modes", "country": "compute_countries",
@@ -114,12 +116,15 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings.from_env(env_file=args.env_file)
         if getattr(args, "lambda_source", None) is not None:
             settings = replace(settings, lambda_source=args.lambda_source)
+        if getattr(args, "ucloud_source", None) is not None:
+            settings = replace(settings, ucloud_source=args.ucloud_source)
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
             print("Providers not implemented: " + (", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())) or "none"))
             print("Configured providers: " + ", ".join(settings.providers))
             print("Lambda source: " + settings.lambda_source)
+            print("UCloud source: " + settings.ucloud_source)
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")
             print("No requests were made. Scheduling, storage and uploads belong to the caller.")
             return 0

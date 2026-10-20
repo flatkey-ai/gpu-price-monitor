@@ -3,6 +3,7 @@
   "request": {"timeout_seconds": 30, "max_retries": 2},
   "providers": [
     {"id": "lambda", "enabled": true, "planned_source": "public_page", "filters": {}},
-    {"id": "autodl", "enabled": true, "planned_source": "public_page", "filters": {}}
+    {"id": "autodl", "enabled": true, "planned_source": "public_page", "filters": {}},
+    {"id": "ucloud", "enabled": true, "planned_source": "official_public_api", "filters": {}}
   ]
 }

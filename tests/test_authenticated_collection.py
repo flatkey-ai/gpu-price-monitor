@@ -31,7 +31,7 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(
             providers=("lambda", "ucloud"), max_retries=0,
-            lambda_source="api",
+            lambda_source="api", ucloud_source="api",
             lambda_api_key="synthetic-lambda-key",
             ucloud_public_key="synthetic-public", ucloud_private_key="synthetic-private",
             ucloud_project_id="org-synthetic",
@@ -65,14 +65,14 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
 
     def test_missing_keys_are_structured_without_any_network_request(self):
         with patch("gpu_price_monitor.transport.build_opener") as opener:
-            result = collect_prices(["lambda", "ucloud"], settings=Settings(lambda_source="api"))
+            result = collect_prices(["lambda", "ucloud"], settings=Settings(lambda_source="api", ucloud_source="api"))
         self.assertEqual(result["status"], "failed")
         self.assertTrue(all(p["error"]["code"] == "missing_credentials" for p in result["provider_results"]))
         opener.assert_not_called()
 
     def test_missing_ucloud_targets_do_not_send_a_request(self):
         with patch("gpu_price_monitor.transport.build_opener") as opener:
-            result = collect_prices(["ucloud"], settings=Settings(ucloud_public_key="test", ucloud_private_key="test"))
+            result = collect_prices(["ucloud"], settings=Settings(ucloud_source="api", ucloud_public_key="test", ucloud_private_key="test"))
         self.assertEqual(result["provider_results"][0]["error"]["code"], "missing_price_targets")
         opener.assert_not_called()
 
@@ -104,7 +104,7 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
         targets = json.loads(self.settings.ucloud_price_targets_json)
         first, second = dict(targets[0]), dict(targets[0])
         first["ProjectId"], second["ProjectId"] = "org-first", "org-second"
-        settings = Settings(ucloud_public_key="test", ucloud_private_key="test",
+        settings = Settings(ucloud_source="api", ucloud_public_key="test", ucloud_private_key="test",
                             ucloud_price_targets_json=json.dumps([first, second]), max_retries=0)
         opener = MagicMock()
         opener.open.side_effect = [response("ucloud-price.json"), response("ucloud-price.json")]
@@ -131,9 +131,10 @@ class AuthenticatedIntegrationTests(unittest.TestCase):
         config["providers"][2]["enabled"] = True
         config["providers"][2]["planned_source"] = "official_api"
         config["providers"][3]["enabled"] = True
+        config["providers"][3]["planned_source"] = "official_quote_api"
         self.assertEqual(validate_config(config, settings=self.settings), [])
         out, err = io.StringIO(), io.StringIO()
-        with patch.dict("os.environ", {"LAMBDA_SOURCE": "api"}, clear=True), redirect_stdout(out), redirect_stderr(err):
+        with patch.dict("os.environ", {"LAMBDA_SOURCE": "api", "UCLOUD_SOURCE": "api"}, clear=True), redirect_stdout(out), redirect_stderr(err):
             code = main(["collect", "--providers", "lambda,ucloud"])
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(out.getvalue())["status"], "failed")

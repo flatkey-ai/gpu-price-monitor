@@ -1,6 +1,6 @@
 # GPU 云算力价格采集库实施方案
 
-方案更新：2026-10-20，版本 0.4.0。Lambda 默认公开实例页、AutoDL 公开首页和 Nebius / Crusoe 均可免费读取，共用 Python API / JSON CLI。Lambda API 与 UCloud 认证询价为可选分支，尚未完成成功的真实认证报价联调。
+方案更新：2026-10-20，版本 0.5.0。UCloud 默认公开活动套餐、Lambda 默认公开实例页、AutoDL 公开首页和 Nebius / Crusoe 均可免费读取，共用 Python API / JSON CLI。Lambda API 与 UCloud 认证询价为可选分支，尚未完成成功的真实认证报价联调。
 
 ## 目标与边界
 
@@ -17,10 +17,10 @@
 | Nebius | 官方 Compute 公开计价 Markdown，解析资源分项、币种、地区和生效日期 | GPU 分项不代表整机总成本；认证估价 API 未实现 |
 | Crusoe | 官网 GPU instances HTML 价格区块 | 排除托管推理价格；询价金额为空；未公布逐地区价格 |
 | Lambda | 默认公开实例页；可显式选择旧 API | 公开页无需 key，保留卡数与 GiB / TiB 资源单位；地区未知；可选认证 API 未实测 |
-| UCloud | 按显式完整 target 执行 `GetUHostInstancePrice` | 需公私钥及目标配置；仅 Dynamic 完整 GPU 实例；不自动发现可售规格，未实测认证报价 |
+| UCloud | 默认匿名读取官网月卡活动的具体套餐；可显式选择原认证询价 | 公开路径保留月价、配置、活动限制与地区 / 可用区；下线挂牌不证明可购；认证分支未实测 |
 | AutoDL | 公开首页普通 / 会员价卡片 | 新的未登录本地浏览器；会员条件单列；不代表逐地区 / 机器报价或实时库存 |
 
-官方核查链接见 [平台说明](PROVIDERS.md)。四个公开来源不需要登录、API key、充值、绑卡或租用 GPU 资源；AutoDL 需要可选 Playwright 和本地 Chromium，其他公开 HTTP 来源使用基础依赖。全局默认仍为 Nebius / Crusoe，免费示例配置显式选择 Lambda / AutoDL。
+官方核查链接见 [平台说明](PROVIDERS.md)。五个公开来源不需要登录、API key、充值、绑卡或租用 GPU 资源；AutoDL 需要可选 Playwright 和本地 Chromium，其他公开 HTTP 来源使用基础依赖。全局默认仍为 Nebius / Crusoe，免费示例配置显式选择 Lambda / AutoDL / UCloud。
 
 ## 使用路径
 
@@ -39,7 +39,7 @@ Python API `collect_prices(providers, filters, settings=...)` 返回可 JSON 序
 
 ## 地区与筛选
 
-GPU 型号、币种和计费方式按来源记录筛选。Nebius 地区条件可核对，UCloud 按请求 target 的地区 / 可用区筛选。Lambda / AutoDL / Crusoe 无独立地区价格依据，请求地区时返回结构化错误；仅可选 Lambda API 提供的容量地区也不等于价格地区。卡数筛选支持 Lambda / UCloud，AutoDL 首页没有实例卡数。所有来源均不从地区名猜测国家映射。
+GPU 型号、币种和计费方式按来源记录筛选。Nebius 地区条件可核对，UCloud 公开套餐根据官方地区 / 可用区关联筛选，认证询价根据请求 target 筛选。Lambda / AutoDL / Crusoe 无独立地区价格依据，请求地区时返回结构化错误；仅可选 Lambda API 提供的容量地区也不等于价格地区。卡数筛选支持 Lambda / UCloud，AutoDL 首页没有实例卡数。所有来源均不从地区名猜测国家映射。
 
 来源未知地区保留未知值，不能由币种、网页语言、IP 或地区库存推断价格范围。后续接入 API / 授权网页时，显式传入地区和完整配置，并核对实际返回或选中条件。
 
@@ -49,7 +49,7 @@ GPU 型号、币种和计费方式按来源记录筛选。Nebius 地区条件可
 
 保留原始十进制金额、币种、单位、计费方式、资源包含项和优惠条件，以及来源、采集时间和生效日期。确定报价、起价、需询价、不可用和采集失败分别处理，不用零元表示失败。
 
-GPU 分项不代表整实例成本。Lambda 公开页为挂牌每卡小时价，整实例价是乘以明确卡数的派生值；可选 Lambda API / UCloud 则将整实例原价按卡数分摊。AutoDL 普通价和会员价保留独立身份与资格条件，不混成同一报价。卡数、周期和配置不充分时，不计算单卡小时价或假设每月小时数。跨币种换算、历史去重和涨跌比较由调用方执行。返回值不混入旧缓存；采样 Spot 价格不代表全天最低值。
+GPU 分项不代表整实例成本。Lambda 公开页为挂牌每卡小时价，整实例价是乘以明确卡数的派生值；可选 Lambda API / UCloud 则将整实例原价按卡数分摊。UCloud 公开月卡保留 `gpu_month`，不换算成小时；保留活动限制与下线标记。AutoDL 普通价和会员价保留独立身份与资格条件，不混成同一报价。卡数、周期和配置不充分时，不计算单卡小时价或假设每月小时数。跨币种换算、历史去重和涨跌比较由调用方执行。返回值不混入旧缓存；采样 Spot 价格不代表全天最低值。
 
 ## 后续顺序
 
@@ -63,7 +63,7 @@ GPU 分项不代表整实例成本。Lambda 公开页为挂牌每卡小时价，
 
 ## 验收
 
-- 使用者无需 Flatkey 服务、账号或付款即可运行 Lambda / AutoDL 免费路径。
+- 使用者无需 Flatkey 服务、账号或付款即可运行 Lambda / AutoDL / UCloud 免费路径。
 - JSON 可供其他程序消费；部分失败仍保留成功报价并给出错误。
 - 价格、单位、资源分项、生效时间和范围可追溯到官方来源。
 - 已支持筛选确实应用；未知地区和不支持条件不伪造。

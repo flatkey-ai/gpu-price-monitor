@@ -1,6 +1,6 @@
 # 贡献指南
 
-本项目是可复用的 GPU 云算力价格采集库。贡献前请阅读 [路线图](ROADMAP.md)、[数据契约](docs/DATA_MODEL.md) 和 [平台依据](docs/PROVIDERS.md)。0.4.0 支持 Lambda 默认公开页、AutoDL 首页及 Nebius / Crusoe 公开来源；可选 Lambda API / UCloud 认证分支已有离线样本，尚无成功的真实认证报价记录。
+本项目是可复用的 GPU 云算力价格采集库。贡献前请阅读 [路线图](ROADMAP.md)、[数据契约](docs/DATA_MODEL.md) 和 [平台依据](docs/PROVIDERS.md)。0.5.0 支持 UCloud 免费公开活动套餐、Lambda 默认公开页、AutoDL 首页及 Nebius / Crusoe 公开来源；可选 Lambda API / UCloud 认证分支已有离线样本，尚无成功的真实认证报价记录。
 
 ## 贡献范围
 
@@ -24,6 +24,6 @@ AutoDL 在线核对另需可选 browser 依赖和本地 Chromium，命令见 [�
 
 ## 认证与只读联调
 
-免费路径不使用凭据或已保存登录状态，不因已有 key 自动切换到认证来源。可选 Lambda API 需显式设置模式。认证凭据从进程环境或显式 `Settings.from_env(env_file=...)` / CLI `--env-file` 读取，不隐式搜索 `.env`。不提交真实 API key、Cookie、会话文件、签名或完整控制台响应。结果和诊断仅保留报价必要字段，不回显凭据。
+免费路径不使用凭据或已保存登录状态，不因已有 key 自动切换到认证来源。可选 Lambda / UCloud API 需显式设置对应来源为 `api`。认证凭据从进程环境或显式 `Settings.from_env(env_file=...)` / CLI `--env-file` 读取，不隐式搜索 `.env`。不提交真实 API key、Cookie、会话文件、签名或完整控制台响应。结果和诊断仅保留报价必要字段，不回显凭据。
 
 真实接口联调仅使用价格、规格及容量查询等只读能力，不创建、启动或购买资源来获取报价。遵守来源访问规则，不绕过验证码和访问控制。外部 PR 使用脱敏样本验证，不运行带组织凭据的真实采集。

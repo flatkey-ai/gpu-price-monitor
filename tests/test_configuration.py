@@ -55,6 +55,7 @@ class EnvironmentTests(unittest.TestCase):
             ("GPU_PRICE_MONITOR_MAX_RETRIES", "-1"),
             ("GPU_PRICE_MONITOR_MAX_RETRIES", "11"),
             ("GPU_PRICE_MONITOR_MAX_RETRIES", "secret-not-integer"),
+            ("UCLOUD_SOURCE", "secret-unsupported-source"),
         ]
         for name, value in cases:
             with self.subTest(name=name, value=value):
