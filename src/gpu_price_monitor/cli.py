@@ -13,7 +13,7 @@ from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
 from .csv_export import market_eligible_quote, prices_to_csv, publishable_quote
 from .filters import normalize_filters
-from .settings import ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
+from .settings import CATALOG_SCOPES, ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
 
 
 def validate_config(config: object, *, settings: Settings | None = None) -> list[str]:
@@ -109,14 +109,16 @@ def main(argv: list[str] | None = None) -> int:
                              help="explicit dotenv file; process environment overrides its values")
         command.add_argument("--source-policy", choices=SOURCE_POLICIES, default=None,
                              help="configured sources (default), prefer available APIs, or require APIs only")
+        command.add_argument("--catalog-scope", choices=CATALOG_SCOPES, default=None,
+                             help="standard (default), or complete: include official tariff calculations and reserved conditions; account and sales-only gaps remain")
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
                          help="stdout format (default: json); csv is UTF-8 with a BOM")
     collect.add_argument("--csv-headers", choices=("bilingual", "english"), default="bilingual",
                          help="CSV header labels: English identifiers with Chinese translations (default), or English only")
-    collect.add_argument("--csv-profile", choices=("market", "compact", "full"), default="market",
-                         help="market: numeric GPU-hour catalog and regional quotes (default); compact: verified regional quotes only; full: all records for audit")
+    collect.add_argument("--csv-profile", choices=("market", "catalog", "compact", "full"), default="market",
+                         help="market: numeric GPU-hour quotes (default); catalog: hourly listings including floors and contact sales; compact: verified regional quotes only; full: all records for audit")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
@@ -129,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="Nebius public tariff or explicit authenticated regional configuration estimate")
     collect.add_argument("--autodl-source", choices=("public", "market"),
                          help="AutoDL public tariff or regional market using an explicitly supplied saved session")
+    collect.add_argument("--crusoe-source", choices=("public", "account", "combined"),
+                         help="Crusoe public prices, read-only account contract audit, or both; account audit requires credentials")
     options = {
         "gpu": "gpu_models", "region": "regions", "currency": "currencies",
         "billing-mode": "billing_modes", "country": "compute_countries",
@@ -142,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings.from_env(env_file=args.env_file)
         if args.source_policy is not None:
             settings = replace(settings, source_policy=args.source_policy)
+        if args.catalog_scope is not None:
+            settings = replace(settings, catalog_scope=args.catalog_scope)
         if getattr(args, "lambda_source", None) is not None:
             settings = replace(settings, lambda_source=args.lambda_source)
         if getattr(args, "ucloud_source", None) is not None:
@@ -150,18 +156,24 @@ def main(argv: list[str] | None = None) -> int:
             settings = replace(settings, nebius_source=args.nebius_source)
         if getattr(args, "autodl_source", None) is not None:
             settings = replace(settings, autodl_source=args.autodl_source)
+        if getattr(args, "crusoe_source", None) is not None:
+            settings = replace(settings, crusoe_source=args.crusoe_source)
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
             print("Providers not implemented: " + (", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())) or "none"))
             print("Configured providers: " + ", ".join(settings.providers))
             print("Source policy: " + settings.source_policy)
+            print("Catalog scope: " + settings.catalog_scope)
             for provider in settings.providers:
                 print(f"{provider} source type: {provider_source(provider, settings)}")
             print("Lambda source: " + settings.lambda_source)
             print("UCloud source: " + settings.ucloud_source)
             print("Nebius source: " + settings.nebius_source)
             print("AutoDL source: " + settings.autodl_source)
+            print("Crusoe source: " + settings.crusoe_source)
+            if settings.catalog_scope == "complete":
+                print("Complete mode includes official tariff calculations and reserved conditions; account-specific and sales-only prices may remain unavailable.")
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")
             print("No requests were made. Scheduling, storage and uploads belong to the caller.")
             return 0
@@ -194,6 +206,9 @@ def main(argv: list[str] | None = None) -> int:
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
         _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers, csv_profile=args.csv_profile)
+        if settings.catalog_scope == "complete":
+            print("Complete mode includes official tariff calculations and reserved conditions. "
+                  "Inspect provider coverage and gaps; account-specific and sales-only prices may remain unavailable.", file=sys.stderr)
         if args.format == "csv" and args.csv_profile == "market":
             kept = sum(market_eligible_quote(q) for q in result["prices"])
             regional = sum(publishable_quote(q) for q in result["prices"] if market_eligible_quote(q))

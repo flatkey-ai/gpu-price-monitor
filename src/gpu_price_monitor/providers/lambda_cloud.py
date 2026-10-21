@@ -14,6 +14,7 @@ from ..transport import FetchError, request_json
 
 SOURCE_URL = "https://cloud.lambda.ai/api/v1/instance-types"
 SOURCE_TYPE = "official_api"
+DOCUMENTATION_URL = "https://docs.lambda.ai/api/cloud#list-available-instance-types"
 
 _MEMORY = re.compile(r"\b(\d+)\s*GB\b", re.IGNORECASE)
 _VARIANT = re.compile(r"\b(?:PCIe|SXM\d*|NVLink|HGX)\b", re.IGNORECASE)
@@ -137,6 +138,9 @@ def parse_prices(payload: dict, *, observed_at: str) -> list[dict]:
         result.append({
             "provider": "lambda",
             "product_type": "gpu_instance",
+            "product_line": "On-Demand Cloud",
+            "price_record_kind": "api_catalog_price",
+            "configuration_expansion": False,
             "gpu_model": gpu_model,
             "raw_name": description,
             "raw_sku": name,
@@ -165,6 +169,7 @@ def parse_prices(payload: dict, *, observed_at: str) -> list[dict]:
             "effective_until": None,
             "source_url": SOURCE_URL,
             "source_type": SOURCE_TYPE,
+            "api_documentation_url": DOCUMENTATION_URL,
             "availability": "capacity_reported" if capacity_regions else "no_capacity_reported",
             "notes": notes,
         })

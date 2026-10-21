@@ -61,7 +61,7 @@ class LambdaPublicTests(unittest.TestCase):
             self.assertEqual(quote["currency"], "USD")
             self.assertEqual(quote["currency_source_url"], "https://docs.lambda.ai/api/cloud")
             self.assertEqual(quote["source_type"], "public_page")
-            self.assertEqual(quote["source_url"], "https://lambda.ai/instances")
+            self.assertEqual(quote["source_url"], "https://lambda.ai/pricing")
             self.assertIsNone(quote["raw_sku"])
             self.assertEqual(quote["observed_at"], OBSERVED)
             self.assertIsNone(quote["effective_from"])

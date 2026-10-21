@@ -4,7 +4,18 @@
 
 [English](README.en.md) · [平台来源与限制](docs/PROVIDERS.md) · [数据口径](docs/DATA_MODEL.md) · [文档需求对照](docs/DOCUMENT_COVERAGE.md)
 
-**0.13.0 默认 CSV 改为 10 列 `market` 小时报价表**：既包含已核实地区价，也包含官方没有标明适用地区的有效目录价。目录价明确标注其范围，不复制到多个国家，也不宣称全球统一。需要国家与地区均完整的严格结果时选择 `compact`；所有原始记录用 `full` 审计。
+**0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；登录后的账号路径需要有效凭据，尚未完成真实鉴权验证。
+
+默认 CSV 为 10 列 `market` 小时报价表，包含已核实地区价和明确标注范围的目录价。`catalog` 另保留起价 / 销售询价项（无数值保持空），`compact` 要求国家与价格地区均核实，`full` 保留审计元数据。目录价不复制到多个国家，也不宣称全球统一。
+
+```bash
+# 三家无需浏览器或密钥即可运行公开来源；账号字段按需填写。
+cp .env.three.example .env.three.local
+gpu-price-monitor collect --env-file .env.three.local --pretty > three-prices.json
+gpu-price-monitor collect --env-file .env.three.local --format csv --csv-profile catalog > three-catalog.csv
+```
+
+**2026-10-21 19:37（北京时间）三家实采样本**：156 行目录、136 行有金额，其中 100 行为明确标注的 Nebius 配置计算，另有 20 行需销售询价；Nebius 当前地区 Spot 源费率只有 12 条，按配置展开不能算新增独立报价。[原币目录 CSV](examples/three-catalog-2026-10-21.csv) · [来源、计数与缺口](examples/three-catalog-sources-2026-10-21.json)。账号报价仍待有效凭据验证。
 
 **2026-10-21 17:45（北京时间）五家实采全部成功**：111 条有效小时报价，Nebius 17、Lambda 22、Crusoe 8、AutoDL 24、UCloud·优云智算 40；其中 52 条地区已核实，59 条为目录报价。[下载本批 CSV](examples/five-market-2026-10-21.csv) · [来源与请求状态](examples/five-market-sources-2026-10-21.json)。另有 20 条起价 / 询价只留审计，不算有效报价。本批无账号密钥；这不是所有规格、地区或库存的完整清单。
 
@@ -54,13 +65,15 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 
 金额由程序直接读取接口或固定页面结构，运行时没有模型解读或推测。Nebius 官网 JSON 是网站数据接口，**不是正式稳定的云价目 API**：程序只从 HTML 取得动态构建路由，实际金额来自后续 JSON。UCloud 前端目录只用于发现可询价配置，金额必须取自实际询价响应。
 
-## CSV 三种输出
+## CSV 四种输出
 
 ```bash
 # 默认 market：有效每 GPU 小时目录价 + 地区价，10 列。
 gpu-price-monitor collect --env-file .env.five.local --format csv > prices.csv
 # compact：只要国家与价格地区都已核实的每 GPU 小时价，10 列。
 gpu-price-monitor collect --env-file .env.five.local --format csv --csv-profile compact > prices.regional.csv
+# catalog：10 列目录表，保留明确标注的起价与销售询价项，询价金额留空。
+gpu-price-monitor collect --env-file .env.three.local --format csv --csv-profile catalog > catalog.csv
 # full：全部原始记录，原 51 列审计表。
 gpu-price-monitor collect --env-file .env.five.local --format csv --csv-profile full > prices.audit.csv
 # 程序读取可选择固定英文表头。
@@ -72,6 +85,8 @@ gpu-price-monitor collect --env-file .env.five.local --format csv --csv-headers 
 `market` 与 `compact` 均要求实际数值 `quoted`、`gpu_hour` 和完整 GPU 租用费口径。起步价、GPU 单独组件、月包、Contact sales、资格未核实的特殊优惠及明确下线 / 不可用项不进入报价表。`market` 接受明确标注范围的目录价，缺少地区不再把真实目录报价藏掉；`compact` 额外要求已核实国家与价格地区。未知地区不补成 global。
 
 Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="compact")`、`prices_to_csv(result, profile="full")`。`market_eligible_quote` 检查小时目录 / 地区报价资格，`publishable_quote` 保持严格地区资格；对应列常量为 `MARKET_CSV_*`、`COMPACT_CSV_*` 与 `CSV_*`。
+
+完整目录用 `prices_to_csv(result, profile="catalog")`。`gpu_cluster` 为集群产品，集群总卡数与最短预留时长必须一起读取，不能当单机卡数或普通按需价。Nebius `rate_derivation.independent_provider_quote=false` 表示按已公布费率计算，不是账号询价；`provider_results.catalog_coverage` 分别记录原始费率数量和派生配置数量。
 
 金额保留原币精确十进制字符串，**库不统一换成美元**；月价不除以 720 或其他假定小时数。RackRate 应用另行换汇和发布。CSV 为 UTF-8 BOM / CRLF，不附来源状态表；完整状态、排除原因和审计记录请保留 JSON。stdout 只含所选 JSON 或 CSV，诊断写 stderr；退出码成功 `0`、部分失败 `2`、失败 / 配置错误 `1`。来源成功但所选 profile 无合格行时仅表头，仍退出 `0`。
 

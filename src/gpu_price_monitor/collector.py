@@ -46,9 +46,16 @@ def _selected_module(provider: str, settings: Settings | None = None):
         if settings.nebius_source == "api":
             from .providers import nebius_quote
             return nebius_quote
+        if settings.catalog_scope == "complete" and settings.source_policy != "api_only":
+            from .providers import nebius_catalog_expanded
+            return nebius_catalog_expanded
         if prefer_api:
             from .providers import nebius_spot
             return nebius_spot
+    if provider == "crusoe" and (settings.crusoe_source == "account" or (
+            settings.crusoe_source == "combined" and settings.source_policy == "api_only")):
+        from .providers import crusoe_account
+        return crusoe_account
     if provider == "autodl" and settings.autodl_source == "market":
         from .providers import autodl_market
         return autodl_market
@@ -59,11 +66,17 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
     """Return the selected source type without making any requests."""
     module = _selected_module(provider, settings)
     if module is lambda_cloud:
+        if settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
+            return "official_public_sources"
         return "official_api"
     if module is ucloud:
         return "official_quote_api"
     if provider == "nebius" and settings is not None and settings.nebius_source == "api":
         return "official_quote_api"
+    if provider == "crusoe" and settings is not None and settings.crusoe_source != "public":
+        return "official_public_sources" if settings.crusoe_source == "combined" and settings.source_policy != "api_only" else "official_api"
+    if provider == "nebius" and settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
+        return "official_public_sources"
     if provider == "nebius" and settings is not None and settings.source_policy == "api_preferred":
         return "official_public_sources"
     if provider == "nebius" and settings is not None and settings.source_policy != "configured":
@@ -76,7 +89,30 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
 def _source_selection(provider: str, settings: Settings, module) -> dict:
     source = provider_source(provider, settings)
     if source == "official_public_sources":
+        if provider == "lambda":
+            from .providers import lambda_clusters
+            return {"collection_method": "http_json_and_http_html",
+                    "selection_reason": "account_instance_api_and_public_reserved_catalog",
+                    "fallback_reason": None, "api_endpoint": lambda_cloud.SOURCE_URL,
+                    "source_types": ["official_api", lambda_clusters.SOURCE_TYPE],
+                    "additional_source_urls": [lambda_clusters.SOURCE_URL]}
+        if provider == "crusoe":
+            from .providers import crusoe_account
+            return {"collection_method": "http_html_and_authenticated_json",
+                    "selection_reason": "public_prices_and_account_contract_audit",
+                    "fallback_reason": None, "api_endpoint": crusoe_account.API_ENDPOINT_TEMPLATE,
+                    "source_types": ["public_page", "official_api"],
+                    "additional_source_urls": [crusoe_account.SOURCE_URL]}
         from .providers import nebius_catalog, nebius_spot
+        if settings.catalog_scope == "complete":
+            from .providers import nebius_catalog_expanded
+            return {"collection_method": "http_documents_and_json",
+                    "selection_reason": "official_tariff_preset_calculations_and_regional_spot_api",
+                    "fallback_reason": None, "api_endpoint": nebius_spot.SOURCE_URL,
+                    "source_types": [nebius_catalog_expanded.SOURCE_TYPE, "official_public_api", nebius_catalog.SOURCE_TYPE],
+                    "additional_source_urls": [nebius_catalog_expanded.TYPES_URL,
+                                               nebius_catalog_expanded.REGIONS_URL,
+                                               nebius_spot.SOURCE_URL, nebius_catalog.SOURCE_URL]}
         return {"collection_method": "http_json_with_website_bootstrap",
                 "selection_reason": "regional_spot_api_and_on_demand_website_json",
                 "fallback_reason": None, "api_endpoint": nebius_spot.SOURCE_URL,
@@ -105,7 +141,8 @@ def _source_selection(provider: str, settings: Settings, module) -> dict:
                             "no_verified_gpu_rental_price_api" if provider == "crusoe" else
                             "no_verified_market_price_api" if provider == "autodl" else
                             "no_configured_public_price_api_adapter")
-    api_endpoint = (getattr(module, "API_URL", None) or getattr(module, "SOURCE_URL", None)) if source in API_SOURCE_TYPES else None
+    api_endpoint = (getattr(module, "API_ENDPOINT_TEMPLATE", None) or getattr(module, "API_URL", None)
+                    or getattr(module, "SOURCE_URL", None)) if source in API_SOURCE_TYPES else None
     return {"collection_method": method, "selection_reason": reason, "fallback_reason": fallback,
             "api_endpoint": api_endpoint}
 
@@ -131,6 +168,52 @@ def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = Fals
             if not amount.is_finite() or amount < 0:
                 raise ValueError("Invalid price amount.")
         quote.setdefault("product_type", "gpu_instance")
+
+
+def _source_error(module, exc: Exception) -> dict:
+    """Project safe source failures without exposing configuration values."""
+    if isinstance(exc, FetchError):
+        error = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
+    elif isinstance(exc, ConfigurationError):
+        error = {"code": "configuration_error", "message": str(exc), "retryable": False}
+    else:
+        error = {"code": "parse_failed", "message": "The source structure or price fields were not recognized.", "retryable": False}
+    return {"source_url": module.SOURCE_URL, **error}
+
+
+def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = False) -> tuple[list[dict], list[dict]]:
+    """Keep independently reported source coverage and audit data beside quotes."""
+    quotes, errors = outcome["prices"], outcome.get("errors", [])
+    if not isinstance(quotes, list) or not isinstance(errors, list):
+        raise ValueError("Invalid source outcome")
+    if outcome.get("audit_only") and quotes:
+        raise ValueError("Audit-only records cannot be admitted as GPU prices")
+    context = {key: value for key, value in outcome.items() if key not in {"prices", "contract_records"}}
+    context.setdefault("source_url", module.SOURCE_URL)
+    context.setdefault("source_type", getattr(module, "SOURCE_TYPE", None))
+    result.setdefault("source_contexts", []).append(context)
+    for key in ("catalog_coverage", "coverage", "contract_records", "contract_record_count",
+                "pricing_limitations", "authentication_method", "api_endpoint_template"):
+        if key in outcome:
+            result[key] = outcome[key]
+    if "gaps" in outcome:
+        result.setdefault("gaps", []).extend(outcome["gaps"])
+    if outcome.get("audit_only"):
+        context["account_scope"] = "private_account_contract_audit"
+        result["contract_records_scope"] = "private_account_contract_audit"
+        result["account_audit_only" if supplement else "audit_only"] = True
+    result.setdefault("errors", []).extend(errors)
+    return quotes, errors
+
+
+def _complete_mode_gaps(provider: str, settings: Settings) -> list[dict]:
+    if settings.catalog_scope != "complete" or settings.source_policy != "api_only":
+        return []
+    scope = {"nebius": "public_on_demand_preset_catalog", "lambda": "public_reserved_cluster_catalog",
+             "crusoe": "public_gpu_price_catalog"}.get(provider)
+    return ([{"scope": scope, "status": "source_policy_excluded",
+              "reason": "API-only mode does not collect the independent public document/page catalog."}]
+            if scope else [])
 
 
 def collect_prices(
@@ -188,6 +271,13 @@ def collect_prices(
             "error": None,
             **_source_selection(provider, settings, module),
         }
+        if settings.catalog_scope == "complete":
+            result["catalog_scope"] = "complete"
+            result["gaps"] = _complete_mode_gaps(provider, settings)
+        if provider == "crusoe" and (settings.crusoe_source == "account" or (
+                settings.crusoe_source == "combined" and settings.source_policy == "api_only")):
+            result["audit_only"] = True
+            result["contract_records_scope"] = "private_account_contract_audit"
         if module is nebius:
             from .providers import nebius_spot
             result["additional_source_urls"] = [nebius_spot.SOURCE_URL]
@@ -202,7 +292,37 @@ def collect_prices(
                 is_authenticated = provider_source(provider, settings) in {"official_api", "official_quote_api", "authorized_browser"}
                 target_errors = []
                 source_errors = []
-                if module is ucloud_compshare:
+                completed_sources = 0
+                uses_outcome = hasattr(module, "collect_result")
+                if provider == "crusoe" and settings.crusoe_source == "combined" and module is crusoe:
+                    from .providers import crusoe_account
+                    observed_at, quotes = _now(), []
+                    # Public prices and account contracts are independent. A
+                    # failure in either source must leave the other reviewable.
+                    try:
+                        content = fetch_text(module.SOURCE_URL, settings)
+                        public_quotes = module.parse_prices(content, observed_at=observed_at,
+                                                            as_of=datetime.fromisoformat(observed_at).date())
+                        _check_prices(public_quotes, provider)
+                        quotes.extend(public_quotes)
+                        result.setdefault("source_contexts", []).append({"source_url": module.SOURCE_URL,
+                                                                         "source_type": "public_page", "status": "ok",
+                                                                         "record_count": len(public_quotes)})
+                        completed_sources += 1
+                    except (FetchError, ValueError, KeyError, TypeError, DecimalException) as exc:
+                        source_errors.append(_source_error(module, exc))
+                    try:
+                        outcome = crusoe_account.collect_result(settings=settings, observed_at=observed_at)
+                        audit_quotes, errors = _record_outcome(result, outcome, crusoe_account, supplement=True)
+                        if audit_quotes:
+                            raise ValueError("Account contract audit must not emit GPU prices")
+                        source_errors.extend(errors)
+                        if outcome.get("status") not in {"failed", "partial"}:
+                            completed_sources += 1
+                    except (FetchError, ValueError, KeyError, TypeError, DecimalException) as exc:
+                        source_errors.append(_source_error(crusoe_account, exc))
+                    uses_outcome = True
+                elif module is ucloud_compshare:
                     observed_at = _now()
                     outcome = module.collect_result(settings=settings, observed_at=observed_at,
                                                     regions=conditions[provider].get("regions"),
@@ -212,10 +332,16 @@ def collect_prices(
                     result["discovery"] = outcome["discovery"]
                     result["target_errors"] = target_errors
                     result["product_line"] = module.PRODUCT_LINE
+                elif uses_outcome:
+                    observed_at = _now()
+                    outcome = module.collect_result(settings=settings, observed_at=observed_at)
+                    quotes, source_errors = _record_outcome(result, outcome, module)
+                    completed_sources = int(outcome.get("status") not in {"failed", "partial"})
                 elif hasattr(module, "collect_quotes"):
                     observed_at = _now()
                     extra = {"include_geography": True} if module is ucloud else {}
                     quotes = module.collect_quotes(settings=settings, observed_at=observed_at, **extra)
+                    completed_sources = 1
                     if (provider == "nebius" and settings.nebius_source == "public"
                             and settings.source_policy == "api_preferred"):
                         from .providers import nebius_catalog
@@ -229,6 +355,28 @@ def collect_prices(
                                                   "code": exc.code, "message": str(exc),
                                                   "retryable": exc.retryable})
                         result["source_errors"] = source_errors
+                    if (module is lambda_cloud and settings.catalog_scope == "complete"
+                            and settings.source_policy != "api_only"):
+                        from .providers import lambda_clusters
+                        result["catalog_coverage"] = {"account_instance_quote_count": len(quotes),
+                                                      "public_cluster_record_count": 0}
+                        result.setdefault("source_contexts", []).append({"source_url": lambda_cloud.SOURCE_URL,
+                                                                         "source_type": "official_api", "status": "ok",
+                                                                         "record_count": len(quotes)})
+                        # Account API failure exits before this independent
+                        # reserved catalog is requested; it is not a fallback.
+                        try:
+                            cluster_quotes = lambda_clusters.collect_quotes(settings=settings, observed_at=observed_at)
+                            _check_prices(cluster_quotes, provider)
+                            quotes.extend(cluster_quotes)
+                            result["catalog_coverage"] = {"account_instance_quote_count": len(quotes) - len(cluster_quotes),
+                                                          "public_cluster_record_count": len(cluster_quotes)}
+                            result.setdefault("source_contexts", []).append({"source_url": lambda_clusters.SOURCE_URL,
+                                                                             "source_type": lambda_clusters.SOURCE_TYPE,
+                                                                             "status": "ok", "record_count": len(cluster_quotes)})
+                        except (FetchError, ValueError, KeyError, TypeError, DecimalException) as exc:
+                            source_errors.append(_source_error(lambda_clusters, exc))
+                            result.setdefault("gaps", []).append({"scope": "public_reserved_cluster_catalog", "status": "collection_failed"})
                 else:
                     content = fetch_text(module.SOURCE_URL, settings)
                     observed_at = _now()
@@ -239,11 +387,28 @@ def collect_prices(
                         # rates, including their separate effective times.
                         quotes.extend(nebius_spot.collect_quotes(settings=settings, observed_at=_now()))
                 result["observed_at"] = observed_at
-                _check_prices(quotes, provider, allow_empty=is_authenticated or module is ucloud_compshare,
+                if source_errors:
+                    result["source_errors"] = source_errors
+                _check_prices(quotes, provider, allow_empty=is_authenticated or uses_outcome or module is lambda_cloud,
                               expected_units=("gpu_month",) if module is ucloud_public else
                               ("gpu_hour", "gpu_month") if provider == "nebius" and settings.nebius_source == "api" else ("gpu_hour",))
                 for quote in quotes:
                     describe_geography(quote)
+                if settings.catalog_scope == "complete":
+                    coverage = result.setdefault("catalog_coverage", {})
+                    coverage["collected_record_count"] = len(quotes)
+                    coverage["numeric_hourly_record_count"] = sum(
+                        q["unit"] == "gpu_hour" and q["quote_status"] == "quoted" and q["amount"] is not None
+                        for q in quotes)
+                    coverage["contact_sales_record_count"] = sum(q["quote_status"] == "contact_sales" for q in quotes)
+                    if provider == "lambda":
+                        result["gaps"].append({"scope": "negotiated_or_account_specific_prices",
+                                               "status": "not_established_by_selected_catalog",
+                                               "reason": "Public or API instance catalogs do not establish every account-specific agreement or sales-only price."})
+                    if result.get("audit_only") or result.get("account_audit_only"):
+                        result["gaps"].append({"scope": "crusoe_contract_gpu_hour_prices",
+                                               "status": "unit_currency_and_gpu_product_unverified",
+                                               "reason": "Existing account contracts are audit records; no GPU-hour price is inferred."})
                 result["fetched_count"] = len(quotes)
                 candidates = quotes
                 if any(conditions[provider].get(k) for k in ("regions", "zones", "compute_countries")):
@@ -268,17 +433,19 @@ def collect_prices(
                     prices.extend(matched)
                     result["geography"] = geography_summary(matched)
                     result["returned_count"] = len(matched)
-                    result["status"] = "success" if matched else "no_matches"
+                    result["status"] = "success" if matched or result.get("audit_only") else "no_matches"
                     if target_errors:
                         result["status"] = "partial" if matched else "failed"
                         result["error"] = {"code": "partial_collection" if matched else "quote_failed",
                                            "message": "One or more CompShare hourly quotation targets failed; inspect target_errors.",
                                            "retryable": any(error.get("retryable") for error in target_errors)}
                     elif source_errors:
-                        result["status"] = "partial" if matched else "failed"
+                        result["status"] = "partial" if matched or completed_sources else "failed"
                         result["error"] = {"code": "partial_collection",
-                                           "message": "The independent on-demand website catalog failed; successful regional Spot quotes are retained. Inspect source_errors.",
+                                           "message": "One or more independent sources failed; successful quotes and audit records are retained. Inspect source_errors.",
                                            "retryable": any(error.get("retryable") for error in source_errors)}
+            except ConfigurationError as exc:
+                result["error"] = {"code": "configuration_error", "message": str(exc), "retryable": False}
             except FetchError as exc:
                 result["error"] = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
             except (ValueError, KeyError, TypeError, DecimalException):
@@ -301,7 +468,7 @@ def collect_prices(
         "status": "success" if successful == len(results) else "partial" if successful or any(
             source["status"] == "partial" for source in results) else "failed",
         "execution": {"runtime": "python", "parsing": "deterministic_rules", "uses_llm": False,
-                      "source_policy": settings.source_policy},
+                      "source_policy": settings.source_policy, "catalog_scope": settings.catalog_scope},
         "prices": prices,
         "provider_results": results,
         "geographic_coverage": geography_summary(prices),
@@ -323,4 +490,7 @@ def collect_prices(
         from .coverage import report_coverage
 
         result["coverage"] = report_coverage(result)
+    if settings.catalog_scope == "complete":
+        from .catalog_audit import report_catalog_audit
+        result["catalog_audit"] = report_catalog_audit(result)
     return result

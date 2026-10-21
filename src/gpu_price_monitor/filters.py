@@ -47,7 +47,11 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
             supported.update({"regions", "compute_countries", "gpu_counts"})
         else:
             supported.update({"regions", "compute_countries"})
-            if settings is None or settings.source_policy == "configured":
+            complete_public = (settings is not None and settings.catalog_scope == "complete"
+                               and settings.source_policy != "api_only")
+            if complete_public:
+                supported.add("gpu_counts")
+            if settings is None or settings.source_policy == "configured" or complete_public:
                 supported.update({"coverage_regions", "coverage_countries"})
     if provider in {"lambda", "digitalocean", "verda", "azure"}:
         supported.add("gpu_counts")

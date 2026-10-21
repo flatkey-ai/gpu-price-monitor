@@ -1,0 +1,326 @@
+{
+  "collected_at": "2026-10-21T11:37:43.905122+00:00",
+  "execution": {
+    "runtime": "python",
+    "parsing": "deterministic_rules",
+    "uses_llm": false,
+    "source_policy": "api_preferred",
+    "catalog_scope": "complete"
+  },
+  "status": "success",
+  "catalog_audit": {
+    "schema_version": 1,
+    "scope": "selected_scope",
+    "all_prices_complete": false,
+    "collection_status": "success",
+    "public_collect_status": "success",
+    "selected_scope": {
+      "basis": "returned_records_after_caller_filters",
+      "providers": [
+        "nebius",
+        "lambda",
+        "crusoe"
+      ],
+      "source_policy": "api_preferred",
+      "catalog_scope": "complete"
+    },
+    "totals": {
+      "record_count": 156,
+      "considered_record_count": 156,
+      "excluded_failed_source_record_count": 0,
+      "numeric_quoted_gpu_hour_count": 136,
+      "invalid_numeric_gpu_hour_record_count": 0,
+      "derived_calculation_count": 100,
+      "derived_numeric_quoted_gpu_hour_count": 100,
+      "direct_record_count": 56,
+      "direct_numeric_quoted_gpu_hour_count": 36,
+      "contact_sales_count": 20,
+      "starting_at_count": 0,
+      "regional_record_count": 24,
+      "numeric_regional_gpu_hour_count": 24,
+      "contract_record_count": 0
+    },
+    "providers": [
+      {
+        "provider": "nebius",
+        "collect_status": "success",
+        "public_collect_status": "success",
+        "all_prices_complete": false,
+        "selected_scope": {
+          "basis": "returned_records_after_caller_filters",
+          "source_type": "official_public_sources",
+          "source_url": "https://docs.nebius.com/compute/resources/pricing.md",
+          "filters": {},
+          "fetched_record_count": 102
+        },
+        "record_count": 102,
+        "considered_record_count": 102,
+        "excluded_failed_source_record_count": 0,
+        "numeric_quoted_gpu_hour_count": 100,
+        "invalid_numeric_gpu_hour_record_count": 0,
+        "derived_calculation_count": 100,
+        "derived_numeric_quoted_gpu_hour_count": 100,
+        "direct_record_count": 2,
+        "direct_numeric_quoted_gpu_hour_count": 0,
+        "contact_sales_count": 2,
+        "starting_at_count": 0,
+        "regional_record_count": 24,
+        "numeric_regional_gpu_hour_count": 24,
+        "derived_calculation_by_origin": {
+          "published_tariff_preset_calculation": 76,
+          "regional_spot_preset_calculation": 24
+        },
+        "independent_source_counts": {
+          "raw_exact_gpu_rate_count": 22,
+          "raw_exact_resource_rate_count": 38,
+          "raw_document_gpu_rate_count": 36,
+          "raw_document_resource_rate_count": 52,
+          "reported_spot_api_quote_count": 12
+        },
+        "source_catalog_structure_counts": {
+          "platform_count": 9,
+          "preset_count": 26
+        },
+        "source_published_spot_minimum_count": 14,
+        "source_count_scope": "source_catalog_before_caller_filters; not derived record counts or independent complete-instance quotes",
+        "contract_record_count": 0,
+        "contract_records_scope": "not_reported",
+        "gaps": [
+          {
+            "scope": "account_specific_and_contract_prices",
+            "status": "authentication_required",
+            "login_url": "https://console.nebius.com",
+            "api_url": "https://api.nebius.cloud/billing/v1/calculator/estimate-batch",
+            "documentation_url": "https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch",
+            "requires": [
+              "valid IAM Bearer token",
+              "authorized per-region project IDs",
+              "explicit resource specs"
+            ]
+          },
+          {
+            "scope": "NVIDIA GB300 NVL72",
+            "status": "contact_sales",
+            "source_url": "https://nebius.com/prices",
+            "reason": "Official website requires sales contact; no numeric quote was manufactured."
+          },
+          {
+            "scope": "NVIDIA GB200 NVL72",
+            "status": "contact_sales",
+            "source_url": "https://nebius.com/prices",
+            "reason": "Official website requires sales contact; no numeric quote was manufactured."
+          },
+          {
+            "scope": "contact_sales_listings",
+            "status": "contact_sales",
+            "record_count": 2
+          },
+          {
+            "scope": "published_price_minimums",
+            "status": "starting_at",
+            "reason": "Published minimums do not establish an exact configuration or regional price."
+          }
+        ]
+      },
+      {
+        "provider": "lambda",
+        "collect_status": "success",
+        "public_collect_status": "success",
+        "all_prices_complete": false,
+        "selected_scope": {
+          "basis": "returned_records_after_caller_filters",
+          "source_type": "public_page",
+          "source_url": "https://lambda.ai/pricing",
+          "filters": {},
+          "fetched_record_count": 30
+        },
+        "record_count": 30,
+        "considered_record_count": 30,
+        "excluded_failed_source_record_count": 0,
+        "numeric_quoted_gpu_hour_count": 28,
+        "invalid_numeric_gpu_hour_record_count": 0,
+        "derived_calculation_count": 0,
+        "derived_numeric_quoted_gpu_hour_count": 0,
+        "direct_record_count": 30,
+        "direct_numeric_quoted_gpu_hour_count": 28,
+        "contact_sales_count": 2,
+        "starting_at_count": 0,
+        "regional_record_count": 0,
+        "numeric_regional_gpu_hour_count": 0,
+        "derived_calculation_by_origin": {},
+        "independent_source_counts": {
+          "raw_exact_gpu_rate_count": null,
+          "raw_exact_resource_rate_count": null,
+          "raw_document_gpu_rate_count": null,
+          "raw_document_resource_rate_count": null,
+          "reported_spot_api_quote_count": null
+        },
+        "source_catalog_structure_counts": {
+          "platform_count": null,
+          "preset_count": null
+        },
+        "source_published_spot_minimum_count": null,
+        "source_count_scope": "source_catalog_before_caller_filters; not derived record counts or independent complete-instance quotes",
+        "contract_record_count": 0,
+        "contract_records_scope": "not_reported",
+        "gaps": [
+          {
+            "scope": "negotiated_or_account_specific_prices",
+            "status": "not_established_by_selected_catalog",
+            "reason": "Public or API instance catalogs do not establish every account-specific agreement or sales-only price."
+          },
+          {
+            "scope": "contact_sales_listings",
+            "status": "contact_sales",
+            "record_count": 2
+          }
+        ]
+      },
+      {
+        "provider": "crusoe",
+        "collect_status": "success",
+        "public_collect_status": "success",
+        "all_prices_complete": false,
+        "selected_scope": {
+          "basis": "returned_records_after_caller_filters",
+          "source_type": "public_page",
+          "source_url": "https://www.crusoe.ai/cloud/pricing",
+          "filters": {},
+          "fetched_record_count": 24
+        },
+        "record_count": 24,
+        "considered_record_count": 24,
+        "excluded_failed_source_record_count": 0,
+        "numeric_quoted_gpu_hour_count": 8,
+        "invalid_numeric_gpu_hour_record_count": 0,
+        "derived_calculation_count": 0,
+        "derived_numeric_quoted_gpu_hour_count": 0,
+        "direct_record_count": 24,
+        "direct_numeric_quoted_gpu_hour_count": 8,
+        "contact_sales_count": 16,
+        "starting_at_count": 0,
+        "regional_record_count": 0,
+        "numeric_regional_gpu_hour_count": 0,
+        "derived_calculation_by_origin": {},
+        "independent_source_counts": {
+          "raw_exact_gpu_rate_count": null,
+          "raw_exact_resource_rate_count": null,
+          "raw_document_gpu_rate_count": null,
+          "raw_document_resource_rate_count": null,
+          "reported_spot_api_quote_count": null
+        },
+        "source_catalog_structure_counts": {
+          "platform_count": null,
+          "preset_count": null
+        },
+        "source_published_spot_minimum_count": null,
+        "source_count_scope": "source_catalog_before_caller_filters; not derived record counts or independent complete-instance quotes",
+        "contract_record_count": 0,
+        "contract_records_scope": "not_reported",
+        "gaps": [
+          {
+            "scope": "contact_sales_listings",
+            "status": "contact_sales",
+            "record_count": 16
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      {
+        "provider": "nebius",
+        "scope": "account_specific_and_contract_prices",
+        "status": "authentication_required",
+        "login_url": "https://console.nebius.com",
+        "api_url": "https://api.nebius.cloud/billing/v1/calculator/estimate-batch",
+        "documentation_url": "https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch",
+        "requires": [
+          "valid IAM Bearer token",
+          "authorized per-region project IDs",
+          "explicit resource specs"
+        ]
+      },
+      {
+        "provider": "nebius",
+        "scope": "NVIDIA GB300 NVL72",
+        "status": "contact_sales",
+        "source_url": "https://nebius.com/prices",
+        "reason": "Official website requires sales contact; no numeric quote was manufactured."
+      },
+      {
+        "provider": "nebius",
+        "scope": "NVIDIA GB200 NVL72",
+        "status": "contact_sales",
+        "source_url": "https://nebius.com/prices",
+        "reason": "Official website requires sales contact; no numeric quote was manufactured."
+      },
+      {
+        "provider": "nebius",
+        "scope": "contact_sales_listings",
+        "status": "contact_sales",
+        "record_count": 2
+      },
+      {
+        "provider": "nebius",
+        "scope": "published_price_minimums",
+        "status": "starting_at",
+        "reason": "Published minimums do not establish an exact configuration or regional price."
+      },
+      {
+        "provider": "lambda",
+        "scope": "negotiated_or_account_specific_prices",
+        "status": "not_established_by_selected_catalog",
+        "reason": "Public or API instance catalogs do not establish every account-specific agreement or sales-only price."
+      },
+      {
+        "provider": "lambda",
+        "scope": "contact_sales_listings",
+        "status": "contact_sales",
+        "record_count": 2
+      },
+      {
+        "provider": "crusoe",
+        "scope": "contact_sales_listings",
+        "status": "contact_sales",
+        "record_count": 16
+      }
+    ],
+    "notes": [
+      "Counts describe the selected providers and returned records after caller filters, not an enumeration of the entire market.",
+      "Official catalogs and APIs do not establish every private contract, account discount, resource configuration or sales-only price; all_prices_complete remains false even after successful collection.",
+      "Derived configuration rows are calculations from source rates and presets, not additional independent provider quotations. Direct records include sales/floor listings; direct_numeric_quoted_gpu_hour_count counts exact numeric hourly records only.",
+      "Original source rate/API counts remain separate and may precede caller filters. GPU rate groups, resource component rows, presets and Spot API records must not be added together as independent complete-instance quotations.",
+      "Regional counts require explicit verified price-region or price-zone bindings. Platform coverage and capacity regions do not establish regional prices or stock.",
+      "Contract records are represented by counts only and are not admitted as numeric GPU-hour quotations. Numeric catalog records do not establish availability, final bills or comparable reservation terms."
+    ]
+  },
+  "sources": [
+    {
+      "provider": "nebius",
+      "source_url": "https://docs.nebius.com/compute/resources/pricing.md",
+      "source_type": "official_public_sources",
+      "status": "success",
+      "fetched_count": 102,
+      "returned_count": 102,
+      "source_errors": []
+    },
+    {
+      "provider": "lambda",
+      "source_url": "https://lambda.ai/pricing",
+      "source_type": "public_page",
+      "status": "success",
+      "fetched_count": 30,
+      "returned_count": 30,
+      "source_errors": []
+    },
+    {
+      "provider": "crusoe",
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "public_page",
+      "status": "success",
+      "fetched_count": 24,
+      "returned_count": 24,
+      "source_errors": []
+    }
+  ]
+}

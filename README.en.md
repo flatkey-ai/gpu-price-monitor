@@ -1,5 +1,20 @@
 # GPU Price Monitor
 
+Version 0.14 adds `--catalog-scope complete` for Nebius, Lambda and Crusoe.
+Copy `.env.three.example` to `.env.three.local` and pass `--env-file .env.three.local`.
+The complete mode includes Nebius's explicit tariff/preset cost calculations and current
+regional Spot rates, Lambda's on-demand and reserved cluster catalogs, and Crusoe's
+numeric and sales-only public listings. Calculated configurations are marked as
+derivations, not independent provider quotes. Account adapters require credentials;
+successful live authentication has not yet been verified. See the
+[scope and authentication guide](docs/three-provider-coverage.md).
+
+Use `--format csv --csv-profile catalog` for ten columns including labeled starting-price
+and contact-sales entries (sales amounts stay blank). The default `market` export keeps
+numeric hourly rates, `compact` requires verified country/region price evidence, and
+`full` preserves audit metadata. Reserved clusters retain their commitment terms and
+whole-cluster GPU counts. The library does not convert currencies or publish data.
+
 A standalone GPU price collector for the five providers in the supplied document: **Nebius, Lambda, Crusoe, AutoDL, and UCloud**. Python and the CLI return JSON / CSV. Scheduling, storage, conversion, uploads, comparisons, and website publication belong to the calling application.
 
 [中文](README.md) · [Provider evidence](docs/PROVIDERS.md) · [Data model](docs/DATA_MODEL.md) · [Document coverage](docs/DOCUMENT_COVERAGE.md)

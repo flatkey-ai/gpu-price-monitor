@@ -67,6 +67,8 @@ MARKET_CSV_HEADERS = tuple(
     f"{column}（{'报价适用范围' if column == 'location' else _COMPACT_TRANSLATIONS[column]}）"
     for column in MARKET_CSV_COLUMNS
 )
+CATALOG_CSV_COLUMNS = MARKET_CSV_COLUMNS
+CATALOG_CSV_HEADERS = MARKET_CSV_HEADERS
 
 _JSON_FIELDS = {
     "compute_countries": "compute_countries", "regions": "regions", "zones": "zones",
@@ -172,7 +174,7 @@ def market_eligible_quote(quote: object) -> bool:
     """
     if not isinstance(quote, dict):
         return False
-    if (quote.get("product_type") not in ("gpu_instance", "gpu_container")
+    if (quote.get("product_type") not in ("gpu_instance", "gpu_container", "gpu_cluster")
             or not isinstance(quote.get("gpu_model"), str) or not quote["gpu_model"].strip()
             or quote.get("unit") != "gpu_hour" or quote.get("quote_status") != "quoted"
             or quote.get("price_basis") not in ("advertised_per_gpu", "instance_total_allocated")
@@ -189,6 +191,30 @@ def market_eligible_quote(quote: object) -> bool:
     return True
 
 
+def catalog_eligible_record(quote: object) -> bool:
+    """Keep hourly GPU catalog entries, including explicit sales-only gaps.
+
+    This is a catalog export, not a list of purchasable prices. Component-only
+    rates remain in the full audit export; a sales-only entry never gains a
+    numeric amount, and a From rate remains explicitly labeled as a floor.
+    """
+    if market_eligible_quote(quote):
+        return True
+    if not isinstance(quote, dict):
+        return False
+    if (quote.get("product_type") not in {"gpu_instance", "gpu_container", "gpu_cluster"}
+            or not isinstance(quote.get("gpu_model"), str) or not quote["gpu_model"].strip()
+            or quote.get("unit") != "gpu_hour"
+            or quote.get("quote_status") not in {"contact_sales", "starting_at"}):
+        return False
+    if quote["quote_status"] == "contact_sales":
+        return True
+    try:
+        return quote.get("amount") is not None and bool(_amount_cell(quote["amount"]))
+    except ValueError:
+        return False
+
+
 def _compact_gpu(quote: dict) -> str:
     parts = [str(quote.get("gpu_model") or "型号未说明")]
     for field, suffix in (("gpu_variant", ""), ("vram_gb", "GB/卡"), ("gpu_count", "卡")):
@@ -197,6 +223,12 @@ def _compact_gpu(quote: dict) -> str:
             parts.append(f"{value}{suffix}")
     if quote.get("raw_sku"):
         parts.append("SKU=" + str(quote["raw_sku"]))
+    configuration = quote.get("selected_configuration")
+    if quote.get("product_type") == "gpu_cluster" and isinstance(configuration, dict):
+        count = configuration.get("cluster_gpu_count")
+        if type(count) is int and count > 0:
+            prefix = "至少" if configuration.get("cluster_gpu_count_relation") == "minimum" else ""
+            parts.append(f"集群共{prefix}{count}卡")
     resources = quote.get("resources")
     if isinstance(resources, dict):
         # Keep each published unit: MB, GB and GiB are not interchangeable.
@@ -272,6 +304,9 @@ def _market_location(quote: dict) -> str:
 
 def _compact_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
+    derivation = quote.get("rate_derivation")
+    if isinstance(derivation, dict) and derivation.get("independent_provider_quote") is False:
+        parts.append("官方费率与规格计算；非新增独立报价；只含计算资源，磁盘与网络另计")
     labels = (
         ("billing_mode", {"on_demand": "按需", "spot": "Spot（可中断）", "reserved": "预留",
                           "monthly": "月包", "yearly": "年包"}, "计费"),
@@ -395,6 +430,18 @@ def _market_note_conditions(quote: dict) -> list[str]:
 
 def _market_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
+    status = quote.get("quote_status")
+    if status == "contact_sales":
+        parts.append("需销售报价（官网无数值）")
+    elif status == "starting_at":
+        parts.append("起步价（不是完整配置报价）")
+    derivation = quote.get("rate_derivation")
+    if isinstance(derivation, dict) and derivation.get("independent_provider_quote") is False:
+        if derivation.get("rate_source") == "current_regional_spot_api":
+            parts.append("地区Spot接口价；实例费用按官方规格计算（非新增独立报价）")
+        else:
+            parts.append("官方费率×规格计算（非账号独立询价）")
+        parts.append("只含计算资源，磁盘与网络另计")
     for field, mapping, label in (
         ("billing_mode", {"on_demand": "按需", "spot": "Spot（可中断）", "reserved": "预留"}, "计费"),
         ("pricing_tier", {"ordinary": "普通用户", "member": "会员", "authenticated_market": "认证市场"}, "档位"),
@@ -421,10 +468,21 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
         raise ValueError("CSV instance prices must be objects or null")
     for field, label in (("amount", "整实例总价"), ("original_amount", "整实例原价")):
         if instance and instance.get(field) is not None:
+            if field == "amount" and str(instance.get("scope", "")).startswith("compute_resources_only"):
+                label = "实例计算资源小时费"
             parts.append(label + "=" + " ".join(
                 [_amount_cell(instance[field])] + [str(instance[key]) for key in ("currency", "unit") if instance.get(key) is not None]
             ))
     conditions = quote.get("conditions")
+    if isinstance(conditions, list) and isinstance(derivation, dict):
+        # These adapter-generated explanations are summarized above and in the
+        # location/currency labels. Preserve any other eligibility restriction.
+        conditions = [text for text in conditions if not isinstance(text, str) or not text.startswith((
+            "按官方每小时费率与明确 preset", "只含计算资源；", "USD适用于以色列公司以外客户；"))]
+        if quote.get("currency") == "ILS":
+            parts.append("ILS价适用于以色列公司（客户所在地限制）")
+        elif quote.get("currency") == "USD":
+            parts.append("USD价不适用于以色列公司")
     if isinstance(conditions, dict):
         if conditions.get("product_scope") == "base_vm_without_windows_license":
             parts.append("基础VM，不含Windows许可")
@@ -434,16 +492,53 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
     if conditions:
         parts.append("报价条件=" + ("、".join(map(str, conditions)) if isinstance(conditions, list) else _json_cell(conditions)))
     source_conditions = quote.get("source_conditions")
+    cluster_summary = False
     if isinstance(source_conditions, dict):
         offers = source_conditions.get("offer_types")
         if offers:
             parts.append("价格方案=" + ",".join(map(str, offers)))
+        if quote.get("product_type") == "gpu_cluster":
+            if source_conditions.get("billing_increment") == "week":
+                parts.append("按周结算；价格单位仍为每GPU小时")
+            if source_conditions.get("sales_contact_required") is True:
+                parts.append("需联系销售确认容量与合同")
+            term = source_conditions.get("reservation_term")
+            if isinstance(term, dict):
+                units = {"week": "周", "month": "月", "year": "年"}
+                def duration(value):
+                    if (isinstance(value, dict) and type(value.get("amount")) is int
+                            and value["amount"] > 0 and value.get("unit") in units):
+                        return str(value["amount"]) + units[value["unit"]]
+                    return None
+                minimum, maximum = duration(term.get("minimum")), duration(term.get("maximum"))
+                if minimum and (maximum or term.get("maximum") is None):
+                    parts.append("最低承诺=" + minimum)
+                    parts.append("最长期限=" + maximum if maximum else "期限无上限（需销售确认）")
+                    cluster_summary = True
+        handled = {"offer_types", "aggregation_unit"}
+        if cluster_summary:
+            handled.add("reservation_term")
+        if quote.get("product_type") == "gpu_cluster":
+            if source_conditions.get("billing_increment") == "week":
+                handled.add("billing_increment")
+            if source_conditions.get("sales_contact_required") is True:
+                handled.add("sales_contact_required")
         remaining = {key: value for key, value in source_conditions.items()
-                     if key not in {"offer_types", "aggregation_unit"} and not key.endswith("_url")}
+                     if key not in handled and not key.endswith("_url")}
         if remaining:
             parts.append("来源条件=" + _json_cell(remaining))
     for field, label in (("minimum_commitment", "最低承诺"), ("selected_configuration", "选定配置"),
                          ("requested_configuration", "询价配置")):
+        if field == "minimum_commitment" and cluster_summary:
+            continue
+        if field == "selected_configuration":
+            if quote.get("product_type") == "gpu_cluster":
+                continue  # Whole-cluster count is already in the GPU label.
+            if isinstance(derivation, dict):
+                configuration = quote.get(field)
+                if isinstance(configuration, dict) and configuration.get("preset"):
+                    parts.append("规格=" + str(configuration["preset"]))
+                continue  # Coverage belongs in JSON, never the price location.
         value = _json_cell(quote.get(field))
         if value:
             parts.append(label + "=" + value)
@@ -486,6 +581,8 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     are excluded. ``profile="compact"`` retains the stricter requirement for
     verified country and region evidence. ``profile="full"`` retains every
     source record, the original 51-column schema and all metadata.
+    ``profile="catalog"`` uses the same ten columns but also keeps explicitly
+    labeled starting-price and contact-sales entries, with sales amounts blank.
 
     Input order, native decimal strings, billing periods and source geography
     are retained. No currencies or month/hour units are converted. Null and
@@ -506,8 +603,8 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     """
     if type(bilingual_headers) is not bool:
         raise ValueError("bilingual_headers must be boolean")
-    if not isinstance(profile, str) or profile not in {"market", "compact", "full"}:
-        raise ValueError("profile must be market, compact or full")
+    if not isinstance(profile, str) or profile not in {"market", "compact", "full", "catalog"}:
+        raise ValueError("profile must be market, compact or full; catalog is also supported")
     if not isinstance(result, dict) or not isinstance(result.get("prices"), list):
         raise ValueError("CSV input must be a collection result with a prices list")
     output = io.StringIO(newline="")
@@ -520,8 +617,9 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     for quote in result["prices"]:
         if not isinstance(quote, dict):
             raise ValueError("CSV price records must be objects")
-        if profile in {"market", "compact"}:
-            eligible = publishable_quote if profile == "compact" else market_eligible_quote
+        if profile in {"market", "compact", "catalog"}:
+            eligible = (publishable_quote if profile == "compact" else
+                        catalog_eligible_record if profile == "catalog" else market_eligible_quote)
             if not eligible(quote):
                 continue
             row = {
