@@ -13,6 +13,7 @@ configs/*.local.json
 data/
 evidence/
 playwright/.auth/
+*.storage-state.json
 *.sqlite
 *.sqlite3
 *.db

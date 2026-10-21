@@ -1,0 +1,43 @@
+[
+  {
+    "project_id": "project-replace-with-your-project-id",
+    "region": "eu-north1",
+    "country_code": "FI",
+    "gpu_model": "H100",
+    "gpu_variant": "SXM",
+    "gpu_count": 8,
+    "vram_gb": 80,
+    "currency": "usd",
+    "aggregation_units": ["hour", "month"],
+    "offer_types": [],
+    "zones": [],
+    "resource_specs": [
+      {
+        "spec": {
+          "@type": "type.googleapis.com/nebius.compute.v1.CreateInstanceRequest",
+          "metadata": {
+            "parentId": "project-replace-with-your-project-id",
+            "name": "quote-example-vm"
+          },
+          "spec": {
+            "resources": {
+              "platform": "gpu-h100-sxm",
+              "preset": "8gpu-128vcpu-1600gb"
+            },
+            "onDemand": {},
+            "bootDisk": {
+              "attachMode": "READ_WRITE",
+              "managedDisk": {
+                "name": "quote-example-boot",
+                "spec": {
+                  "type": "NETWORK_SSD",
+                  "sizeGibibytes": "100"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

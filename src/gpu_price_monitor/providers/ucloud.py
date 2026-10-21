@@ -9,7 +9,7 @@ and disks; the per-GPU amount is a cost allocation, not a GPU-only tariff.
 from __future__ import annotations
 
 from copy import deepcopy
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
+from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 import hashlib
 import json
 import re
@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 
 from ..settings import Settings
 from ..transport import FetchError, request_json
+from . import ucloud_public
 
 SOURCE_URL = "https://api.ucloud.cn/"
 DOCUMENTATION_URL = "https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price"
@@ -200,7 +201,8 @@ def _price_detail(value: object) -> dict:
             for name in ("UHost", "UDisk", "Snapshot", "Volume") if name in value}
 
 
-def parse_quote(payload: dict, target: dict, *, observed_at: str) -> dict:
+def parse_quote(payload: dict, target: dict, *, observed_at: str,
+                location_catalog: dict | None = None) -> dict:
     """Return one normalized quote, rejecting API errors and ambiguous periods."""
     if not isinstance(payload, dict) or type(payload.get("RetCode")) is not int:
         raise ValueError("UCloud response is missing a numeric result code")
@@ -214,11 +216,12 @@ def parse_quote(payload: dict, target: dict, *, observed_at: str) -> dict:
         raise ValueError("UCloud did not return one hourly price")
     raw = prices[0]
     instance_amount = _amount(raw.get("Price"))
-    with localcontext() as context:
-        context.prec = 50
+    with localcontext(Context(prec=50, rounding=ROUND_HALF_UP)):
         allocated = (instance_amount / Decimal(target["GPU"])).quantize(
             Decimal("0.000000000001"), rounding=ROUND_HALF_UP,
         )
+    if instance_amount > 0 and allocated == 0:
+        raise ValueError("A positive UCloud price cannot round to a free GPU rate")
     amount = format(allocated, "f").rstrip("0").rstrip(".") or "0"
     instance_price = {"amount": format(instance_amount, "f"), "currency": "CNY", "unit": "instance_hour"}
     if "OriginalPrice" in raw:
@@ -227,7 +230,13 @@ def parse_quote(payload: dict, target: dict, *, observed_at: str) -> dict:
         if name in raw:
             instance_price[output] = _price_detail(raw[name])
     requested_configuration = {name: deepcopy(value) for name, value in target.items() if name != "ProjectId"}
-    return {
+    # A country is a property of the official location mapping, not something
+    # the price response echoes. Missing or mismatching supplied mappings fail
+    # closed rather than assign a country from a region prefix.
+    location = (None if location_catalog is None else ucloud_public.resolve_location(
+        location_catalog, region=target["Region"], zone=target["Zone"],
+    ))
+    quote = {
         "provider": "ucloud", "product_type": "gpu_instance",
         "gpu_model": target["GpuType"].upper(), "gpu_variant": None,
         "raw_name": f"UHost {target['MachineType']} {target['GpuType']}",
@@ -235,6 +244,7 @@ def parse_quote(payload: dict, target: dict, *, observed_at: str) -> dict:
         "amount": amount, "currency": "CNY", "unit": "gpu_hour",
         "billing_mode": "on_demand", "price_basis": "instance_total_allocated",
         "quote_status": "quoted", "regions": [target["Region"]], "zones": [target["Zone"]],
+        "compute_countries": [] if location is None else [location["country_code"]],
         "geographic_scope": "requested_zone", "account_scope": "account_quote",
         "tax_scope": "unspecified", "observed_at": observed_at,
         "effective_from": None, "effective_until": None,
@@ -254,14 +264,36 @@ def parse_quote(payload: dict, target: dict, *, observed_at: str) -> dict:
             "Bandwidth, traffic and other services not included in this request may be billed separately.",
         ],
     }
+    if location is not None:
+        quote["location"] = location
+        quote["location_source"] = ucloud_public.location_source(
+            price_location_basis="requested_region_and_zone",
+        )
+        quote["notes"].append(
+            "Country is mapped from the anonymous official region/zone directory using the exact requested pair; it does not establish GPU stock or independently confirm the price response's location."
+        )
+    return quote
 
 
-def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:
-    """Fetch hourly quotes for the configured targets, failing closed on error."""
+def collect_quotes(*, settings: Settings, observed_at: str,
+                   include_geography: bool = False) -> list[dict]:
+    """Fetch hourly configuration quotes, optionally mapping their countries.
+
+    The optional mapping adds two anonymous directory requests. All target
+    pairs must match before any signed price request is sent; directory errors
+    propagate, and no global catalog rate is substituted.
+    """
+    if type(include_geography) is not bool:
+        raise ValueError("UCloud include_geography must be a boolean")
     if any(not isinstance(value, str) or not value.strip()
            for value in (settings.ucloud_public_key, settings.ucloud_private_key)):
         raise FetchError("missing_credentials", "Set UCLOUD_PUBLIC_KEY and UCLOUD_PRIVATE_KEY to collect UCloud configuration quotes.")
     targets = load_targets(settings)
+    location_catalog = (ucloud_public.load_location_catalog(settings=settings)
+                        if include_geography else None)
+    if include_geography:
+        for target in targets:
+            ucloud_public.resolve_location(location_catalog, region=target["Region"], zone=target["Zone"])
     result = []
     for target_index, target in enumerate(targets):
         body = build_request(target, settings.ucloud_public_key, settings.ucloud_private_key)
@@ -270,7 +302,8 @@ def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data=body, authenticated=True,
         )
-        quote = parse_quote(payload, target, observed_at=observed_at)
+        quote = parse_quote(payload, target, observed_at=observed_at,
+                            location_catalog=location_catalog)
         # Link filtered results to the caller's original target without
         # returning account/project identifiers in the price data.
         quote["target_index"] = target_index

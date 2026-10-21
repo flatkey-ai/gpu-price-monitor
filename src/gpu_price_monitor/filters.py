@@ -41,12 +41,16 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
 
 def filter_support(provider: str, filters: dict[str, list], *, settings: Settings | None = None) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
-    if provider in {"nebius", "azure"}:
+    if provider == "nebius":
         supported.add("regions")
-    if provider in {"lambda", "digitalocean", "verda", "ebcloud", "azure"}:
+        if settings is not None and settings.nebius_source == "api":
+            supported.update({"compute_countries", "gpu_counts"})
+    if provider == "lambda":
         supported.add("gpu_counts")
+    if provider == "autodl" and settings is not None and settings.autodl_source == "market":
+        supported.add("regions")
     if provider == "ucloud":
-        supported.update({"regions", "zones", "gpu_counts"})
+        supported.update({"compute_countries", "regions", "zones", "gpu_counts"})
         reason = ("Matched against the configured quotation request context; availability was not verified."
                   if settings is not None and settings.ucloud_source == "api" else
                   "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
@@ -73,7 +77,7 @@ def apply_filters(prices: list[dict], filters: dict[str, list]) -> list[dict]:
         for name, values in filters.items():
             if not values:
                 continue
-            if name in {"regions", "zones"}:
+            if name in {"regions", "zones", "compute_countries", "sales_countries"}:
                 match = bool(set(values) & set(quote.get(name, [])))
             elif name == "gpu_counts":
                 match = quote.get("gpu_count") in values

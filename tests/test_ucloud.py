@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs
 
-from gpu_price_monitor.providers import ucloud
+from gpu_price_monitor.providers import ucloud, ucloud_public
 from gpu_price_monitor.settings import Settings
 from gpu_price_monitor.transport import FetchError
 
@@ -40,6 +40,11 @@ def settings_for(items=None, **updates):
 
 def response():
     return json.loads((FIXTURES / "ucloud-price.json").read_text(), parse_float=Decimal)
+
+
+def location_catalog():
+    data = json.loads((FIXTURES / "ucloud-public-catalog.json").read_text())
+    return ucloud_public.parse_location_catalog(data["regions"], data["zones"])
 
 
 class UCloudTests(unittest.TestCase):
@@ -93,6 +98,80 @@ class UCloudTests(unittest.TestCase):
         self.assertEqual(quotes[0]["account_scope"], "account_quote")
         self.assertEqual(quotes[0]["availability"], "unknown")
         self.assertEqual(quotes[0]["observed_at"], OBSERVED)
+        self.assertEqual(quotes[0]["compute_countries"], [])
+        self.assertNotIn("location_source", quotes[0])
+
+    def test_country_mapping_requires_the_exact_requested_region_and_zone(self):
+        quote = ucloud.parse_quote(response(), target(Region="us-ca", Zone="us-ca-01"),
+                                   observed_at=OBSERVED, location_catalog=location_catalog())
+        self.assertEqual(quote["compute_countries"], ["US"])
+        self.assertEqual(quote["location"]["country_code"], "US")
+        self.assertEqual(quote["location"]["region"], "us-ca")
+        self.assertEqual(quote["location"]["zone"], "us-ca-01")
+        self.assertEqual(quote["location_source"]["price_location_basis"], "requested_region_and_zone")
+        self.assertEqual(quote["location_source"]["country_field"], "CountryCode")
+        self.assertEqual(quote["availability"], "unknown")
+        self.assertEqual(quote["geographic_scope"], "requested_zone")
+        self.assertEqual(quote["instance_price"]["unit"], "instance_hour")
+        self.assertEqual(quote["resources"]["memory_mb"], 32768)
+        self.assertEqual(quote["amount"], "4.2")
+
+    def test_unknown_or_mismatched_location_does_not_use_a_region_prefix_fallback(self):
+        for item in (target(Zone="cn-bj2-unknown"), target(Zone="us-ca-01")):
+            with self.subTest(item=item), self.assertRaises(FetchError) as captured:
+                ucloud.parse_quote(response(), item, observed_at=OBSERVED,
+                                   location_catalog=location_catalog())
+            self.assertEqual(captured.exception.code, "unverifiable_geography")
+
+    @patch("gpu_price_monitor.providers.ucloud.ucloud_public.load_location_catalog")
+    @patch("gpu_price_monitor.providers.ucloud.request_json")
+    def test_optional_geography_preserves_each_targets_native_price_and_context(self, request, load):
+        load.return_value = location_catalog()
+        american = response()
+        american["PriceSet"][0]["Price"] = Decimal("12.60")
+        request.side_effect = [response(), american]
+        settings = settings_for([target(), target(Region="us-ca", Zone="us-ca-01")])
+        quotes = ucloud.collect_quotes(settings=settings, observed_at=OBSERVED, include_geography=True)
+        load.assert_called_once_with(settings=settings)
+        self.assertEqual([q["compute_countries"] for q in quotes], [["CN"], ["US"]])
+        self.assertEqual([q["amount"] for q in quotes], ["4.2", "6.3"])
+        self.assertEqual([q["target_index"] for q in quotes], [0, 1])
+        self.assertEqual([q["location"]["zone"] for q in quotes], ["cn-bj2-02", "us-ca-01"])
+        for call, region in zip(request.call_args_list, ("cn-bj2", "us-ca")):
+            fields = parse_qs(call.kwargs["data"].decode())
+            self.assertEqual(fields["Region"], [region])
+            self.assertEqual(fields["Memory"], ["32768"])
+            self.assertEqual(fields["ChargeType"], ["Dynamic"])
+            self.assertTrue(call.kwargs["authenticated"])
+
+    @patch("gpu_price_monitor.providers.ucloud.ucloud_public.load_location_catalog")
+    @patch("gpu_price_monitor.providers.ucloud.request_json")
+    def test_all_location_pairs_are_verified_before_signed_price_requests(self, request, load):
+        load.return_value = location_catalog()
+        settings = settings_for([target(), target(Zone="cn-bj2-unknown")])
+        with self.assertRaises(FetchError) as captured:
+            ucloud.collect_quotes(settings=settings, observed_at=OBSERVED, include_geography=True)
+        self.assertEqual(captured.exception.code, "unverifiable_geography")
+        request.assert_not_called()
+
+    @patch("gpu_price_monitor.providers.ucloud.ucloud_public.load_location_catalog")
+    @patch("gpu_price_monitor.providers.ucloud.request_json")
+    def test_geography_failure_is_not_a_price_or_silent_fallback(self, request, load):
+        load.side_effect = FetchError("public_api_error", "Public directory rejected the request.")
+        with self.assertRaises(FetchError) as captured:
+            ucloud.collect_quotes(settings=settings_for(), observed_at=OBSERVED, include_geography=True)
+        self.assertEqual(captured.exception.code, "public_api_error")
+        request.assert_not_called()
+
+    @patch("gpu_price_monitor.providers.ucloud.ucloud_public.load_location_catalog")
+    @patch("gpu_price_monitor.providers.ucloud.request_json")
+    def test_geography_flag_is_explicit_and_disabled_by_default(self, request, load):
+        request.return_value = response()
+        ucloud.collect_quotes(settings=settings_for(), observed_at=OBSERVED)
+        load.assert_not_called()
+        for flag in (None, "true", 1):
+            with self.subTest(flag=flag), self.assertRaises(ValueError):
+                ucloud.collect_quotes(settings=settings_for(), observed_at=OBSERVED, include_geography=flag)
 
     def test_normalization_is_independent_of_callers_decimal_context(self):
         payload = response()

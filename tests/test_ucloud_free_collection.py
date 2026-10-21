@@ -143,11 +143,11 @@ class UCloudFreeCollectionTests(unittest.TestCase):
         self.assertEqual(provider["fetched_count"], 3)
         self.assertEqual(provider["returned_count"], 0)
 
-    def test_unpublished_country_scope_fails_before_collection(self):
+    def test_missing_source_country_is_unverifiable_after_collection(self):
         result = collect_prices(["ucloud"], {"compute_countries": ["CN"]}, settings=Settings())
         self.assertEqual(result["status"], "failed")
-        self.assertEqual(result["provider_results"][0]["error"]["code"], "unsupported_filter")
-        self.public.assert_not_called()
+        self.assertEqual(result["provider_results"][0]["error"]["code"], "unverifiable_filter")
+        self.public.assert_called_once()
         self.authenticated.assert_not_called()
         self.transport.assert_not_called()
 
@@ -165,7 +165,7 @@ class UCloudFreeCollectionTests(unittest.TestCase):
         self.assertEqual(result["prices"][0]["unit"], "gpu_hour")
         self.assertEqual(result["provider_results"][0]["source_type"], "official_quote_api")
         self.assertEqual(result["provider_results"][0]["source_url"], ucloud.SOURCE_URL)
-        self.authenticated.assert_called_once_with(settings=settings, observed_at=OBSERVED)
+        self.authenticated.assert_called_once_with(settings=settings, observed_at=OBSERVED, include_geography=True)
         self.public.assert_not_called()
         self.assertNotIn("synthetic-", json.dumps(result))
 

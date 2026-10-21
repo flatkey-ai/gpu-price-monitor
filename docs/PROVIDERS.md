@@ -1,111 +1,81 @@
 # 平台能力与官方依据
 
-文档核查日期：2026-10-20。0.6.0 接入 Nebius、Crusoe、Lambda、AutoDL、UCloud、RunPod、DigitalOcean、Verda、EBCloud、Suanli、Azure 共 11 家官方公开来源。公开模式无需账号、密钥、充值、绑卡或购买 GPU 资源；AutoDL 需要本地浏览器依赖。可选 Lambda API / UCloud 认证分支仅有离线样本验证，没有成功的真实认证报价记录。
+核查与实现口径：2026-10-21，版本 0.7.0。当前仅支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud**，`all` 也只选择这五家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
 
-型号覆盖报告针对一次返回的 `prices`，只索引型号族，不合并价格或比较不同产品。它不代表所有厂商、地区和库存已经完整采集。见 [11 家来源 JSON](../examples/all-providers-2026-10-20.json) 和 [主流型号覆盖报告](../examples/mainstream-coverage-2026-10-20.json)。
+本页说明来源、单位和地理证据；实际条数随来源变化。最近的 [五家公开实抓](../examples/five-providers-2026-10-21.json) 为北京时间 2026-10-21 14:35，共 480 条：Nebius 36、Crusoe 24、Lambda 22、AutoDL 24、UCloud 374。374 条 UCloud 均为中国已下线月包，36 条 Nebius 仅标平台覆盖，其余 70 条未绑定价格地区。采集成功不等于当前可购或覆盖所有国家。
 
-2026-10-20 北京时间 16:01 的完整 CLI 采集成功返回 746 条记录（734 条数值价格、12 条联系销售），内置 34 个目标型号族均为 `priced`，零缺口。`priced` 表示有未标下线的数值挂牌，不保证库存、结算总价或每个显存及硬件变体均已覆盖；`extra_models` 的 26 个标签可能包含同系列保守别名，不能作为唯一物理型号数。
+## 地理与金额共同约定
 
-## RunPod：匿名 GPU Pods 目录
+- `compute_countries` 表示价格所绑定的部署国家，使用 ISO 两字母代码。币种、销售税区、公司所在地、容量地区和机房覆盖不能单独证明这个字段。
+- `regions` / `zones` 保留来源代码。`price_scope` 区分未知位置目录、平台覆盖、地区 / 可用区报价及请求配置询价。`geographic_coverage` 只汇总本批返回的证据，不是库存报告。
+- 地区、国家和可用区组合必须在同一报价内成立。来源不支持的维度返回 `unsupported_filter`；支持但证据不足返回 `unverifiable_filter`。
+- 金额字符串、币种、GPU / 整实例单位、配置、折扣和生效日期保留。按月不折算为假定小时数；未知金额不填 0；`observed_at` 是抓取时刻，不是价格生效日。
 
-- 使用 [官方 GraphQL](https://api.runpod.io/graphql) 的只读 `gpuTypes` 查询，无 Authorization、API key 或登录态。来源标签 `official_public_api`，价格入口为 [官网价格页](https://www.runpod.io/pricing)。
-- 2026-10-20 实抓 46 个完整 GPU 变体、68 条数值（Secure 31、Community 37）。包括 RTX 30 / 40 / 50 系列、RTX A / Ada / PRO、A100、H100、H200、B200、B300、MI300X、MI350X 等；数量仅描述该次采样。
-- `securePrice` / `communityPrice` 必须配合 `secureCloud` / `communityCloud` 标志。禁用云层仍可能带占位金额，不能作为可用价格。空价、零价、未启用条目和 MIG / vGPU 分区不进入完整 GPU 结果。
-- 两种云层分别保留 `cloud_tier`、`conditions.cloud_type`，金额为公开 USD / GPU / 小时目录价，存储另计。目录没有完整实例卡数和 CPU / RAM 配置，`gpu_count=null`，不推导整机价。
-- 地区、可用区、国家及库存均未知，不能拿机房库存地点替代价格范围。支持型号、币种和计费方式筛选。
-- [官方价格口径](https://www.runpod.io/articles/comparison/runpod-vs-replicate)明确目录价按 GPU 小时计；[GraphQL schema](https://graphql-spec.runpod.io/)定义目录字段；[Pods 计价说明](https://docs.runpod.io/pods/pricing)说明存储另计。
+## Nebius：公开组件价与可选配置估价
 
-## DigitalOcean：公开 GPU Droplet 按需 / Spot 文档
+默认 `NEBIUS_SOURCE=public`，读取 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing) 的 [官方 Markdown](https://docs.nebius.com/compute/resources/pricing.md)。解析 GPU / CPU / RAM 分项、USD / ILS、按需 / Spot 及来源明确的生效日期；存在多个日期区间时按采样日期选择，未知或冲突结构会失败。GPU 分项不等于整机费用；Spot 的 From 保留为起价。
 
-- 解析 [官方 Droplet 计价文档](https://docs.digitalocean.com/products/droplets/details/pricing/) 中独立的 On-demand / Spot GPU 表，来源标签 `public_documentation`，不使用 API key。
-- 2026-10-20 实抓 19 条（11 条按需、8 条 Spot），包含 NVIDIA H100 / H200 / B300 与 AMD MI300X / MI325X / MI350X / MI355X 等。GPU 型号和风冷 / 液冷变体保留原文，不为 RTX 4000 / 6000 补造 Ada 后缀。
-- 表中金额是完整 GPU Droplet 计划的 USD 实例小时价；按官方明确的单卡 / `(8x)` 卡数分摊为 `gpu_hour`，保留 `instance_price`。支持型号、卡数、币种和计费方式筛选。
-- 价格表没有可关联的显存、CPU、RAM、磁盘或价格地区 / 可用区；这些信息保持未知，不拼接其他可用性页来假定当前配置。
-- Spot 是 public preview，公布价格可每日变化，实例可被回收；`availability=unknown`。`source_last_verified` 是文档核查日期，不是价格生效日或本库采样时间。
-- [单卡 / 8 卡配置依据](https://docs.digitalocean.com/products/droplets/how-to/gpu/create/) · [USD 价格约定](https://docs.digitalocean.com/reference/api/reference/sizes/)
+公开文档里的地区表示平台可用范围，返回 `price_scope=platform_coverage`。可按来源覆盖代码筛选，但不能据此宣称芬兰、美国等国家各有独立报价。ILS 的计价或税务适用对象也不等于 GPU 部署在以色列。公开路径不推断国家、可用区或实例卡数。
 
-## Verda：公开 GPU 实例 USD / EUR 价目
+可选 `NEBIUS_SOURCE=api` 已实现 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)：
 
-- 使用 [官网价格页](https://verda.com/pricing) 的 USD / EUR 页面，仅采集 GPU instances 的 On-demand 区块中明确的 `1x` 配置。来源标签 `public_page`，无需账号或密钥。
-- 2026-10-20 实抓 52 条：13 个资源配置 × 2 种计费模式 × 2 种币种，共 11 个型号；这是一次采样数量，来源变化时不会保证固定条数。
-- 保留表内 On-demand / Spot 两列，`billing_mode=on_demand` / `spot`；CPU、Reserved、Confidential computing、Instant clusters、Serverless 和 Storage 价格不混入普通 GPU 实例。
-- 单卡实例的整实例小时价保存在 `instance_price`，`price_basis=instance_total_allocated`；`amount` 按明确卡数分摊，`unit=gpu_hour`。USD / EUR 各自采样，不换汇。
-- `resources` 保留 CPU 数量、RAM GB 和表列 GPU 显存；硬件的 SXM 版本单独保留。同型号不同 CPU / RAM 的配置不会按型号去重覆盖。
-- 未公布价格地区、国家和可用区；不能由公司所在地推断。支持型号、卡数、币种和计费方式筛选。Spot 中断、购买条件和实时库存未验证，`availability=unknown`。
+1. 提供 `NEBIUS_ACCESS_TOKEN` 与 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一，参见 [targets 模板](../configs/nebius-targets.example.json)。单批 1–20 个目标、JSON 不超过 256 KiB。
+2. 目标指定项目、地区、国家、GPU 型号 / 卡数和完整 `resource_specs`，含 VM 平台 / 预设及启动盘；可包含支持的附加磁盘 / 文件系统估价。只发送 calculator 参数，不创建资源。
+3. 通过只读 `GET /iam/v2/projects/{project_id}` 核对项目地区，并依 [官方地区表](https://docs.nebius.com/overview/regions) 校验国家。平台 / 预设按 [官方 VM 类型](https://docs.nebius.com/compute/virtual-machines/types) 的明确映射核对 GPU 型号、显存、卡数和地区；未知平台拒绝，不由调用者随意贴型号。当前支持 H100、H200、B200、B300、RTX PRO 6000、L40S 对应的已核验平台；实际列表以适配器的 `SUPPORTED_PLATFORMS` 为准。暂不接受不能单独核验的 zone。
+4. 使用 Bearer access token 请求固定官方 endpoint `POST https://api.nebius.cloud/billing/v1/calculator/estimate-batch`；调用方负责 token 续期。
+5. `currency=usd/ils`、`aggregation_units=hour/month` 原样核对响应。整批配置成本及资源分项保留，再按明确 GPU 数量分摊为 `gpu_hour` / `gpu_month`；`price_basis=instance_total_allocated`。月聚合不表示包月承诺。默认 `offer_types=[]`；显式 `CONTRACT_PRICE` 保留账号合同条件，不能当公共最低价。
 
-## EBCloud：明确选中的单卡 GPU 容器配置
+配置估价为 `source_type=official_quote_api`、账号专属 `account_scope` 与 `requested_region_quote`，不是匿名全目录枚举。目标、响应资源关联、GPU 卡数、完整聚合单位和分项合计均需通过验证；可变范围或不完整配置不输出可疑价格。
 
-- 解析 [英博云官网](https://www.ebcloud.com/) 的 GPU 容器卡片，来源 `public_page`。必须同时验证单选按钮的 `checked` 与 `is-selected`：计费为“按量付费”，数量为“1卡”；条件不一致即失败，不读取未选中的多卡或包月价。
-- 2026-10-20 实抓 7 条，包含 RTX 4090D（2.06 CNY / 小时）、RTX 4090、H100、A100、A800、A40、A16。这是一次公开采样，不代表库存或结算价格。
-- `product_type=gpu_container`，不是独立 VM 或模型推理执行价。显式单卡配置的整容器小时价保存在 `instance_price`，分摊为 `gpu_hour`；CPU 核数可为小数，内存 GB / GiB 与 DDR 类型保留原文。支持卡数筛选，但本采集器只返回默认单卡配置。
-- 不套用免费试用时长、注册券或会员返券。地区、可用区、税费和库存未知，支持的存储类型也不等于套餐包含存储容量或整个物理板卡分配承诺。
+**验证边界：14 项合成离线测试通过；尚未使用有效 token 完成真实成功询价。** 官方 [OpenAPI](https://api.nebius.cloud/openapi.json) 和配置模板用于实现核对，不作为实际可售规格或账号报价的证据。
 
-## Suanli：云主机与弹性部署共用的 GPU 卡时费率
+## Lambda：公开实例页与可选认证目录
 
-- [共绩算力官方价格区块](https://suanli.cn/product/serverless/)明确“弹性服务部署和云主机统一卡时定价，按秒收费”。采集器要求该局部声明存在，再解析本节 GPU 卡型 / 显存 / 价格三列表，来源 `public_page`。
-- 2026-10-20 实抓 18 条 GPU 费率，含 L20 48GB（4.00 CNY / GPU / 小时）、H20、H100 / H200 / H800、A100 / A800、L40 / L40S、RTX 4090 / 5090 等。原表的昇腾 / 昆仑 NPU 和未验证的海光加速卡被排除；Moore Threads S4000 作为 GPU 保留。
-- `product_type=gpu_compute`、`pricing_product_scope=["cloud_host", "serverless_deployment"]`，`price_basis=advertised_per_gpu`、`billing_meter=second`。这是统一 GPU 算力费率，不混入 Token 推理 API，也不虚构一个完整 VM 的总价。
-- 当前表没有 CPU / RAM / 磁盘或每部署卡数，`resources={}`、`gpu_count=null`。地区、国家、可用区和库存未知；不支持这些位置维度或卡数筛选。
+默认 `LAMBDA_SOURCE=public`，读取 [官方实例页](https://lambda.ai/instances)。本次 22 条保留 1 / 2 / 4 / 8 卡配置。网页单位是 USD / GPU / 小时，`price_basis=advertised_per_gpu`；`instance_price` 是该金额乘卡数的推导值，保留推导标记。CPU、内存 GiB、磁盘 GiB / TiB 按表中配置保存，不混用十进制 GB。
 
-## Azure：两种固定 GPU VM 规格的匿名地区零售价
+`LAMBDA_SOURCE=api` 与 `LAMBDA_API_KEY` 显式选择 `GET https://cloud.lambda.ai/api/v1/instance-types`。`price_cents_per_hour / 100` 是**整实例**美元小时价，再除 `specs.gpus` 得每 GPU 分摊价；不能直接与网页单卡价比较。认证结果标 `account_scope=authenticated_catalog`。
 
-- 调用 [Microsoft Retail Prices API](https://prices.azure.com/api/retail/prices)，来源 `official_public_api`；[官方文档](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)明确不需要身份认证。不会请求订阅或部署资源。
-- 仅支持 [NCasT4 v3](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series) 的 `Standard_NC4as_T4_v3`（T4 16GB × 1，4 vCPU / 28 GiB RAM），以及 [ND GB200 v6](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series) 的 `Standard_ND128isr_NDR_GB200_v6`（GB200 192GB × 4，128 vCPU / 900 GiB RAM）。不代表 Azure 全规格目录。
-- 2026-10-20 该固定范围实际返回 106 条，涉及 39 个 ARM 地区；数量随公开目录变化。仅采已生效、零阶梯起点的基础 VM Consumption 主计量，分开按需 / Spot，排除 Windows 授权产品、Low Priority、Dev/Test、预留和嵌套 savings-plan 价格。
-- `instance_price` 保留 USD 整实例小时零售价，按文档卡数分摊为 `gpu_hour`；资源单位保留 GiB。每地区 / 模式选择已经生效的最新价格版本，保留 `effective_from` 和原始 Azure 计量标识。
-- `regions` 来自返回的 `armRegionName`，支持地区与卡数筛选；可用区和国家筛选不支持。地区价格不证明配额、容量、订阅资格、税费或可购性，`availability=unknown`。分页仅访问固定官方端点和已核验的同范围偏移量。
+API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填入价格 `regions`。公开表和该 API 均未给独立逐地区价格，国家 / 地区 / zone 筛选不支持；没有容量不是零元或永久下架。可选 API 已有离线解析测试，尚未完成真实有效账号成功联调。
 
-## 尚未接入的来源
+官方依据：[原价格入口](https://lambda.ai/pricing) · [List instance types](https://docs.lambda.ai/api/cloud#listInstanceTypes) · [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)。
 
-Vast.ai 官网引用的[公开价格 feed](https://storage.googleapis.com/vast-public-gpu-pricing/gpu-pricing-public.json)自身声明批量采集需要数据许可，本项目当前未接入该 feed。此说明只描述该来源声明和当前实现范围，不代表其他厂商或型号已全部覆盖。
+## Crusoe：只读取 GPU instances
 
-## Lambda：默认免费公开页，可选认证 API
+来源为 [官网 GPU instances pricing](https://www.crusoe.ai/cloud/pricing#gpu-instances)。仅解析这一独立区块，保留 On-demand 与 Current Spot；相邻模型 API、托管推理和微调费用不混入。本次共 24 条，其中 Contact sales 数值为空；显存未公布的询价项保持未知。From / Starting at 保留起价语义，GPU 型号和硬件变体不合并。
 
-- 默认 `LAMBDA_SOURCE=public`，来源 [官方实例页](https://lambda.ai/instances)。不使用 API key；即使调用方已有 key，也不会自动发认证请求。
-- 2026-10-20 公开页采样得到 4 张规格表、22 条价格，分别覆盖 8 / 4 / 2 / 1 卡实例。该数量仅描述一次采样，后续来源内容可能变化。
-- 公开 `amount` 为挂牌 USD / GPU / 小时，`price_basis=advertised_per_gpu`、`account_scope=public_catalog`。`instance_price` 是单卡价乘卡数推导的实例价，不是独立来源报价。
-- 保留 CPU、内存 GiB、磁盘 GiB / TiB 单位。国家、地区和可用区未在价格表明确，保持未知；挂牌不证明库存或可下单。
-- 可用 `collect --lambda-source api` 或环境变量 `LAMBDA_SOURCE=api` 显式选择旧目录 API，才要求 `LAMBDA_API_KEY`。API 为 `GET https://cloud.lambda.ai/api/v1/instance-types`。
-- API `price_cents_per_hour` 为整实例每小时美分价，除以 100 保存原价，再按 `specs.gpus` 分摊。`account_scope=authenticated_catalog`；该认证模式尚未完成真实账号联调。
-- API `capacity_regions` 仅表达容量，不变成报价 `regions`；两种模式均不支持按地区、国家或可用区查询独立价格。
-- [实例价格页](https://lambda.ai/instances) · [官方 API](https://docs.lambda.ai/api/cloud#listInstanceTypes) · [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)
+数值单位为公开 USD / GPU / 小时。当前表没有实例卡数、CPU / RAM / 磁盘和具体价格地区，保持未知；不由平台机房目录推断国家。公开挂牌、Spot 及询价项均不保证实时容量或购买资格。
 
-## Nebius：公开文档已实现
+按原 Word 核查结论，尚未确认枚举当前公共 GPU VM 租价的官方 API。`/projects/{project_id}/compute/vms/types` 是规格目录；Billing 的 cost / unit_price 是账号费用；`SelfServeFlavor.price_per_hour` 属于托管模型部署，都不能替代公共 VM 报价。当前没有将这些接口包装成免费价格接口。
 
-- 使用公开 Compute 计价 Markdown，保留 GPU / CPU / RAM 分项、地区范围、币种和生效日期；当前无需 token。
-- `POST https://api.nebius.cloud/billing/v1/calculator/estimate-batch` 是独立的认证配置估价分支，尚未实现，不能当成枚举所有价格的接口。
-- 分项价格不能直接代表整机成本。Spot 的“From”是起价，采样不代表全天最低价。
-- 地区可按明确来源范围筛选；信息不足时返回 `unverifiable_filter`。国家、可用区和实例卡数不能猜测。
-- [Compute 计价](https://docs.nebius.com/compute/resources/pricing) · [估价 API](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch) · [价格页](https://nebius.com/prices)
+官方依据：[API 文档](https://docs.crusoecloud.com/api/) · [OpenAPI](https://api.crusoecloud.com/v1/openapi.json) · [Quota / Capacity 与购买条件](https://support.crusoecloud.com/hc/en-us/articles/51755978765467-GPU-Quota-vs-Capacity-Understanding-On-Demand-and-Reserved-Instances-RIPA)。
 
-## Crusoe：公开页面已实现
+## AutoDL：免费首页与授权地区市场分开
 
-- 解析官网 GPU instances 区块，排除同页托管推理。无需账号凭据。
-- Contact sales 金额为空；挂牌或起价不独立证明有库存或可自助购买，相关承诺与购买条件保留在说明中。
-- 公开 VM 规格 / 容量接口不是当前公开价格目录。Billing 的单价也不能自动等同公共挂牌价。
-- 当前来源未给逐地区价格，因此地区、国家、可用区、卡数筛选不可验证，不静默忽略。
-- [价格页](https://www.crusoe.ai/cloud/pricing) · [API 文档](https://docs.crusoecloud.com/api/) · [OpenAPI](https://api.crusoecloud.com/v1/openapi.json) · [购买条件说明](https://support.crusoecloud.com/hc/en-us/articles/51755978765467-GPU-Quota-vs-Capacity-Understanding-On-Demand-and-Reserved-Instances-RIPA)
+默认 `AUTODL_SOURCE=public`，以新的未登录浏览器上下文读取 [公开首页](https://www.autodl.com/home)。本次普通用户 / 炼丹会员各 12 条，共 24 条 CNY / GPU / 小时挂牌。普通、会员分别设置 `pricing_tier`，会员要求和页面折扣另存，不假设调用者有会员资格。首页没有报价地区、国家、zone、实例卡数或 CPU / 内存 / 磁盘，均保持未知；不等于逐机器市场或实时库存。公开路径忽略 token 与保存会话。
 
-## UCloud：默认匿名促销月卡，可选认证 API
+可选 `AUTODL_SOURCE=market` 已实现读取用户授权登录态的 [算力市场](https://www.autodl.com/market/list)，需 `AUTODL_STORAGE_STATE_PATH`：
 
-- 默认 `UCLOUD_SOURCE=public`；已有公私钥不会让采集器自动走认证。来源为 [GPU 官网](https://www.ucloud.cn/site/product/gpu.html) 使用的 [匿名前端 API](https://api.ucloud.cn/)，`ListPackage` / `ListActivity` / `GetActivityFlags` / `ListAllRegions` / `ListAllZones` 均为只读，不登录、充值、绑卡或创建资源。
-- 当前覆盖官网明确引用的活动 `10204` / `10216` / `10248` 的完整 Package，新增 4090 48GB / 5090。2026-10-20 扩展后实抓 374 条，全部 `offline`。初次两活动采样为 358 条；[北京2 / 可用区B / T4S 单卡示例](../examples/ucloud-public-cn-bj2-2026-10-20.json)仍是当时 18 条历史筛选结果，不改写为新的全量采样。挂牌采集成功不代表可购。
-- 当前均为 `DurationUnit=month`、`Durations=[1]`。`CurPrice` / `OriginalPrice` 的分值除以 100 得到 CNY 整套餐月价，按 GPU 数量分摊为 `gpu_month`；整套餐保留 `instance_month`，不除以 720，不当作标准按需小时价。
-- 具体 Package 保留 CPU、内存、磁盘、带宽和 CPU 平台；不使用 `ListPackageGroup` 最低价代替具体配置。位置通过官方地区 / 可用区映射关联，支持 region / zone / GPU / 卡数筛选。国家筛选尚未开放，仍保留官方 `location.country_code`。
-- `account_scope=public_promotion`。10204 / 10216 / 10248 活动元数据标为新老同享、限购分别 3 / 5 / 5，并保留优惠续费标志。但官网长租规则含新用户试用限制，与元数据不一致，所以资格一律未验证，不能承诺人人可买或未来续费价不变。
-- `GetActivityFlags` 的下线状态和活动状态保留，未命中下线也仅 `unknown`；不据此推断有库存。官网活动规则及 [促销页](https://www.ucloud.cn/site/active/gpu.html)只作为资格说明，不将 9.9 元新客体验价混成通用月价。
-- 旧 GPU 价格文档不作回退：`gpu/price.md` 当前 404；现行 [UHost 价格文档](https://github.com/UCloudDoc-Team/uhost/blob/master/price.md)不含 GPU 数值，旧 PDF 的 K80 / P40 / V100 月价不能冒充当前整实例价。[GPU 机型文档](https://github.com/UCloudDoc-Team/gpu/blob/master/type.md)给规格与可用区，不提供当前价格。
-- 只有显式 `UCLOUD_SOURCE=api` / `--ucloud-source api` 才使用公私钥和完整目标调用 `GetUHostInstancePrice`。该分支 `account_scope=account_quote`，为 CNY 实例小时成本分摊，地区来自未回显核验的请求，不同于免费促销映射；尚未完成成功的真实认证询价。
-- API 目标仍限 1–20 项、MachineType=G、Dynamic、Count=1；详见 [接入说明](DEPLOYMENT.md)。缺凭据 / 缺内联目标 / 无效内联目标分别返回 `missing_credentials` / `missing_price_targets` / `invalid_price_targets`；显式 FILE 设置失败仍是全局配置错误。
-- [规格查询](https://docs.ucloud.cn/api/uhost-api/describe_available_instance_types) · [认证询价文档](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)
+- 调用者自行保存并维护登录态，例如 `python -m playwright codegen --save-storage=playwright/.auth/autodl.storage-state.json https://www.autodl.com/market/list`，手动登录后关闭窗口。状态文件含凭据，不提交或分享。
+- 仅访问默认按量市场的允许只读请求与分页，校验页数、总数、重复项及页面 / API 元数据。页面显示的货币、金额、每小时单位为价格依据，不猜私有 API 原始金额的倍率。
+- 保留机器标识、来源 `region_sign` / 地区名、GPU / 显存、单卡资源与已显示的会员条件。金额是挂牌每 GPU 价，市场可用 GPU 数不当成整实例卡数，国家与 zone 不推断。
+- 地区代码可筛选，价格标 `regional_quote`；租用按钮和剩余 GPU 只说明观察时状态，不保证后续库存。失效登录态返回 `login_required` / `storage_state_invalid`，不回退成首页价，不输出不完整分页。
 
-## AutoDL：免费公开首页普通 / 会员价
+**验证边界：8 项合成市场测试通过，尚未使用有效登录态成功抓取真实市场。** 当前 `AUTODL_TOKEN` 保留但两种模式均不使用。
 
-- 2026-10-20 北京时间 14:55 的完整 Python / CLI 采集成功返回 12 条普通价和 12 条会员价，与 Lambda 22 条共同构成 [46 条公开采样示例](../examples/lambda-autodl-2026-10-20.json)。数量仅描述该次采样，不代表库存。
-- 来源为 [公开首页](https://www.autodl.com/home) 的“炼丹会员及租用价格”卡片，页面由 JavaScript 渲染。需可选 Playwright 及本地 Chromium，不需要登录、充值或绑卡。
-- 在新的未登录浏览器上下文中依次读取“普通用户”和“炼丹会员”标签；不使用 `AUTODL_TOKEN`、保存的 storage state 或用户 Cookie。
-- 每个 GPU 返回 ordinary / member 两种 `pricing_tier`，会员条目带 `membership_required=true` 和显示折扣 `membership_discount`。会员优惠条件保留，未购买或核验会员资格。
-- 金额为公开 CNY / GPU / 小时挂牌，`account_scope=public_catalog`、`source_type=public_page`。首页未给实例卡数、机房、国家、可用区或 CPU / 内存 / 磁盘配置，均不猜测。
-- 不支持地区、国家、可用区和卡数筛选；这些卡片不等于逐地区市场报价或实时库存。两标签结构、型号集合或显示折扣发生无法解释的变化时采集失败，不静默输出未验证价格。
-- 市场页面的逐机器 / 地区报价另需联调；Pro / 弹性部署的已有资源 API 也不等于完整市场目录。当前免费路径不调用这些账号接口。
-- [公开首页](https://www.autodl.com/home) · [市场](https://www.autodl.com/market/list) · [计费说明](https://www.autodl.com/docs/price/) · [Pro API](https://www.autodl.com/docs/instance_pro_api/) · [弹性部署 API](https://www.autodl.com/docs/esd_api_doc/)
+原 Word 提到的 [Pro API](https://www.autodl.com/docs/instance_pro_api/) 与 [弹性部署 API](https://www.autodl.com/docs/esd_api_doc/) 面向已有 `instance_uuid` / `deployment_uuid`；并非全市场价目。Pro 的 `payg_price` / `origin_pay_price` 不因名称就假定单位；弹性部署 `price` 的“元 × 1000”口径不能套用其他接口。`gpu_stock` 没有返回价格。当前不调用这些已有资源接口，也不保存 SSH 等访问数据。另见 [计费说明](https://www.autodl.com/docs/price/)。
+
+## UCloud：匿名月包与账号配置小时询价分开
+
+默认 `UCLOUD_SOURCE=public`，匿名读取 [GPU 官网](https://www.ucloud.cn/site/product/gpu.html) 引用的 [官方前端 API](https://api.ucloud.cn/)：`ListPackage`、`ListActivity`、`GetActivityFlags`、`ListAllRegions`、`ListAllZones`，均为只读。采集活动 10204 / 10216 / 10248 的具体套餐，不用套餐组最低价代替完整配置。
+
+本次 374 条均为中国月卡且 `availability=offline`。`DurationUnit=month`、`Durations=[1]`，`CurPrice` / `OriginalPrice` 的分值除 100 为 CNY 整套餐月价，再按卡数分摊 `gpu_month`，整套餐保留 `instance_month`；不除 720。CPU、内存、磁盘、带宽与 CPU 平台保留。
+
+国家 / region / zone 来自官方目录关联，当前已支持 `--country CN` 及地区 / zone / 卡数筛选。活动限购、优惠续费及资格说明单列；接口元数据与促销页面资格文案有差异时保持未验证。下线状态不得丢弃，非下线标志也不等于现货。不将 [活动页](https://www.ucloud.cn/site/active/gpu.html) 的限量新客体验价当通用月价。
+
+可选 `UCLOUD_SOURCE=api` 调用 [GetUHostInstancePrice](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)，需公私钥与 [完整目标](../configs/ucloud-targets.example.json)。当前限定 1–20 项、JSON ≤128 KiB、`MachineType=G`、`ChargeType=Dynamic`、`Count=1`；指定地区、zone、GPU、CPU、内存 MB 与磁盘 GB。私钥只在本地生成签名，不作为请求参数发送。仅 `RetCode=0` 且金额 / 计费方式通过校验才返回报价。
+
+正常采集入口每次为 API 请求加载官方地区 / zone 目录，核对地区、zone 归属及国家；不是根据请求币种猜国家。返回 CNY 整实例小时价及分摊 `gpu_hour`，`account_scope=account_quote`、`requested_zone_quote`，折前价及明细分别保留。它仍是完整配置、账号条件下的询价，响应本身没有独立回显确认全部部署位置；不代表全地区枚举或现货。
+
+**验证边界：公开月包已真实匿名采集；可选认证询价有离线测试，尚未完成有效账号真实成功询价。** 旧 GPU 月价 PDF 和失效价格 Markdown 不作为当前价格回退。官方规格枚举不保证各地区均可售。
+
+官方依据：[规格查询](https://docs.ucloud.cn/api/uhost-api/describe_available_instance_types) · [签名算法](https://docs.ucloud.cn/api/summary/signature) · [询价文档](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)。

@@ -7,7 +7,7 @@ that instance price, and capacity regions never become regional price claims.
 from __future__ import annotations
 
 import re
-from decimal import Decimal, localcontext
+from decimal import Context, Decimal, localcontext
 
 from ..settings import Settings
 from ..transport import FetchError, request_json
@@ -120,8 +120,7 @@ def parse_prices(payload: dict, *, observed_at: str) -> list[dict]:
             capacity_regions.append(region_name)
         # Keep integer-cent conversion exact. A per-GPU fraction may require
         # decimal rounding for uncommon counts; 50 digits avoids float loss.
-        with localcontext() as context:
-            context.prec = max(50, len(str(price_cents)) + len(str(gpu_count)) + 10)
+        with localcontext(Context(prec=max(50, len(str(price_cents)) + len(str(gpu_count)) + 10))) as context:
             instance_amount = Decimal(price_cents) / Decimal(100)
             gpu_amount = instance_amount / Decimal(gpu_count)
         notes = [
