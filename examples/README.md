@@ -28,7 +28,7 @@
 gpu-price-monitor collect --providers all --coverage --pretty
 ```
 
-0.8.0 起 `all` 运行上述九家，0.9.0 延续该范围；HTTP-only 可排除 AutoDL，只有 AutoDL 需要本地 Chromium。来源变化可能使状态 / 价格 / 条数变化，文件是历史证据而非运行时回退。
+0.8.0 起 `all` 运行上述九家，0.9.0 / 0.10.0 延续该范围；HTTP-only 可排除 AutoDL，只有 AutoDL 需要本地 Chromium。来源变化可能使状态 / 价格 / 条数变化，文件是历史证据而非运行时回退。
 
 ## 历史：原五家范围，2026-10-21
 
@@ -50,7 +50,7 @@ gpu-price-monitor collect --providers all --coverage --pretty
 gpu-price-monitor collect --providers all --coverage --pretty
 ```
 
-0.7.0 当时的 `all` 只运行 Nebius、Lambda、Crusoe、AutoDL、UCloud；0.8.0 扩为九家，0.9.0 延续该范围。新请求内容 / 条数可能变化，不能保证重新得到历史文件中的价格或数量。型号 `coverage` 只针对本次返回集合，不表示全市场、全硬件变体或库存完整覆盖，也不计算跨币种 / 跨单位最低价。
+0.7.0 当时的 `all` 只运行 Nebius、Lambda、Crusoe、AutoDL、UCloud；0.8.0 扩为九家，0.9.0 / 0.10.0 延续该范围。新请求内容 / 条数可能变化，不能保证重新得到历史文件中的价格或数量。型号 `coverage` 只针对本次返回集合，不表示全市场、全硬件变体或库存完整覆盖，也不计算跨币种 / 跨单位最低价。
 
 ## 历史：2026-10-20 的旧版全来源范围
 
@@ -81,12 +81,18 @@ gpu-price-monitor collect --providers ucloud --ucloud-source public \
 测试目录中带 synthetic / template 标记的夹具是合成测试材料，不属于这些实抓示例。第三方来源内容使用说明见 [数据政策](../docs/DATA_POLICY.md)。
 
 
-## 将报价导出为 CSV（0.9.0 起）
+## 将报价导出为 CSV（0.9.0 起，0.10.0 默认英中表头）
+
+**英中表头版**：[gpu-prices-2026-10-21-zh.csv](gpu-prices-2026-10-21-zh.csv)，对应同批 [JSON](gpu-prices-2026-10-21-zh.json)。0.10.0 实际采集完成于北京时间 **2026-10-21 16:05:25**（UTC `2026-10-21T08:05:25.215545+00:00`），九家均成功，共 833 条、51 列，每列均为英文标识加中文说明。原币、周期、来源和报价条件保留；374 条 UCloud 月包仍标记 `offline`。
 
 [gpu-prices-2026-10-21.csv](gpu-prices-2026-10-21.csv) 是 0.9.0 实际采集并导出的完整 CSV（833 条报价、51 列），对应同批 [JSON](gpu-prices-2026-10-21.json)。采集完成时间为北京时间 **2026-10-21 15:53:17**（UTC `2026-10-21T07:53:17.213423+00:00`），九家均成功。CSV 保留 USD / CNY / EUR / ILS 原币和原计费周期，374 条 UCloud 月包报价标记 `offline`。它是该时刻的采样，后续最新价格需重新运行采集。
 
 ```bash
 gpu-price-monitor collect --providers all --format csv > prices.csv
+# 为程序生成纯英文表头；报价数据与默认导出一致。
+gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
 ```
+
+0.10.0 起全部列默认带中文翻译，公开 `CSV_HEADERS` 对应双语标签，`CSV_COLUMNS` 保留同序英文 ID。`--csv-headers bilingual` 显式选择默认表头；英文表头使用 `--csv-headers english` 或 Python `prices_to_csv(result, bilingual_headers=False)`。此选择只改第一行，不翻译 GPU / 平台 / 币种 / 状态值，也不改变 JSON。
 
 CSV 是本次通过筛选的报价表，含 UTF-8 BOM / CRLF，不是覆盖报告附表。库不换汇或上传；原币 / 计费周期、地区证据、会员 / 云档位 / Spot、下线和采样时间保留。`prices_to_csv(result)` 可将一次 Python 调用的结果转为相同 CSV 文本，无需再次请求平台。导出历史 JSON 不会把历史价格变成新观察；完整来源状态、错误及 coverage 仍看原 JSON。CLI 诊断写 stderr，退出码继续区分成功 / 部分失败 / 失败，不能仅因文件存在就认为采集全部成功。

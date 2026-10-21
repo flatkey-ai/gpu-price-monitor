@@ -4,7 +4,7 @@ A Python library and JSON / CSV CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud
 
 [中文](README.md) · [Document requirements and implementation](docs/DOCUMENT_COVERAGE.md) · [Provider details](docs/PROVIDERS.md) · [Environment template](.env.example)
 
-The current **0.9.0** release adds CSV export. Version 0.8.0 added RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope; `--providers all` still selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI. Run `gpu-price-monitor --version` after installation; CSV requires 0.9.0 or newer.
+The current **0.10.0** release adds English–Chinese translations to every CSV header by default, with an English-only option. CSV export was introduced in 0.9.0. Version 0.8.0 added RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope; `--providers all` still selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI. Run `gpu-price-monitor --version` after installation; CSV requires 0.9.0 or newer; translated headers and header selection require 0.10.0 or newer.
 
 ## What the locations mean
 
@@ -56,7 +56,7 @@ for quote in result["prices"]:
 
 ## Export a CSV table
 
-**New in 0.9.0:** `prices_to_csv(result)` and `collect --format csv`. JSON remains the default; the Python `collect_prices` result, existing JSON CLI, and exit codes remain compatible. CSV text is generated with the Python standard library, with no spreadsheet dependency. The library does not write files, upload results, or convert currencies.
+**Introduced in 0.9.0:** `prices_to_csv(result)` and `collect --format csv`. **Since 0.10.0 all headers are bilingual by default**, for example `provider（平台）`; English-only IDs remain available for automated readers. JSON remains the default; the Python `collect_prices` result, existing JSON CLI, and exit codes remain compatible. CSV text is generated with the Python standard library, with no spreadsheet dependency. The library does not write files, upload results, or convert currencies.
 
 ```bash
 # Default JSON preserves per-provider status and coverage summaries.
@@ -64,6 +64,8 @@ gpu-price-monitor collect --providers all --coverage --pretty > prices.json
 
 # CSV goes to stdout; the shell writes the file and stderr keeps diagnostics.
 gpu-price-monitor collect --providers all --format csv > prices.csv
+# Stable English field names for automated readers.
+gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
 ```
 
 ```python
@@ -71,10 +73,13 @@ from pathlib import Path
 from gpu_price_monitor import Settings, collect_prices, prices_to_csv
 
 result = collect_prices("all", settings=Settings())
-csv_text = prices_to_csv(result)
+csv_text = prices_to_csv(result)  # English–Chinese headers by default
+english_csv_text = prices_to_csv(result, bilingual_headers=False)
 # The returned text already contains a BOM and CRLF line endings.
 Path("prices.csv").write_text(csv_text, encoding="utf-8", newline="")
 ```
+
+`--csv-headers bilingual` explicitly selects the default translated headers; `--csv-headers english` selects English-only headers. This option only changes CSV headers, leaving JSON and quote values unchanged. Public `CSV_COLUMNS` retains stable English IDs, while `CSV_HEADERS` contains bilingual labels in the same order. When upgrading to 0.10.0, scripts that depend on English column names should explicitly select English headers.
 
 Each CSV row represents one filtered quote, preserving the GPU model and provider, original amount / currency / period, instance total, country / region / zone, geographic evidence scope, ordinary / member and cloud-tier conditions, Spot, offline status, source, and observation time. Unknown locations stay empty or explicitly unlocated; platform coverage does not become a regional price. CNY / EUR / ILS remain in their original currencies and monthly amounts stay monthly. RackRate separately handles USD presentation, storage, and website updates.
 

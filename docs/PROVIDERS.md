@@ -1,6 +1,6 @@
 # 平台能力与官方依据
 
-核查与实现口径：2026-10-21，版本 0.9.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
+核查与实现口径：2026-10-21，版本 0.10.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
 
 本页说明来源、单位和地理证据；实际条数随来源变化。**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [九家公开采样](../examples/nine-providers-2026-10-21.json)。原 [五家采样](../examples/five-providers-2026-10-21.json) 是北京时间 2026-10-21 14:35 的历史证据：共 480 条，其中 374 条 UCloud 中国月包已下线，36 条 Nebius 仅平台覆盖，其余 70 条没有价格地区。采集成功不等于当前可购或覆盖所有国家。
 
