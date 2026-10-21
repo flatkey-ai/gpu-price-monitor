@@ -84,6 +84,25 @@ class LambdaParserTests(unittest.TestCase):
     def test_no_extra_requests_or_price_rows_for_capacity_regions(self):
         self.assertEqual(len(self.parse()), len(self.payload["data"]))
 
+    def test_every_returned_sku_including_new_gpus_and_counts_is_parsed_without_a_roster_filter(self):
+        payload = deepcopy(self.payload)
+        template = deepcopy(payload["data"]["gpu_8x_h100_sxm5"])
+        for count in (1, 2, 4, 8, 16):
+            sku = f"synthetic_{count}x_b300"
+            item = deepcopy(template)
+            item["instance_type"].update(name=sku, description=f"{count}x B300 synthetic fixture",
+                                         gpu_description="NVIDIA B300 (288 GB SXM6)", price_cents_per_hour=12345)
+            item["instance_type"]["specs"]["gpus"] = count
+            payload["data"][sku] = item
+        rows = self.parse(payload)
+        self.assertEqual({q["raw_sku"] for q in rows}, set(payload["data"]))
+        self.assertEqual(len(rows), len(payload["data"]))
+        b300 = [q for q in rows if q["gpu_model"] == "B300"]
+        self.assertEqual({q["gpu_count"] for q in b300}, {1, 2, 4, 8, 16})
+        self.assertTrue(all(q["gpu_variant"] == "SXM6" and q["vram_gb"] == 288 for q in b300))
+        self.assertTrue(all(q["product_line"] == "On-Demand Cloud" and q["configuration_expansion"] is False for q in rows))
+        self.assertTrue(all(q["price_record_kind"] == "api_catalog_price" for q in rows))
+
     def test_empty_catalog_is_explicitly_accepted(self):
         self.assertEqual(self.parse({"data": {}}), [])
 

@@ -104,6 +104,7 @@ class SourcePolicyTests(unittest.TestCase):
         self.assertEqual(result["execution"], {
             "runtime": "python", "parsing": "deterministic_rules", "uses_llm": False,
             "source_policy": settings.source_policy,
+            "catalog_scope": settings.catalog_scope,
         })
         self.assertEqual(result["provider_results"][0]["source_type"], provider_source(provider, settings))
         self.transport.assert_not_called()
@@ -436,7 +437,7 @@ class SourcePolicyTests(unittest.TestCase):
         self.assertEqual({q["provider"] for q in eligible}, {"nebius", "ucloud"})
         self.assertEqual(result["comparison"]["eligible_quote_count"], len(eligible))
         self.assertEqual(result["execution"], {"runtime": "python", "parsing": "deterministic_rules",
-                                               "uses_llm": False, "source_policy": "api_preferred"})
+                                               "uses_llm": False, "source_policy": "api_preferred", "catalog_scope": "standard"})
 
         # Status uses the same settings and selection as the collection, without I/O.
         for mock in (self.html, self.browser, self.spot_api, self.lambda_api):

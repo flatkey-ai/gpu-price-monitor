@@ -1,4 +1,4 @@
-"""Parse Lambda's key-free public on-demand price tables without requests.
+"""Parse Lambda's key-free instance and reserved-cluster price tables.
 
 GPU counts come from the accessible tab/panel association, not table order.
 The advertised amount is per GPU; its complete-instance total is computed
@@ -13,7 +13,7 @@ from decimal import Context, Decimal, localcontext
 
 from bs4 import BeautifulSoup
 
-SOURCE_URL = "https://lambda.ai/instances"
+SOURCE_URL = "https://lambda.ai/pricing"
 SOURCE_TYPE = "public_page"
 CURRENCY_SOURCE_URL = "https://docs.lambda.ai/api/cloud"
 
@@ -96,7 +96,7 @@ def parse_prices(content: str, *, observed_at: str, as_of: date | None = None) -
     soup = BeautifulSoup(content, "html.parser")
     headings = [
         heading for heading in soup.find_all(re.compile(r"^h[1-6]$"))
-        if _text(heading).casefold() == "pay by the minute"
+        if _text(heading).casefold() in {"pay by the minute", "instances pricing"}
     ]
     if len(headings) != 1:
         raise ValueError("Lambda public on-demand pricing section was not uniquely identified")
@@ -146,6 +146,9 @@ def parse_prices(content: str, *, observed_at: str, as_of: date | None = None) -
             result.append({
                 "provider": "lambda",
                 "product_type": "gpu_instance",
+                "product_line": "On-Demand Cloud",
+                "price_record_kind": "published_price",
+                "configuration_expansion": False,
                 "gpu_model": model,
                 "raw_name": raw_name,
                 "raw_sku": None,
@@ -187,4 +190,7 @@ def parse_prices(content: str, *, observed_at: str, as_of: date | None = None) -
                     "Public catalog; availability, orderability and account-specific discounts were not verified.",
                 ],
             })
+    if _text(headings[0]).casefold() == "instances pricing":
+        from . import lambda_clusters
+        result.extend(lambda_clusters.parse_prices(content, observed_at=observed_at, source_url=SOURCE_URL))
     return result

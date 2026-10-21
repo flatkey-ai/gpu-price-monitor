@@ -82,3 +82,15 @@ Nebius 当前 Spot API 的 region 是价格位置；官网 JSON 目录没有价�
 - **UCloud**：CompShare 实际 `GetCompShareInstancePrice` 询价的 `OriginalPriceDetails` 提供普通原价；优惠 `PriceDetails` 资格未核实，仅审计。按实际 GPU 数分摊完整配置小时费，产品线及配置保留。显式签名 UHost 需业务成功与单位核对；旧匿名 UHost 月包仅在兼容来源中保留月单位，不换算小时。
 
 其他四家和具体请求 / 认证边界见 [PROVIDERS.md](PROVIDERS.md)。合成测试不能证明有效账号成功联调，历史样本不能作为现价。
+
+## 完整目录模式（0.14）
+
+`catalog_scope=complete` 返回 `catalog_audit`：将数值记录、需询价项、起价、派生配置和源费率数量分别计数。`all_prices_complete=false` 表示所选公开来源的成功不证明所有合同、账号折扣与配置均已取得。源费率、配置行和 GPU 平台不能相加成独立报价总数。
+
+Nebius `quote_origin=published_tariff_preset_calculation` 表示按官方 GPU / CPU / RAM 费率计算明确 preset，`regional_spot_preset_calculation` 表示当前地区 Spot 单价应用于明确 preset。两者都有 `rate_derivation.independent_provider_quote=false`、源分项和公式；`instance_price.scope` 是计算资源费用，磁盘与网络等附加费另计。覆盖地区仍不成为独立价格地区。
+
+Lambda 预留集群为 `product_type=gpu_cluster`，每 GPU 小时价和按周结算并存。`gpu_count=null` 不猜单机卡数，集群总数量在 `selected_configuration.cluster_gpu_count`，`cluster_gpu_count_relation=minimum` 表示下限；预留期限和是否联系销售保留。
+
+Crusoe 可选账号 reservations 放在 `provider_results.contract_records`，范围为私有账号审计，不进入 `prices` 或小时报价 CSV。响应缺少结构化币种、GPU 产品及小时单位证据时不得自行补成美元每卡小时价。该私有数据不应直接进入公开网站或仓库。
+
+`prices_to_csv(result, profile="catalog")` 保留 10 列目录及标明状态的起价 / 销售询价项，销售金额为空；`full` 中的 `extra_metadata_json` 保留新增口径和推导字段。其他 profile 的价格资格要求不因完整目录模式而放宽。

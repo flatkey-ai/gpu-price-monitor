@@ -19,6 +19,7 @@ SOURCES = frozenset({
     "official_quote_api", "official_public_api", "authorized_browser",
 })
 SOURCE_POLICIES = ("configured", "api_preferred", "api_only")
+CATALOG_SCOPES = ("standard", "complete")
 
 
 class ConfigurationError(ValueError):
@@ -75,6 +76,9 @@ class Settings:
     max_retries: int = 2
     lambda_api_key: str | None = field(default=None, repr=False)
     nebius_access_token: str | None = field(default=None, repr=False)
+    crusoe_access_key_id: str | None = field(default=None, repr=False)
+    crusoe_secret_key: str | None = field(default=None, repr=False)
+    crusoe_organization_id: str | None = field(default=None, repr=False)
     ucloud_public_key: str | None = field(default=None, repr=False)
     ucloud_private_key: str | None = field(default=None, repr=False)
     ucloud_project_id: str | None = field(default=None, repr=False)
@@ -88,7 +92,9 @@ class Settings:
     lambda_source: str = "public"
     ucloud_source: str = "public"
     autodl_source: str = "public"
+    crusoe_source: str = "public"
     source_policy: str = "configured"
+    catalog_scope: str = "standard"
 
     def __post_init__(self) -> None:
         if not isinstance(self.providers, tuple) or not self.providers:
@@ -105,6 +111,10 @@ class Settings:
             raise ConfigurationError("max_retries must be an integer in [0, 10]")
         if not isinstance(self.source_policy, str) or self.source_policy not in SOURCE_POLICIES:
             raise ConfigurationError("GPU_PRICE_MONITOR_SOURCE_POLICY must be configured, api_preferred or api_only")
+        if not isinstance(self.catalog_scope, str) or self.catalog_scope not in CATALOG_SCOPES:
+            raise ConfigurationError("GPU_PRICE_MONITOR_CATALOG_SCOPE must be standard or complete")
+        if self.crusoe_source not in ("public", "account", "combined"):
+            raise ConfigurationError("CRUSOE_SOURCE must be public, account or combined")
         if self.lambda_source not in ("public", "api"):
             raise ConfigurationError("LAMBDA_SOURCE must be public or api")
         if self.ucloud_source not in ("public", "api"):
@@ -169,6 +179,9 @@ class Settings:
             max_retries=retries,
             lambda_api_key=credential("LAMBDA_API_KEY"),
             nebius_access_token=credential("NEBIUS_ACCESS_TOKEN"),
+            crusoe_access_key_id=credential("CRUSOE_ACCESS_KEY_ID"),
+            crusoe_secret_key=credential("CRUSOE_SECRET_KEY"),
+            crusoe_organization_id=credential("CRUSOE_ORGANIZATION_ID"),
             ucloud_public_key=credential("UCLOUD_PUBLIC_KEY"),
             ucloud_private_key=credential("UCLOUD_PRIVATE_KEY"),
             ucloud_project_id=credential("UCLOUD_PROJECT_ID"),
@@ -182,7 +195,9 @@ class Settings:
             ucloud_source=values.get("UCLOUD_SOURCE", "public"),
             nebius_source=values.get("NEBIUS_SOURCE", "public"),
             autodl_source=values.get("AUTODL_SOURCE", "public"),
+            crusoe_source=values.get("CRUSOE_SOURCE", "public"),
             source_policy=values.get("GPU_PRICE_MONITOR_SOURCE_POLICY", "configured"),
+            catalog_scope=values.get("GPU_PRICE_MONITOR_CATALOG_SCOPE", "standard"),
         )
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at
