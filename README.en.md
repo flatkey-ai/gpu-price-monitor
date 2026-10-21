@@ -1,10 +1,10 @@
 # GPU Price Monitor
 
-A Python library and JSON CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud, RunPod, DigitalOcean, Verda, and Azure** GPU cloud prices. It collects, parses, filters, and returns quotes. Scheduling, persistence, currency conversion, uploads, comparisons, alerts, and dashboards belong to the calling application.
+A Python library and JSON / CSV CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud, RunPod, DigitalOcean, Verda, and Azure** GPU cloud prices. It collects, parses, filters, and returns quotes. Scheduling, persistence, currency conversion, uploads, comparisons, alerts, and dashboards belong to the calling application.
 
 [中文](README.md) · [Document requirements and implementation](docs/DOCUMENT_COVERAGE.md) · [Provider details](docs/PROVIDERS.md) · [Environment template](.env.example)
 
-**0.8.0** adds RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope. `--providers all` selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI.
+The current **0.9.0** release adds CSV export. Version 0.8.0 added RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope; `--providers all` still selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI. Run `gpu-price-monitor --version` after installation; CSV requires 0.9.0 or newer.
 
 ## What the locations mean
 
@@ -42,7 +42,7 @@ python -m gpu_price_monitor collect --providers all --coverage --pretty
 
 On Windows PowerShell use `py -3 -m venv .venv` and `.\.venv\Scripts\Activate.ps1`. On Linux, missing browser libraries may require `python -m playwright install --with-deps chromium`. For HTTP-only collection install `python -m pip install .` and select `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`.
 
-Stdout contains JSON; diagnostics go to stderr. Exit codes: `0` for success, including valid filters with no matches; `2` for partial failure; `1` for failure or invalid configuration. A failed source does not return zero prices or an archived snapshot.
+Stdout contains JSON by default, or CSV with `collect --format csv`; diagnostics go to stderr. Exit codes: `0` for success, including valid filters with no matches; `2` for partial failure; `1` for failure or invalid configuration. A failed source does not return zero prices or an archived snapshot.
 
 ```python
 from gpu_price_monitor import Settings, collect_prices
@@ -53,6 +53,32 @@ for quote in result["prices"]:
           quote["currency"], quote["unit"], quote["price_scope"],
           quote["compute_countries"], quote["regions"], quote["zones"])
 ```
+
+## Export a CSV table
+
+**New in 0.9.0:** `prices_to_csv(result)` and `collect --format csv`. JSON remains the default; the Python `collect_prices` result, existing JSON CLI, and exit codes remain compatible. CSV text is generated with the Python standard library, with no spreadsheet dependency. The library does not write files, upload results, or convert currencies.
+
+```bash
+# Default JSON preserves per-provider status and coverage summaries.
+gpu-price-monitor collect --providers all --coverage --pretty > prices.json
+
+# CSV goes to stdout; the shell writes the file and stderr keeps diagnostics.
+gpu-price-monitor collect --providers all --format csv > prices.csv
+```
+
+```python
+from pathlib import Path
+from gpu_price_monitor import Settings, collect_prices, prices_to_csv
+
+result = collect_prices("all", settings=Settings())
+csv_text = prices_to_csv(result)
+# The returned text already contains a BOM and CRLF line endings.
+Path("prices.csv").write_text(csv_text, encoding="utf-8", newline="")
+```
+
+Each CSV row represents one filtered quote, preserving the GPU model and provider, original amount / currency / period, instance total, country / region / zone, geographic evidence scope, ordinary / member and cloud-tier conditions, Spot, offline status, source, and observation time. Unknown locations stay empty or explicitly unlocated; platform coverage does not become a regional price. CNY / EUR / ILS remain in their original currencies and monthly amounts stay monthly. RackRate separately handles USD presentation, storage, and website updates.
+
+The output uses a **UTF-8 BOM** and **CRLF** line endings. CSV contains only the quote table, with no `provider_results`, `geographic_coverage`, or model `coverage` appendix. Use JSON for the complete summaries, even when `--coverage` is supplied. Partial failure exits `2`; complete failure or invalid configuration exits `1`; diagnostics go to stderr. CSV contains successful-source quotes, or only its header when none are returned. A file's existence is not proof of success: check the exit code or retain the JSON status.
 
 ## Country, region, and zone filters
 

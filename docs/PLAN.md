@@ -1,10 +1,10 @@
 # GPU 云算力价格采集库实施方案
 
-更新：2026-10-21，版本 0.8.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
+更新：2026-10-21，版本 0.9.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
 
 ## 交付边界
 
-库负责只读访问、超时及有限重试、确定性解析、单位 / 配置核对、筛选和结构化结果；提供 Python `collect_prices` 与 JSON CLI。调用方负责调度、部署、数据库、历史、上传、换汇、跨平台比较、告警和前端。RackRate 是独立调用方，本库不内置其上传地址或业务密钥。
+库负责只读访问、超时及有限重试、确定性解析、单位 / 配置核对、筛选和结构化结果；提供 Python `collect_prices`、`prices_to_csv` 与 JSON / CSV CLI。调用方负责调度、部署、数据库、历史、上传、换汇、跨平台比较、告警和前端。RackRate 是独立调用方，本库不内置其上传地址或业务密钥。
 
 采集对象是 GPU 云主机 / GPU 容器价格；排除 Token 模型 API、托管模型推理、微调任务、硬件售卖及混入的裸金属配置。GPU 组件费、公开整机每卡分摊、会员挂牌和促销月包分别标注。没有数值的询价项仍是有效记录，但不能当成零元。
 
@@ -46,7 +46,7 @@ gpu-price-monitor collect --env-file .env --providers nebius --nebius-source api
 gpu-price-monitor collect --env-file .env --providers autodl --autodl-source market --pretty
 ```
 
-结果包含 `prices`、逐平台 `provider_results` 与本次 `geographic_coverage`；`--coverage` 可增加型号覆盖报告。它只描述本批结果，不代表所有平台、硬件变体、国家或库存已覆盖，不输出跨币种 / 跨单位最低价。stdout 只输出 JSON，失败诊断与退出码区分全部成功、部分失败和失败。结构改变或凭据失效不返回上次价格。
+结果包含 `prices`、逐平台 `provider_results` 与本次 `geographic_coverage`；`--coverage` 可增加型号覆盖报告。它只描述本批结果，不代表所有平台、硬件变体、国家或库存已覆盖，不输出跨币种 / 跨单位最低价。stdout 默认输出 JSON，`--format csv` 只输出 UTF-8 BOM / CRLF 报价表；失败诊断写 stderr，退出码区分全部成功、部分失败和失败。CSV 不附加来源状态或覆盖表，完整汇总保留在 JSON。结构改变或凭据失效不返回上次价格。
 
 `.env` 只显式加载；进程环境优先，包括空值。FILE / JSON 目标来源互斥，FILE 相对 env 文件目录解析，没有 env 文件时相对当前目录。模板仅演示配置，不能当已确认可售规格。密钥、授权会话、私有目标配置不入 Git，认证信息不写到价格返回。
 

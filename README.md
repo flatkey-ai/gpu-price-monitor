@@ -1,10 +1,10 @@
 # GPU Price Monitor
 
-根据九家 GPU 云平台的官方价格入口构建的采集库：**Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure**。提供 Python 调用和 CLI JSON，只负责抓取、解析、筛选及返回报价。定时、存储、换汇、上传和比价由调用方处理。
+根据九家 GPU 云平台的官方价格入口构建的采集库：**Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure**。提供 Python 调用和 CLI JSON / CSV，只负责抓取、解析、筛选及返回报价。定时、存储、换汇、上传和比价由调用方处理。
 
 [English](README.en.md) · [文档需求与实现对照](docs/DOCUMENT_COVERAGE.md) · [数据口径](docs/DATA_MODEL.md) · [环境配置](.env.example)
 
-**0.8.0** 在原 Word 五家基础上增加 RunPod、DigitalOcean、Verda、Azure，`--providers all` 运行这九家。旧日期示例保留当时范围，不代表当前支持全市场。本版本从源码安装，未发布至 PyPI。
+当前版本 **0.9.0** 新增 CSV 导出；0.8.0 已在原 Word 五家基础上增加 RunPod、DigitalOcean、Verda、Azure，`--providers all` 仍运行这九家。旧日期示例保留当时范围，不代表当前支持全市场。本版本从源码安装，未发布至 PyPI。安装后可用 `gpu-price-monitor --version` 确认 CSV 所需的 0.9.0 或更新版本。
 
 ## 先看地区能力
 
@@ -42,7 +42,7 @@ python -m gpu_price_monitor collect --providers all --coverage --pretty
 
 Windows PowerShell 使用 `py -3 -m venv .venv` 与 `.\.venv\Scripts\Activate.ps1`。Linux 若缺少浏览器系统库，使用 `python -m playwright install --with-deps chromium`。仅 HTTP 采集可安装基础包 `python -m pip install .` 并指定 `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`。
 
-CLI 的 stdout 只包含 JSON，诊断写入 stderr。退出码 `0` 表示全部成功（含筛选无匹配），`2` 为部分失败，`1` 为失败或配置无效。失败不会返回零元或上次价格。
+CLI 的 stdout 默认只包含 JSON，`collect --format csv` 时只包含 CSV；诊断写入 stderr。退出码 `0` 表示全部成功（含筛选无匹配），`2` 为部分失败，`1` 为失败或配置无效。失败不会返回零元或上次价格。
 
 ```python
 from gpu_price_monitor import Settings, collect_prices
@@ -53,6 +53,32 @@ for quote in result["prices"]:
           quote["currency"], quote["unit"], quote["price_scope"],
           quote["compute_countries"], quote["regions"], quote["zones"])
 ```
+
+## 导出 CSV 表格
+
+**0.9.0 新增** `prices_to_csv(result)` 与 `collect --format csv`。JSON 仍是默认格式，已有 Python `collect_prices` 返回结构、CLI JSON 和退出码兼容。CSV 使用 Python 标准库生成文本，无需额外表格依赖；库不会自行写文件、上传或换汇。
+
+```bash
+# 默认仍返回完整 JSON，可查看逐平台状态和覆盖汇总。
+gpu-price-monitor collect --providers all --coverage --pretty > prices.json
+
+# CSV 输出到 stdout；由 shell 保存文件，诊断单独留在 stderr。
+gpu-price-monitor collect --providers all --format csv > prices.csv
+```
+
+```python
+from pathlib import Path
+from gpu_price_monitor import Settings, collect_prices, prices_to_csv
+
+result = collect_prices("all", settings=Settings())
+csv_text = prices_to_csv(result)
+# 返回文本已含 BOM 与 CRLF；使用 utf-8、禁用换行改写，避免重复 BOM。
+Path("prices.csv").write_text(csv_text, encoding="utf-8", newline="")
+```
+
+每条 CSV 行对应一条通过筛选的报价，保留型号 / 平台、原始金额 / 币种 / 计费周期、完整实例价、国家 / 地区 / 可用区、地区证据范围、普通 / 会员和云档位条件、Spot、下线状态、来源与采样时间。未知地区保持空或明确未知范围，不补成 global，不把平台覆盖当地区价。CNY / EUR / ILS 不转换为美元，月价不转小时价；RackRate 应用另行负责 USD 展示、存储和网站更新。
+
+文件编码为 **UTF-8 BOM**，行结束符为 **CRLF**。CSV 只包含报价表，不附加 `provider_results`、`geographic_coverage` 或型号 `coverage` 表；即使指定 `--coverage`，完整汇总仍应查看 JSON。部分失败退出 `2`，全部失败 / 配置错误退出 `1`，错误诊断写入 stderr；CSV 只写成功来源的报价，无报价时仅表头。不能只根据 CSV 文件存在判断采集成功，调用方须检查退出码或保留 JSON 状态。
 
 ## 按国家和地区取价
 

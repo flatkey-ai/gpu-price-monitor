@@ -1,4 +1,4 @@
-"""Python library CLI. Collection stdout contains only JSON."""
+"""Python library CLI. Collection stdout contains only the selected data format."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
+from .csv_export import prices_to_csv
 from .filters import normalize_filters
 from .settings import ConfigurationError, PROVIDERS, SOURCES, Settings
 
@@ -83,22 +84,34 @@ def _print_json(result: dict, pretty: bool = False) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2 if pretty else None, allow_nan=False))
 
 
+def _print_collection(result: dict, output_format: str, pretty: bool = False) -> None:
+    if output_format == "csv":
+        # Keep the promised encoding and CRLF bytes when redirected on Windows.
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", newline="")
+        sys.stdout.write(prices_to_csv(result))
+    else:
+        _print_json(result, pretty)
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Collect GPU cloud prices and return JSON")
+    parser = argparse.ArgumentParser(description="Collect GPU cloud prices and return JSON or CSV")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--env-file", type=Path, help="explicit dotenv file; process environment overrides its values")
     commands = parser.add_subparsers(dest="command", required=True)
     status = commands.add_parser("status", help="show implemented providers and non-secret environment options")
     validate = commands.add_parser("validate-config", help="check environment and configuration without making requests")
     validate.add_argument("--config", type=Path, required=True)
-    collect = commands.add_parser("collect", help="fetch current public prices; stdout is JSON")
+    collect = commands.add_parser("collect", help="fetch current public prices; stdout is JSON or CSV")
     for command in (status, validate, collect):
         command.add_argument("--env-file", type=Path, default=argparse.SUPPRESS,
                              help="explicit dotenv file; process environment overrides its values")
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
-    collect.add_argument("--pretty", action="store_true")
-    collect.add_argument("--coverage", action="store_true", help="include GPU family coverage for the returned quotes")
+    collect.add_argument("--format", choices=("json", "csv"), default="json",
+                         help="stdout format (default: json); csv is UTF-8 with a BOM and one row per quote")
+    collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
+    collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
     collect.add_argument("--max-retries", type=int)
     collect.add_argument("--lambda-source", choices=("public", "api"),
@@ -167,14 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
-        _print_json(result, args.pretty)
+        _print_collection(result, args.format, args.pretty)
         for provider in result["provider_results"]:
             if provider["error"]:
                 print(f"{provider['provider']}: {provider['error']['code']}: {provider['error']['message']}", file=sys.stderr)
         return {"success": 0, "partial": 2, "failed": 1}[result["status"]]
     except ConfigurationError as exc:
         if args.command == "collect":
-            _print_json({"schema_version": 1, "collected_at": datetime.now(timezone.utc).isoformat(), "status": "failed", "prices": [], "provider_results": [],
-                         "error": {"code": "configuration_error", "message": str(exc), "retryable": False}}, args.pretty)
+            _print_collection({"schema_version": 1, "collected_at": datetime.now(timezone.utc).isoformat(), "status": "failed", "prices": [], "provider_results": [],
+                               "error": {"code": "configuration_error", "message": str(exc), "retryable": False}}, args.format, args.pretty)
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 1

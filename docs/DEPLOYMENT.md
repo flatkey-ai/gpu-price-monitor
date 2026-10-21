@@ -1,6 +1,6 @@
 # 安装和接入
 
-本库只抓取并返回 JSON，调用者自行安排定时、保存、换汇和上传。0.8.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
+本库只抓取并返回 JSON / CSV 文本，调用者自行安排定时、保存、换汇和上传。0.9.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
 
 ## 免费公开模式
 
@@ -19,6 +19,17 @@ gpu-price-monitor collect --providers all --coverage --pretty > prices.json
 Windows PowerShell 的前两步使用 `py -3 -m venv .venv`、`.\.venv\Scripts\Activate.ps1`。Linux 容器缺少浏览器库时使用 `python -m playwright install --with-deps chromium`。AutoDL 用本地 Chromium，其余八家公开来源用基础 Python 包即可。
 
 `configs/collect.all.example.json` 启用全部九家；`collect.example.json` 保留两家 HTTP 来源最小示例；`collect.free.example.json` 保留 Lambda/AutoDL/UCloud 三家示例。RunPod、DigitalOcean、Verda、Azure 无新增 env 必填项；Azure 当前只采四个固定已核验 GPU SKU，完整条数以采样为准。`all` 仍不包含旧版全部平台。
+
+## CSV 接入（0.9.0 起）
+
+```bash
+gpu-price-monitor --version
+gpu-price-monitor collect --providers all --format csv > prices.csv
+```
+
+`--format` 默认 `json`，原 JSON 调用兼容。`--format csv` 的 stdout 为 UTF-8 BOM / CRLF 的报价表；shell 重定向才负责写文件。库的 `prices_to_csv(result)` 同样只返回 CSV 字符串，可由调用者用 `Path("prices.csv").write_text(text, encoding="utf-8", newline="")` 保存，文本已经包含 BOM，无需再使用 `utf-8-sig` 添加第二个。
+
+CSV 保留来源原币 / 原计费周期、配置、地区证据与会员 / 云档位 / Spot / 下线状态，不换汇、不上传、不补造国家。CSV 没有 provider 状态或 coverage 附表；完整诊断与覆盖需查看 JSON。即使生成了 CSV 文件，也要检查退出码：全部成功 `0`、部分失败 `2`、全部失败 / 配置无效 `1`。错误写 stderr，CSV 只包含成功报价，无报价时仅表头。调用者负责决定是否发布部分结果，RackRate 自己负责美元换算和网站更新。
 
 ## 可选凭据及地区报价
 
