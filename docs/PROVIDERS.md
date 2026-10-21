@@ -1,8 +1,8 @@
 # 平台能力与官方依据
 
-核查与实现口径：2026-10-21，版本 0.7.0。当前仅支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud**，`all` 也只选择这五家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
+核查与实现口径：2026-10-21，版本 0.8.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
 
-本页说明来源、单位和地理证据；实际条数随来源变化。最近的 [五家公开实抓](../examples/five-providers-2026-10-21.json) 为北京时间 2026-10-21 14:35，共 480 条：Nebius 36、Crusoe 24、Lambda 22、AutoDL 24、UCloud 374。374 条 UCloud 均为中国已下线月包，36 条 Nebius 仅标平台覆盖，其余 70 条未绑定价格地区。采集成功不等于当前可购或覆盖所有国家。
+本页说明来源、单位和地理证据；实际条数随来源变化。**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [九家公开采样](../examples/nine-providers-2026-10-21.json)。原 [五家采样](../examples/five-providers-2026-10-21.json) 是北京时间 2026-10-21 14:35 的历史证据：共 480 条，其中 374 条 UCloud 中国月包已下线，36 条 Nebius 仅平台覆盖，其余 70 条没有价格地区。采集成功不等于当前可购或覆盖所有国家。
 
 ## 地理与金额共同约定
 
@@ -79,3 +79,36 @@ API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填�
 **验证边界：公开月包已真实匿名采集；可选认证询价有离线测试，尚未完成有效账号真实成功询价。** 旧 GPU 月价 PDF 和失效价格 Markdown 不作为当前价格回退。官方规格枚举不保证各地区均可售。
 
 官方依据：[规格查询](https://docs.ucloud.cn/api/uhost-api/describe_available_instance_types) · [签名算法](https://docs.ucloud.cn/api/summary/signature) · [询价文档](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)。
+
+
+## RunPod：匿名 GPU Pods 目录，云档位分开
+
+只读请求 [官方 GraphQL](https://api.runpod.io/graphql) 的 `gpuTypes`，结构依据 [官方 API 规范](https://graphql-spec.runpod.io/)，展示入口为 [定价页](https://www.runpod.io/pricing)。仅收集 GPU Pods 的按需 `securePrice` / `communityPrice`，通过 `secureCloud` / `communityCloud` 判断该档是否启用；不读取账号、执行 mutation、租用实例或混入 Serverless、预留、Spot。
+
+`cloud_tier=secure|community` 与 `conditions.cloud_type` 标明两种云服务，不能省掉档位后将不同价误认为官网不一致，也不能当作普通价 / 会员价。2026-10-21 独立实抓中，B300 Secure / Community 为 USD 8.99 / 6.94，H200 SXM 为 USD 5.29 / 3.59；这些数值是当时观察证据，不作固定回退。
+
+金额为 USD / GPU / 小时，保留显存与明确硬件变体。目录没有报价绑定的实例 GPU 数量、CPU / RAM、国家 / 地区 / zone，保持未知；不将机房列表或最大卡数当作一条完整实例配置。禁用云档位、空值 / 零值未报价、MIG / vGPU 分区不作为完整 GPU 报价。云档位可用标志不证明库存，返回 `availability=unknown`。
+
+## DigitalOcean：公开整实例按需与 Spot 价
+
+来源 [官方 Droplet 定价文档](https://docs.digitalocean.com/products/droplets/details/pricing/)，仅读取 On-Demand GPU Droplet Pricing 与 Spot GPU Droplet Pricing 两个明确表，不把 CPU、Contract 联系销售或其他产品混入数值报价。无需 API token。
+
+官网表价是完整 Droplet **整实例小时价**；按明确 `(8x)` 或官方 [单卡 / 八卡配置说明](https://docs.digitalocean.com/products/droplets/how-to/gpu/create/) 分摊为每 GPU 小时价，保留 `instance_price` 和 `gpu_count`。例如 H200 八卡整机 USD 35.76/h，对应每 GPU USD 4.47/h。币种按官方 USD 定义，不由美元符号猜成其他币种。
+
+Spot 与按需分开，Spot 可能每日改变并被回收；B300 风冷 / 液冷报价当前出现在 Spot 表，不伪造成普通按需价。表中未给价格地区、显存、CPU / RAM / 磁盘，保持未知，不拼接其他页面机房范围。`source_last_verified` 是文档标注的核验日期，既不是本次 `observed_at`，也不当作价格生效日期。
+
+## Verda：USD / EUR 两张原币整实例表
+
+分别读取 [USD 定价页](https://verda.com/pricing?currency=usd) 与 [EUR 定价页](https://verda.com/pricing?currency=eur)，校验页面当前选中币种。仅收集 GPU instances → On-demand 表内的 Price / Spot price 列；Instant clusters、Confidential computing、CPU、Serverless 和 Reserved 另有条款，不混用。
+
+页面表格和官方 JSON-LD 一起核对金额、币种及“hourly instance price”单位。保留 1 / 2 / 4 / 8 卡数、整实例价和 CPU / RAM / 显存，再按卡数分摊为 `gpu_hour`，分摊精度记录在 `normalization`。USD / EUR 各是供应商原始挂牌，不能称为库换汇。Spot 与按需保留不同中断和容量条件。
+
+当前表没有绑定价格国家、地区、zone；供应商总部或平台机房覆盖不能将这些报价变成芬兰 / 欧洲地区价。库存、税、另计存储网络和账号折扣未核验。
+
+## Azure：固定 GPU SKU 的公开逐地区零售价
+
+读取无需密钥的 [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)，官方口径见 [API 文档](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)。当前严格限定四个已核验 GPU VM SKU：`Standard_NC4as_T4_v3`（1 × T4 16 GB）、`Standard_ND128isr_NDR_GB200_v6`（4 × GB200，每卡 192 GB）、`Standard_NC40ads_H100_v5`（1 × H100 NVL 94 GB）、`Standard_NC24ads_A100_v4`（1 × A100 PCIe 80 GB），不是 Azure 全 GPU SKU 抓取器。
+
+只接受对应基础 VM 产品、USD、`Consumption`、主计量地区、`1 Hour`、已到生效时间的按需 / Spot 条目；保留并按生效时间选择地区费率。不将 Windows 许可、Low Priority、Dev/Test、预留或嵌套 Savings Plan 费率合并。所有分页必须完成、连续且限定官方地址与原查询范围，否则来源失败，不悄悄返回前几页。
+
+`retailPrice` 是完整 VM 小时价，按 [T4 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series)、[GB200 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series)、[H100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/ncads-h100-v5)、[A100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series) 的明确 GPU 数量分摊；保留原实例价、规格和 meter 信息。磁盘、网络等其他服务另计。`armRegionName` / `location` 来自价格响应，可按 region 筛选；部署国家依据 [官方地区目录](https://learn.microsoft.com/en-us/azure/reliability/regions-list) 中已核验的 58 个 programmatic name 映射，记录 `location_source`；未知新地区保持空国家，不由前缀、币种或地区名称猜测。支持已核验国家和地区筛选，当前不推断可用区。四 SKU 本次返回 214 条、45 个地区、22 个已映射国家 / 地区代码；14 条 edge / government / Jio 等地区保留未知国家。全局国家筛选遇到相关未知国家记录会返回 `unverifiable_filter`，可结合明确地区筛选，例如 US + eastus，不静默排除缺证据报价。零售目录不证明订阅配额、容量、税或可购性。

@@ -79,6 +79,66 @@
         "billing_modes": [],
         "currencies": []
       }
+    },
+    {
+      "id": "runpod",
+      "enabled": true,
+      "planned_source": "official_public_api",
+      "filters": {
+        "compute_countries": [],
+        "sales_countries": [],
+        "regions": [],
+        "zones": [],
+        "gpu_models": [],
+        "gpu_counts": [],
+        "billing_modes": [],
+        "currencies": []
+      }
+    },
+    {
+      "id": "digitalocean",
+      "enabled": true,
+      "planned_source": "public_documentation",
+      "filters": {
+        "compute_countries": [],
+        "sales_countries": [],
+        "regions": [],
+        "zones": [],
+        "gpu_models": [],
+        "gpu_counts": [],
+        "billing_modes": [],
+        "currencies": []
+      }
+    },
+    {
+      "id": "verda",
+      "enabled": true,
+      "planned_source": "public_page",
+      "filters": {
+        "compute_countries": [],
+        "sales_countries": [],
+        "regions": [],
+        "zones": [],
+        "gpu_models": [],
+        "gpu_counts": [],
+        "billing_modes": [],
+        "currencies": []
+      }
+    },
+    {
+      "id": "azure",
+      "enabled": true,
+      "planned_source": "official_public_api",
+      "filters": {
+        "compute_countries": [],
+        "sales_countries": [],
+        "regions": [],
+        "zones": [],
+        "gpu_models": [],
+        "gpu_counts": [],
+        "billing_modes": [],
+        "currencies": []
+      }
     }
   ]
 }

@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-10-21T07:13:34.442850+00:00",
+  "status": "success",
+  "prices": [
+    {
+      "provider": "azure",
+      "product_type": "gpu_instance",
+      "gpu_model": "H100",
+      "gpu_variant": "NVL",
+      "raw_name": "NC40adsH100v5",
+      "raw_sku": "Standard_NC40ads_H100_v5",
+      "vram_gb": 94,
+      "gpu_count": 1,
+      "amount": "6.98",
+      "currency": "USD",
+      "unit": "gpu_hour",
+      "billing_mode": "on_demand",
+      "price_basis": "instance_total_allocated",
+      "quote_status": "quoted",
+      "instance_price": {
+        "amount": "6.98",
+        "currency": "USD",
+        "unit": "instance_hour"
+      },
+      "resources": {
+        "vcpus": 40,
+        "memory_gib": 320
+      },
+      "conditions": {
+        "product_scope": "base_vm_without_windows_license",
+        "purchase_option": "on_demand"
+      },
+      "regions": [
+        "eastus"
+      ],
+      "zones": [],
+      "geographic_scope": "regions",
+      "location": {
+        "region": "eastus",
+        "region_name": "US East"
+      },
+      "compute_countries": [
+        "US"
+      ],
+      "location_source": {
+        "url": "https://learn.microsoft.com/en-us/azure/reliability/regions-list",
+        "source_type": "official_region_directory",
+        "verified_on": "2026-10-21",
+        "region_field": "Programmatic name",
+        "country_basis": "explicit_region_geography_or_physical_location"
+      },
+      "account_scope": "public_catalog",
+      "tax_scope": "unspecified",
+      "availability": "unknown",
+      "observed_at": "2026-10-21T07:13:29.979726+00:00",
+      "effective_from": "2024-03-01T00:00:00+00:00",
+      "effective_until": null,
+      "source_url": "https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&currencyCode=USD&meterRegion=%27primary%27&%24filter=serviceName+eq+%27Virtual+Machines%27+and+armSkuName+eq+%27Standard_NC40ads_H100_v5%27+and+priceType+eq+%27Consumption%27+and+productName+eq+%27Virtual+Machines+NCadsH100v5+Series%27",
+      "source_type": "official_public_api",
+      "api_documentation_url": "https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices",
+      "hardware_source_url": "https://learn.microsoft.com/en-us/azure/virtual-machines/ncads-h100-v5",
+      "azure_meter": {
+        "meter_id": "5e4e09e8-bed6-54d4-a3d4-2fb7cbd80124",
+        "product_id": "DZH318Z0F8W2",
+        "sku_id": "DZH318Z0F8W2/000N",
+        "product_name": "Virtual Machines NCadsH100v5 Series",
+        "meter_name": "NC40adsH100v5",
+        "is_primary_meter_region": true,
+        "tier_minimum_units": "0"
+      },
+      "normalization": {
+        "formula": "instance_price.amount / gpu_count",
+        "rounding": "exact"
+      },
+      "notes": [
+        "Anonymous Microsoft retail rate for the explicitly named base VM product in the returned ARM region; Windows-license products are excluded.",
+        "The instance hourly retail total is allocated across the GPU count documented for this exact VM size; managed disks, networking and other services are not included.",
+        "Only already-effective Consumption primary meters are returned; Low Priority, Dev/Test, reservations and nested savings-plan rates are excluded.",
+        "Regional retail listings do not verify quota, capacity, subscription access, availability zones, tax or orderability."
+      ],
+      "price_scope": "regional_quote",
+      "region_price_verified": true
+    }
+  ],
+  "provider_results": [
+    {
+      "provider": "azure",
+      "source_url": "https://prices.azure.com/api/retail/prices",
+      "source_type": "official_public_api",
+      "status": "success",
+      "observed_at": "2026-10-21T07:13:29.979726+00:00",
+      "fetched_count": 214,
+      "returned_count": 1,
+      "filters": {
+        "gpu_models": {
+          "requested": [
+            "H100"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicit quote fields; capacity regions do not establish regional prices."
+        },
+        "regions": {
+          "requested": [
+            "eastus"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicit quote fields; capacity regions do not establish regional prices."
+        },
+        "billing_modes": {
+          "requested": [
+            "on_demand"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicit quote fields; capacity regions do not establish regional prices."
+        },
+        "compute_countries": {
+          "requested": [
+            "US"
+          ],
+          "status": "applied_locally",
+          "reason": "Matched against explicit quote fields; capacity regions do not establish regional prices."
+        }
+      },
+      "error": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "regional_quote": 1
+        },
+        "country_codes": [
+          "US"
+        ],
+        "country_bound_quote_count": 1,
+        "region_bound_quote_count": 1,
+        "unlocated_quote_count": 0,
+        "platform_coverage_quote_count": 0
+      }
+    }
+  ],
+  "geographic_coverage": {
+    "scope": "returned_quotes",
+    "price_scope_counts": {
+      "regional_quote": 1
+    },
+    "country_codes": [
+      "US"
+    ],
+    "country_bound_quote_count": 1,
+    "region_bound_quote_count": 1,
+    "unlocated_quote_count": 0,
+    "platform_coverage_quote_count": 0
+  }
+}

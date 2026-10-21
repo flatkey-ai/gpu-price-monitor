@@ -2,9 +2,37 @@
 
 日期 JSON 是特定时刻的固定采样，不是持续更新价目表。库不会将它们当作实时采集失败的回退数据，也不会自动写入这些文件。以文件内 UTC `collected_at` / `observed_at` 为准，它们不代表页面发布日期或价格生效日。来源 URL、原始币种、单位和条件必须随记录保留。
 
-## 当前五家范围：2026-10-21
+## 当前九家范围：2026-10-21
 
-[five-providers-2026-10-21.json](five-providers-2026-10-21.json) 是五家官方公开来源的真实采集，UTC `2026-10-21T06:35:03.737019+00:00`，即北京时间 **2026-10-21 14:35:03**。不使用账号密钥或授权市场会话。
+[nine-providers-2026-10-21.json](nine-providers-2026-10-21.json) 是 0.8.0 九家公开来源的真实采样，UTC `2026-10-21T07:12:56.913219+00:00`，即北京时间 **2026-10-21 15:12:56**，全部九家成功，共 **833 条**。不使用账号密钥或授权市场会话。
+
+| 平台 | 记录数 | 原始口径与位置边界 |
+| --- | ---: | --- |
+| Nebius | 36 | USD / ILS 小时组件，按需 / Spot，仅平台覆盖 |
+| Crusoe | 24 | USD 每 GPU 小时，含 Contact sales，地区未知 |
+| Lambda | 22 | USD 每 GPU 小时，明确多卡配置，地区未知 |
+| UCloud | 374 | CNY 月套餐，官方中国 / region / zone，全部下线 |
+| AutoDL | 24 | CNY 每 GPU 小时，普通 / 会员各 12，地区未知 |
+| RunPod | 68 | USD 每 GPU 小时，Secure / Community 分开，地区未知 |
+| DigitalOcean | 19 | USD 完整实例价按卡分摊，按需 11 / Spot 8，地区未知 |
+| Verda | 52 | USD / EUR 两原币完整实例表，按需 / Spot，地区未知 |
+| Azure | 214 | USD 四固定 SKU 按需 / Spot，45 个价格地区；14 条国家未知 |
+
+本批 574 条有国家关联，588 条有价格 region / zone，36 条仅平台覆盖，209 条位置未知；国家 / 地区代码共 23 个（含 UCloud 的 CN）。这些是返回记录覆盖，不是所有市场、全部型号或可购库存覆盖。
+
+新增 RunPod 保留 Secure / Community 两档，DigitalOcean 和 Verda 将完整实例价按明确 GPU 数分摊；Verda USD / EUR 是分别抓取的原币牌价；Azure 当前仅四个固定已核验 GPU SKU（T4 / GB200 / H100 NVL / A100 PCIe），返回实际价格地区。不将 Spot 当普通价，不推断未知国家 / 地区，不证明全部型号、国家或实时可购。
+
+当前版本重新发起公开采集：
+
+```bash
+gpu-price-monitor collect --providers all --coverage --pretty
+```
+
+0.8.0 的 `all` 运行上述九家，HTTP-only 可排除 AutoDL；只有 AutoDL 需要本地 Chromium。来源变化可能使状态 / 价格 / 条数变化，文件是历史证据而非运行时回退。
+
+## 历史：原五家范围，2026-10-21
+
+[five-providers-2026-10-21.json](five-providers-2026-10-21.json) 是原五家官方公开来源的历史真实采集，UTC `2026-10-21T06:35:03.737019+00:00`，即北京时间 **2026-10-21 14:35:03**。不使用账号密钥或授权市场会话。
 
 | 平台 | 记录数 | 单位与条件 | 地理证据 |
 | --- | ---: | --- | --- |
@@ -22,11 +50,11 @@
 gpu-price-monitor collect --providers all --coverage --pretty
 ```
 
-从 0.7.0 开始 `all` 只运行 Nebius、Lambda、Crusoe、AutoDL、UCloud。新请求内容 / 条数可能变化，不能保证重新得到历史文件中的价格或数量。型号 `coverage` 只针对本次返回集合，不表示全市场、全硬件变体或库存完整覆盖，也不计算跨币种 / 跨单位最低价。
+0.7.0 当时的 `all` 只运行 Nebius、Lambda、Crusoe、AutoDL、UCloud；0.8.0 当前为九家。新请求内容 / 条数可能变化，不能保证重新得到历史文件中的价格或数量。型号 `coverage` 只针对本次返回集合，不表示全市场、全硬件变体或库存完整覆盖，也不计算跨币种 / 跨单位最低价。
 
 ## 历史：2026-10-20 的旧版全来源范围
 
-[all-providers-2026-10-20.json](all-providers-2026-10-20.json) 与 [mainstream-coverage-2026-10-20.json](mainstream-coverage-2026-10-20.json) 属于 **0.6.0 的历史 11 家范围**，其中若干适配器已从 0.7.0 移除。它们不表示当前仍支持旧版所有平台；当前 `--providers all` 不能重现旧版范围。保留旧 JSON 原样以便核查当时来源、字段及型号覆盖，不把旧的“零缺口”结论套用到当前五家。
+[all-providers-2026-10-20.json](all-providers-2026-10-20.json) 与 [mainstream-coverage-2026-10-20.json](mainstream-coverage-2026-10-20.json) 属于 **0.6.0 的历史 11 家范围**，其中若干适配器已从 0.7.0 移除。它们不表示当前仍支持旧版所有平台；当前 `--providers all` 不能重现旧版范围。保留旧 JSON 原样以便核查当时来源、字段及型号覆盖，不把旧的“零缺口”结论套用到当前九家。
 
 旧数据可能同时含 GPU 组件、完整实例分摊、容器、共享算力费率、不同币种与月 / 小时单位，不能仅按 GPU 名称合并报价。历史文件中的数量、来源和时间均以其自身记录为准。
 

@@ -29,10 +29,11 @@ def quote(**changes):
 
 
 class DocumentScopeTests(unittest.TestCase):
-    def test_only_document_providers_are_registered_and_retired_sources_fail_before_network(self):
-        self.assertEqual(set(IMPLEMENTED_PROVIDERS), {"nebius", "lambda", "crusoe", "autodl", "ucloud"})
+    def test_document_providers_and_public_expansion_are_registered(self):
+        self.assertEqual(set(IMPLEMENTED_PROVIDERS), {"nebius", "lambda", "crusoe", "autodl", "ucloud",
+                                                    "runpod", "digitalocean", "verda", "azure"})
         with patch("gpu_price_monitor.collector.fetch_text") as fetch:
-            for retired in ("runpod", "azure", "verda", "digitalocean", "ebcloud", "suanli"):
+            for retired in ("ebcloud", "suanli", "unknown"):
                 with self.subTest(provider=retired), self.assertRaises(ConfigurationError):
                     collect_prices([retired], settings=Settings())
         fetch.assert_not_called()

@@ -1,6 +1,6 @@
 # 安装和接入
 
-本库只抓取并返回 JSON，调用者自行安排定时、保存、换汇和上传。支持的平台仅有 Nebius、Lambda、Crusoe、AutoDL、UCloud。
+本库只抓取并返回 JSON，调用者自行安排定时、保存、换汇和上传。0.8.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
 
 ## 免费公开模式
 
@@ -16,9 +16,9 @@ python -m playwright install chromium
 gpu-price-monitor collect --providers all --coverage --pretty > prices.json
 ```
 
-Windows PowerShell 的前两步使用 `py -3 -m venv .venv`、`.\.venv\Scripts\Activate.ps1`。Linux 容器缺少浏览器库时使用 `python -m playwright install --with-deps chromium`。AutoDL 用本地 Chromium，其余四家公开来源用基础 Python 包即可。
+Windows PowerShell 的前两步使用 `py -3 -m venv .venv`、`.\.venv\Scripts\Activate.ps1`。Linux 容器缺少浏览器库时使用 `python -m playwright install --with-deps chromium`。AutoDL 用本地 Chromium，其余八家公开来源用基础 Python 包即可。
 
-`configs/collect.all.example.json` 启用全部五家；`collect.example.json` 保留两家 HTTP 来源最小示例；`collect.free.example.json` 保留 Lambda/AutoDL/UCloud 三家示例。`all` 不包含旧版本其他平台。
+`configs/collect.all.example.json` 启用全部九家；`collect.example.json` 保留两家 HTTP 来源最小示例；`collect.free.example.json` 保留 Lambda/AutoDL/UCloud 三家示例。RunPod、DigitalOcean、Verda、Azure 无新增 env 必填项；Azure 当前只采四个固定已核验 GPU SKU，完整条数以采样为准。`all` 仍不包含旧版全部平台。
 
 ## 可选凭据及地区报价
 
@@ -52,4 +52,4 @@ python -m unittest discover -s tests -v
 gpu-price-monitor validate-config --config configs/collect.all.example.json
 ```
 
-单元测试和配置检查不访问账号或购买资源；真实五家公开采样与未完成的认证验证边界见 [文档对照](DOCUMENT_COVERAGE.md)。
+单元测试和配置检查不访问账号或购买资源；真实九家公开采样与未完成的认证验证边界见 [文档对照](DOCUMENT_COVERAGE.md)。

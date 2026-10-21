@@ -8,15 +8,19 @@ from decimal import Decimal, DecimalException
 
 from .filters import apply_filters, filter_support, normalize_filters
 from .geography import describe_geography, geography_summary
-from .providers import (autodl, crusoe, lambda_cloud, lambda_public,
-                        nebius, ucloud, ucloud_public)
+from .providers import (autodl, azure, crusoe, digitalocean, lambda_cloud, lambda_public,
+                        nebius, runpod, ucloud, ucloud_public, verda)
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
 IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
-                         "ucloud": ucloud_public, "autodl": autodl}
+                         "ucloud": ucloud_public, "autodl": autodl,
+                         "runpod": runpod, "digitalocean": digitalocean,
+                         "verda": verda, "azure": azure}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
-                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page"}
+                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
+                    "runpod": "official_public_api", "digitalocean": "public_documentation",
+                    "verda": "public_page", "azure": "official_public_api"}
 
 
 def provider_source(provider: str, settings: Settings | None = None) -> str:

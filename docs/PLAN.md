@@ -1,6 +1,6 @@
 # GPU 云算力价格采集库实施方案
 
-更新：2026-10-21，版本 0.7.0。当前范围严格为用户原始 Word 核查的 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
+更新：2026-10-21，版本 0.8.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
 
 ## 交付边界
 
@@ -18,7 +18,11 @@
 | Lambda | 官方实例页，保留 1 / 2 / 4 / 8 卡配置 | 认证 instance-types，整机美分 / GPU 数分摊，容量地区另存 | 公开已实抓；API 未成功真实鉴权，容量不能补地区价 |
 | Crusoe | GPU instances 独立区块，按需 / Spot / Contact sales | 未确认公共 VM 价格 API；不调用账单或托管推理作替代 | 公开已实抓；价格未绑定地区 |
 | AutoDL | 公开首页普通 / 会员价，新未登录上下文 | 用户授权 storage state 的按量市场，读取页面金额 / 单位、地区及配置 | 首页已实抓；市场 8 项合成测试，未成功登录实抓 |
-| UCloud | 匿名活动具体月套餐 + 官方位置目录 | 签名 GetUHostInstancePrice，完整小时主机目标及官方位置核验 | 月包已实抓但本次全部下线；API 未成功真实鉴权 |
+| UCloud | 匿名活动具体月套餐 + 官方位置目录 | 签名 GetUHostInstancePrice，完整小时主机目标及官方位置核验 | 月包已实抓但历史样本全部下线；API 未成功真实鉴权 |
+| RunPod | 匿名官方 GraphQL GPU Pods；Secure / Community 分开 | 无账号模式 | 每 GPU 价，位置 / 整机配置 / 库存未知；不采 MIG / Serverless |
+| DigitalOcean | 官方 GPU 按需 / Spot 文档 | 无账号模式 | 完整 1 / 8 卡实例分摊；未给地区与显存 |
+| Verda | USD / EUR 原币 GPU instances 表，按需 / Spot | 无账号模式 | 整机分摊，JSON-LD 核对单位；未给价格地区 |
+| Azure | 匿名 Retail Prices API，已生效基础 VM 地区费率 | 无账号模式 | 当前四固定 SKU（T4 / GB200 / H100 NVL / A100 PCIe）；官方地区目录映射国家，未知为空，不推断可用区 / 容量 |
 
 源码与配置入口见 [README](../README.md)、[PROVIDERS](PROVIDERS.md) 及 [.env.example](../.env.example)。只读请求不创建或购买资源，账号访问权限仍由供应商决定。
 
@@ -29,7 +33,7 @@ from gpu_price_monitor import Settings, collect_prices
 
 result = collect_prices(
     "all",
-    {"currencies": ["USD", "ILS", "CNY"]},
+    {"currencies": ["USD", "EUR", "ILS", "CNY"]},
     settings=Settings(),
     include_coverage=True,
 )
@@ -54,7 +58,8 @@ gpu-price-monitor collect --env-file .env --providers autodl --autodl-source mar
 2. Nebius 公开覆盖标为 `platform_coverage`；认证估价只有在项目地区 GET 与目标一致、官方国家映射通过时才标 `requested_region_quote`。合同价仍为账号价。
 3. AutoDL 首页不补位置；授权市场仅保留来源 region 及地区名，不猜国家 / zone。
 4. Lambda 容量地区单列；Crusoe 公开表没有价格位置。未知位置保持 `unlocated_catalog`，不写成 global。
-5. 组合筛选必须满足同一报价的位置关系。不支持报 `unsupported_filter`；相关报价缺证据报 `unverifiable_filter`，不静默当无匹配。
+5. RunPod、DigitalOcean、Verda 不补地区。Azure 使用价格响应的 ARM region 与官方地区目录已核验国家映射，未知国家保持空，不推断 zone，也不将地域零售牌价当现货。
+6. 组合筛选必须满足同一报价的位置关系。不支持报 `unsupported_filter`；相关报价缺证据报 `unverifiable_filter`，不静默当无匹配。
 
 ## 价格语义
 
@@ -64,7 +69,7 @@ Lambda API 的美分是整实例价；Nebius / UCloud 估价是完整指定配�
 
 ## 当前验收证据
 
-2026-10-21 14:35（北京时间）[五平台公开实抓](../examples/five-providers-2026-10-21.json) 成功返回 480 条：36 Nebius、24 Crusoe、22 Lambda、24 AutoDL、374 UCloud。UCloud 374 条均为中国下线月包；36 条 Nebius 只是平台覆盖；其余 70 条位置未知。采样时刻不是页面发布时间，也不是实时库存承诺。
+**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [九平台公开采样](../examples/nine-providers-2026-10-21.json)。原 2026-10-21 14:35（北京时间）[五平台历史采样](../examples/five-providers-2026-10-21.json) 为 480 条：374 条 UCloud 中国下线月包、36 条 Nebius 平台覆盖及 70 条位置未知目录价；它不等于新九家全量或可购地区报价。采样时刻不是页面发布时间，也不是实时库存承诺。
 
 公开端已有真实 Python / CLI 返回；新增认证 / 授权路径以明确合成样本测试解析和拒绝错误行为，尚无有效账号成功联调证据。其余验收命令：
 
