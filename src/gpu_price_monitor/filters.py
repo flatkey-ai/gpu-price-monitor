@@ -7,6 +7,7 @@ from .settings import ConfigurationError, Settings
 FILTER_FIELDS = frozenset({
     "compute_countries", "sales_countries", "regions", "zones",
     "gpu_models", "gpu_counts", "billing_modes", "currencies",
+    "coverage_regions", "coverage_countries",
 })
 BILLING_MODES = frozenset({"on_demand", "spot", "reserved", "monthly", "yearly"})
 
@@ -28,7 +29,7 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
             if any(not isinstance(value, str) or not value.strip() for value in values):
                 raise ConfigurationError("string filters must contain non-empty strings")
             normalized = [value.strip() for value in values]
-            if name in {"compute_countries", "sales_countries", "currencies"}:
+            if name in {"compute_countries", "sales_countries", "currencies", "coverage_countries"}:
                 normalized = [value.upper() for value in normalized]
                 length = 3 if name == "currencies" else 2
                 if any(len(value) != length or not value.isascii() or not value.isalpha() for value in normalized):
@@ -42,9 +43,10 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
 def filter_support(provider: str, filters: dict[str, list], *, settings: Settings | None = None) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
     if provider == "nebius":
-        supported.add("regions")
         if settings is not None and settings.nebius_source == "api":
-            supported.update({"compute_countries", "gpu_counts"})
+            supported.update({"regions", "compute_countries", "gpu_counts"})
+        else:
+            supported.update({"regions", "compute_countries", "coverage_regions", "coverage_countries"})
     if provider in {"lambda", "digitalocean", "verda", "azure"}:
         supported.add("gpu_counts")
     if provider == "azure":
@@ -63,7 +65,8 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
             "requested": values,
             "status": "applied_locally" if name in supported else "unsupported",
             "reason": (
-                reason
+                ("Matched only documented platform coverage; this does not verify a regional price or stock."
+                 if name in {"coverage_regions", "coverage_countries"} else reason)
                 if name in supported else
                 "The selected collector does not support verifying this filter."
             ),
@@ -79,7 +82,7 @@ def apply_filters(prices: list[dict], filters: dict[str, list]) -> list[dict]:
         for name, values in filters.items():
             if not values:
                 continue
-            if name in {"regions", "zones", "compute_countries", "sales_countries"}:
+            if name in {"regions", "zones", "compute_countries", "sales_countries", "coverage_regions", "coverage_countries"}:
                 match = bool(set(values) & set(quote.get(name, [])))
             elif name == "gpu_counts":
                 match = quote.get("gpu_count") in values

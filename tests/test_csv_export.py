@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 import unittest
 
-from gpu_price_monitor.csv_export import CSV_COLUMNS, CSV_HEADERS, prices_to_csv
+from gpu_price_monitor.csv_export import (
+    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS, prices_to_csv, publishable_quote,
+)
 
 
 def quote(**overrides):
@@ -31,7 +33,7 @@ def result(*prices, status="success"):
 
 
 def english_csv(source):
-    return prices_to_csv(source, bilingual_headers=False)
+    return prices_to_csv(source, bilingual_headers=False, profile="full")
 
 
 def rows(text):
@@ -40,7 +42,7 @@ def rows(text):
 
 class CsvExportTests(unittest.TestCase):
     def test_default_headers_translate_every_stable_english_column(self):
-        output = prices_to_csv(result(quote()))
+        output = prices_to_csv(result(quote()), profile="full")
         self.assertTrue(output.startswith("\ufeffprovider（平台）,"))
         self.assertEqual(tuple(next(csv.reader(io.StringIO(output[1:], newline="")))), CSV_HEADERS)
         self.assertIsInstance(CSV_HEADERS, tuple)
@@ -64,13 +66,13 @@ class CsvExportTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "examples" / "nine-providers-2026-10-21.json"
         source = json.loads(path.read_text())
         before = deepcopy(source)
-        bilingual = prices_to_csv(source)
-        english = prices_to_csv(source, bilingual_headers=False)
+        bilingual = prices_to_csv(source, profile="full")
+        english = prices_to_csv(source, bilingual_headers=False, profile="full")
         self.assertEqual(bilingual.partition("\r\n")[2], english.partition("\r\n")[2])
         self.assertEqual(len(rows(bilingual)), len(source["prices"]))
         self.assertEqual(tuple(rows(english)[0]), CSV_COLUMNS)
         self.assertEqual(source, before)
-        empty = prices_to_csv(result())
+        empty = prices_to_csv(result(), profile="full")
         self.assertEqual(tuple(next(csv.reader(io.StringIO(empty[1:], newline="")))), CSV_HEADERS)
         self.assertEqual(rows(empty), [])
 
@@ -220,6 +222,189 @@ class CsvExportTests(unittest.TestCase):
             for field in ("compute_countries", "regions", "zones"):
                 self.assertEqual(json.loads(row[field]) if row[field] else [], price.get(field, []))
         self.assertEqual(source, before)
+
+
+def regional_quote(**overrides):
+    return quote(**{
+        "provider": "azure", "regions": ["westus3"], "compute_countries": ["US"],
+        "price_scope": "regional_quote", "region_price_verified": True, **overrides,
+    })
+
+
+class CompactCsvExportTests(unittest.TestCase):
+    def compact_rows(self, source, **options):
+        return rows(prices_to_csv(source, bilingual_headers=False, **options))
+
+    def test_default_is_ten_bilingual_columns_and_full_remains_opt_in(self):
+        source = result(regional_quote())
+        output = prices_to_csv(source)
+        self.assertEqual(tuple(next(csv.reader(io.StringIO(output[1:], newline="")))), COMPACT_CSV_HEADERS)
+        self.assertEqual(COMPACT_CSV_COLUMNS, (
+            "gpu_model", "provider", "location", "amount", "currency", "unit",
+            "pricing_conditions", "availability", "source_url", "observed_at",
+        ))
+        self.assertEqual(len(COMPACT_CSV_HEADERS), 10)
+        self.assertEqual(len(CSV_COLUMNS), 51)
+        self.assertEqual(tuple(self.compact_rows(source)[0]), COMPACT_CSV_COLUMNS)
+        self.assertEqual(output, prices_to_csv(source, profile="compact"))
+        self.assertEqual(output.partition("\r\n")[2], prices_to_csv(source, bilingual_headers=False).partition("\r\n")[2])
+        self.assertTrue(output.startswith("\ufeffgpu_model（"))
+        self.assertTrue(output.endswith("\r\n"))
+
+    def test_gpu_configuration_keeps_variant_cards_cpu_ram_and_source_units(self):
+        source = result(
+            regional_quote(gpu_count=8, resources={"vcpus": 208, "memory_gib": 2900, "storage": {"amount": "22", "unit": "TiB", "type": "SSD"}}),
+            regional_quote(provider="ucloud", resources={"vcpu_count": 32, "memory_mb": 131072, "disk_gb": 100}),
+            regional_quote(provider="autodl", resources={"allocation_scope": "per_gpu", "cpu_cores_per_gpu": "12", "memory_per_gpu": {"amount": "60", "unit": "GB"}}),
+        )
+        actual = self.compact_rows(source)
+        for text in ("B300", "SXM6", "288GB/卡", "8卡", "208 vCPU", "2900 GiB RAM", "22 TiB SSD", "gpu-b300-sxm"):
+            self.assertIn(text, actual[0]["gpu_model"])
+        self.assertIn("131072 MB RAM", actual[1]["gpu_model"])
+        self.assertIn("100GB", actual[1]["gpu_model"].replace(" ", ""))
+        self.assertNotIn("128 GiB", actual[1]["gpu_model"])
+        self.assertIn("12 CPU核/卡", actual[2]["gpu_model"])
+        self.assertIn("60 GB RAM/卡", actual[2]["gpu_model"])
+        self.assertNotIn("8卡", actual[2]["gpu_model"])
+
+    def test_unknown_coverage_and_capacity_never_become_regional_prices(self):
+        source = result(
+            quote(),
+            regional_quote(regions=[], coverage_regions=["eu-north1"], coverage_countries=["FI"], price_scope="platform_coverage"),
+            regional_quote(regions=["us-central1"], price_scope="platform_coverage"),
+            quote(provider="lambda", capacity_regions=["us-west-1"]),
+            regional_quote(provider="azure", regions=["westus3"], compute_countries=["US"], region_price_verified=False),
+        )
+        self.assertEqual(self.compact_rows(source), [])
+        self.assertEqual(len(rows(english_csv(source))), 5)
+        self.assertTrue(all(not publishable_quote(item) for item in source["prices"]))
+
+    def test_regional_and_requested_quotes_preserve_country_region_and_zone(self):
+        actual = self.compact_rows(result(
+            regional_quote(provider="ucloud", regions=["cn-bj2"], zones=["cn-bj2-02"], compute_countries=["CN"],
+                  price_scope="zone_quote", region_price_verified=True, location={"zone_name": "北京可用区 B"}),
+            regional_quote(regions=["eu-north1"], compute_countries=["FI"], price_scope="requested_region_quote", region_price_verified=True),
+        ))
+        for text in ("国家=CN", "地区=cn-bj2", "可用区=cn-bj2-02", "北京可用区 B"):
+            self.assertIn(text, actual[0]["location"])
+        self.assertIn("请求配置询价地区", actual[1]["location"])
+        self.assertIn("国家=FI", actual[1]["location"])
+        self.assertNotIn("平台覆盖", actual[1]["location"])
+
+    def test_conditions_keep_member_cloud_actual_spot_account_and_tax(self):
+        source = result(
+            regional_quote(provider="autodl", pricing_tier="ordinary", membership_required=False),
+            regional_quote(provider="autodl", pricing_tier="member", membership_required=True, membership_discount="0.95", ordinary_price_amount="3.8000"),
+            regional_quote(provider="runpod", cloud_tier="secure", conditions={"cloud_type": "secure_cloud"}),
+            regional_quote(provider="runpod", cloud_tier="community"),
+            regional_quote(billing_mode="spot", effective_from="2026-10-21T08:15:00+00:00"),
+            regional_quote(price_basis="instance_total_allocated", tax_scope="excluded", notes=["USD prices apply to customers except companies from Israel."]),
+            regional_quote(account_scope="account_contract_quote", source_conditions={"offer_types": ["contract"]}, minimum_commitment={"months": 12}),
+            regional_quote(billing_mode="spot", quote_status="starting_at", price_basis="starting_price"),
+            regional_quote(price_basis="gpu_component"),
+        )
+        actual = self.compact_rows(source)
+        self.assertIn("普通用户", actual[0]["pricing_conditions"])
+        self.assertIn("无需会员", actual[0]["pricing_conditions"])
+        for text in ("会员", "需会员", "会员折扣=0.95", "普通用户每GPU原币金额=3.8000"):
+            self.assertIn(text, actual[1]["pricing_conditions"])
+        self.assertIn("云档位=secure", actual[2]["pricing_conditions"])
+        self.assertIn("secure_cloud", actual[2]["pricing_conditions"])
+        self.assertIn("云档位=community", actual[3]["pricing_conditions"])
+        self.assertIn("Spot", actual[4]["pricing_conditions"])
+        self.assertIn("2026-10-21T08:15:00+00:00", actual[4]["pricing_conditions"])
+        self.assertNotIn("起步价", actual[4]["pricing_conditions"])
+        self.assertEqual(len(actual), 7)
+        for text in ("整机价按卡分摊", "未含税", "Israel"):
+            self.assertIn(text, actual[5]["pricing_conditions"])
+        for text in ("账号合同价", '"months":12', '"offer_types":["contract"]'):
+            self.assertIn(text, actual[6]["pricing_conditions"])
+
+    def test_hourly_instance_amounts_promotions_and_zero_remain_monthly_contact_offline_are_excluded(self):
+        monthly = regional_quote(provider="ucloud", amount="467.7900", currency="CNY", unit="gpu_month", billing_mode="monthly",
+                        price_basis="instance_total_allocated", availability="offline",
+                        instance_price={"amount": "1871.1600", "original_amount": "16681.0000", "currency": "CNY", "unit": "instance_month"},
+                        promotion={"only_new_users": False, "purchase_limit": 3, "eligibility_verified": False})
+        hourly = {**monthly, "unit": "gpu_hour", "billing_mode": "on_demand", "availability": "unknown",
+                  "instance_price": {**monthly["instance_price"], "unit": "instance_hour"}}
+        source = result(hourly, regional_quote(amount="0.0000"), monthly,
+                        regional_quote(provider="crusoe", amount=None, quote_status="contact_sales"),
+                        regional_quote(availability="offline"))
+        actual = self.compact_rows(source)
+        self.assertEqual(len(actual), 2)
+        self.assertEqual([row["amount"] for row in actual], ["467.7900", "0.0000"])
+        self.assertEqual((actual[0]["currency"], actual[0]["unit"], actual[0]["availability"]), ("CNY", "gpu_hour", "unknown"))
+        for text in ("按需", "整机价按卡分摊", "1871.1600 CNY instance_hour", "16681.0000 CNY instance_hour", '"purchase_limit":3', '"eligibility_verified":false'):
+            self.assertIn(text, actual[0]["pricing_conditions"])
+        self.assertNotIn("整实例总价", actual[1]["pricing_conditions"])
+        self.assertEqual(len(rows(english_csv(source))), 5)
+
+    def test_publishable_requires_all_explicit_price_location_and_numeric_evidence(self):
+        self.assertTrue(publishable_quote(regional_quote()))
+        self.assertTrue(publishable_quote(regional_quote(amount="0.0000")))
+        for overrides in (
+            {"unit": "gpu_month"}, {"amount": None}, {"amount": "NaN"}, {"amount": 1.0},
+            {"quote_status": "contact_sales"}, {"quote_status": "starting_at"}, {"price_basis": "starting_price"}, {"price_basis": "gpu_component"},
+            {"price_scope": "platform_coverage"}, {"price_scope": "unlocated_catalog"},
+            {"region_price_verified": False}, {"region_price_verified": 1},
+            {"compute_countries": []}, {"compute_countries": ["us"]}, {"compute_countries": ["USA"]},
+            {"compute_countries": ["US", ""]}, {"compute_countries": "US"},
+            {"regions": []}, {"regions": [""]}, {"regions": "westus3"},
+            {"availability": "offline"}, {"availability": "ended"}, {"availability": "upcoming"}, {"availability": "unavailable"},
+        ):
+            with self.subTest(overrides=overrides):
+                item = regional_quote(**overrides)
+                self.assertFalse(publishable_quote(item))
+                self.assertEqual(self.compact_rows(result(item)), [])
+        for value in (None, [], "quoted"):
+            self.assertFalse(publishable_quote(value))
+
+    def test_native_decimals_iso_time_formula_protection_and_input_identity(self):
+        source = result(regional_quote(gpu_model="=1+1", source_url="\t=HYPERLINK(bad)", amount="+1.234567890123456789E-12", currency="EUR"), status="partial")
+        before = deepcopy(source)
+        row = self.compact_rows(source)[0]
+        self.assertTrue(row["gpu_model"].startswith("'=1+1"))
+        self.assertEqual(row["source_url"], "'\t=HYPERLINK(bad)")
+        self.assertEqual(row["amount"], source["prices"][0]["amount"])
+        self.assertEqual(row["currency"], "EUR")
+        self.assertEqual(row["observed_at"], source["prices"][0]["observed_at"])
+        self.assertIn("采集状态=partial", row["pricing_conditions"])
+        self.assertEqual(source, before)
+
+    def test_invalid_profile_and_invalid_instance_amount_fail_safely(self):
+        for profile in (None, "", "wide", 10, [], {}):
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "profile must be compact or full"):
+                prices_to_csv(result(), profile=profile)
+        for value in (1.5, "NaN", "-1", "=private_upstream_text"):
+            with self.subTest(value=value), self.assertRaises(ValueError) as error:
+                self.compact_rows(result(regional_quote(instance_price={"amount": value})))
+            self.assertNotIn("private_upstream_text", str(error.exception))
+        with self.assertRaisesRegex(ValueError, "instance prices must be objects"):
+            self.compact_rows(result(regional_quote(instance_price=[])))
+
+    def test_real_nine_provider_example_preserves_rows_amounts_and_provenance(self):
+        path = Path(__file__).resolve().parents[1] / "examples" / "nine-providers-2026-10-21.json"
+        source = json.loads(path.read_text())
+        before = deepcopy(source)
+        actual = self.compact_rows(source)
+        eligible = [price for price in source["prices"] if publishable_quote(price)]
+        self.assertEqual(len(actual), len(eligible))
+        self.assertGreater(len(actual), 0)
+        self.assertLess(len(actual), len(source["prices"]))
+        self.assertIn("azure", {row["provider"] for row in actual})
+        for price, row in zip(eligible, actual):
+            self.assertEqual(row["amount"], price["amount"] if price["amount"] is not None else "")
+            for field in ("provider", "currency", "unit", "availability", "source_url", "observed_at"):
+                self.assertEqual(row[field], price[field])
+            self.assertEqual(row["unit"], "gpu_hour")
+            self.assertIn("国家=", row["location"])
+            self.assertIn("地区=", row["location"])
+            if price.get("instance_price", {}).get("amount") is not None:
+                self.assertIn(price["instance_price"]["amount"], row["pricing_conditions"])
+        self.assertEqual(source, before)
+        empty = prices_to_csv(result())
+        self.assertEqual(rows(empty), [])
+        self.assertEqual(empty.count("\r\n"), 1)
 
 
 if __name__ == "__main__":

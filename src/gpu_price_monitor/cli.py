@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
-from .csv_export import prices_to_csv
+from .csv_export import prices_to_csv, publishable_quote
 from .filters import normalize_filters
 from .settings import ConfigurationError, PROVIDERS, SOURCES, Settings
 
@@ -84,12 +84,13 @@ def _print_json(result: dict, pretty: bool = False) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2 if pretty else None, allow_nan=False))
 
 
-def _print_collection(result: dict, output_format: str, pretty: bool = False, *, csv_headers: str = "bilingual") -> None:
+def _print_collection(result: dict, output_format: str, pretty: bool = False, *, csv_headers: str = "bilingual",
+                      csv_profile: str = "compact") -> None:
     if output_format == "csv":
         # Keep the promised encoding and CRLF bytes when redirected on Windows.
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", newline="")
-        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual"))
+        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual", profile=csv_profile))
     else:
         _print_json(result, pretty)
 
@@ -109,9 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
-                         help="stdout format (default: json); csv is UTF-8 with a BOM and one row per quote")
+                         help="stdout format (default: json); csv is UTF-8 with a BOM; compact includes eligible quotes only")
     collect.add_argument("--csv-headers", choices=("bilingual", "english"), default="bilingual",
                          help="CSV header labels: English identifiers with Chinese translations (default), or English only")
+    collect.add_argument("--csv-profile", choices=("compact", "full"), default="compact",
+                         help="compact: 10 columns, verified regional GPU-hour quotes only (default); full: all collected records for audit")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
@@ -128,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         "gpu": "gpu_models", "region": "regions", "currency": "currencies",
         "billing-mode": "billing_modes", "country": "compute_countries",
         "sales-country": "sales_countries", "zone": "zones", "gpu-count": "gpu_counts",
+        "coverage-region": "coverage_regions", "coverage-country": "coverage_countries",
     }
     for option, name in options.items():
         collect.add_argument(f"--{option}", dest=name, action="append", type=int if name == "gpu_counts" else str)
@@ -182,7 +186,11 @@ def main(argv: list[str] | None = None) -> int:
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
-        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers)
+        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers, csv_profile=args.csv_profile)
+        if args.format == "csv" and args.csv_profile == "compact":
+            kept = sum(publishable_quote(q) for q in result["prices"])
+            print(f"CSV comparison: {kept} verified regional GPU-hour quotes; "
+                  f"{len(result['prices']) - kept} collected records excluded. Use JSON or --csv-profile full for audit.", file=sys.stderr)
         for provider in result["provider_results"]:
             if provider["error"]:
                 print(f"{provider['provider']}: {provider['error']['code']}: {provider['error']['message']}", file=sys.stderr)
@@ -191,6 +199,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "collect":
             _print_collection({"schema_version": 1, "collected_at": datetime.now(timezone.utc).isoformat(), "status": "failed", "prices": [], "provider_results": [],
                                "error": {"code": "configuration_error", "message": str(exc), "retryable": False}}, args.format, args.pretty,
-                              csv_headers=args.csv_headers)
+                              csv_headers=args.csv_headers, csv_profile=args.csv_profile)
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 1

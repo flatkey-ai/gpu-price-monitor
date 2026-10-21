@@ -20,10 +20,20 @@ SOURCE_TYPE = "official_public_api"
 DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices"
 API_VERSION = "2023-01-01-preview"
 REGIONS_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/reliability/regions-list"
+GOVERNMENT_REGIONS_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/azure-government/documentation-government-welcome"
+SENTINEL_GEOGRAPHY_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/sentinel/geographical-availability-data-residency"
+REGION_NAMES_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/defender-for-cloud/concept-data-security-posture-prepare"
+# The MEC documentation was archived in 2024. Pin the Microsoft-owned source to
+# its last commit before archival so the exact Edge Zone ID remains reviewable.
+MEC_REGIONS_DOCUMENTATION_URL = "https://github.com/MicrosoftDocs/azure-docs/blob/b18b0e4c79b722bb6da2d86c654376dd45eba817/articles/public-multi-access-edge-compute-mec/key-concepts.md"
+MEC_LOCATIONS_DOCUMENTATION_URL = "https://azure.microsoft.com/en-us/blog/microsoft-and-att-are-accelerating-the-enterprise-customer-s-journey-to-the-edge-with-5g/"
 # Explicit programmatic-name rows verified against the official region directory
 # on 2026-10-21; broad labels such as Europe/Asia Pacific use its physical location.
-# A new/edge/government region without this evidence retains an unknown country.
+# Additional directories below bind named government, Jio and MEC locations to
+# their exact identifiers. Any region without this evidence stays unknown.
 _REGION_COUNTRIES = {
+    'attatlanta1': 'US',
+    'attdallas1': 'US',
     'australiacentral': 'AU',
     'australiacentral2': 'AU',
     'australiaeast': 'AU',
@@ -51,6 +61,8 @@ _REGION_COUNTRIES = {
     'italynorth': 'IT',
     'japaneast': 'JP',
     'japanwest': 'JP',
+    'jioindiacentral': 'IN',
+    'jioindiawest': 'IN',
     'koreacentral': 'KR',
     'koreasouth': 'KR',
     'malaysiawest': 'MY',
@@ -76,6 +88,8 @@ _REGION_COUNTRIES = {
     'uaenorth': 'AE',
     'uksouth': 'GB',
     'ukwest': 'GB',
+    'usgovarizona': 'US',
+    'usgovvirginia': 'US',
     'westcentralus': 'US',
     'westeurope': 'NL',
     'westindia': 'IN',
@@ -83,6 +97,44 @@ _REGION_COUNTRIES = {
     'westus2': 'US',
     'westus3': 'US',
 }
+_REGION_COUNTRY_SOURCES = {
+    region: {"url": REGIONS_DOCUMENTATION_URL, "source_type": "official_region_directory",
+             "verified_on": "2026-10-21", "region_field": "Programmatic name",
+             "country_basis": "explicit_region_geography_or_physical_location"}
+    for region in _REGION_COUNTRIES
+}
+for _region in ("usgovarizona", "usgovvirginia"):
+    _REGION_COUNTRY_SOURCES[_region] = {
+        "url": GOVERNMENT_REGIONS_DOCUMENTATION_URL, "source_type": "official_region_directory",
+        "verified_on": "2026-10-21", "region_field": "Programmatic name",
+        "country_basis": "explicit_government_region_and_us_only_datacenters",
+    }
+for _region in ("jioindiacentral", "jioindiawest"):
+    _REGION_COUNTRY_SOURCES[_region] = {
+        "url": SENTINEL_GEOGRAPHY_DOCUMENTATION_URL, "source_type": "official_geography_document",
+        "verified_on": "2026-10-21", "region_field": "SIEM supported region",
+        "country_basis": "explicit_region_country_table",
+        "region_name_source_url": REGION_NAMES_DOCUMENTATION_URL,
+    }
+for _region in ("attatlanta1", "attdallas1"):
+    _REGION_COUNTRY_SOURCES[_region] = {
+        "url": MEC_REGIONS_DOCUMENTATION_URL, "source_type": "official_region_directory",
+        "verified_on": "2026-10-21", "region_field": "Edge Zone ID",
+        "country_basis": "explicit_edge_zone_id_and_documented_physical_city",
+        "physical_location_source_url": MEC_LOCATIONS_DOCUMENTATION_URL,
+        "archived": True,
+    }
+del _region
+
+
+def _location_source(region: str) -> dict:
+    """Return country evidence only for an explicitly verified region identifier."""
+    source = _REGION_COUNTRY_SOURCES.get(region)
+    if source is None:
+        return {"url": None, "source_type": "unknown", "verified_on": None,
+                "region_field": "armRegionName", "country_basis": "unverified_region"}
+    return dict(source)
+
 
 MAX_PAGES_PER_SKU = 5
 MAX_ITEMS_PER_PAGE = 1000
@@ -267,9 +319,7 @@ def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[di
             "regions": [region], "zones": [], "geographic_scope": "regions",
             "location": {"region": region, "region_name": location},
             "compute_countries": [_REGION_COUNTRIES[region]] if region in _REGION_COUNTRIES else [],
-            "location_source": {"url": REGIONS_DOCUMENTATION_URL, "source_type": "official_region_directory",
-                                "verified_on": "2026-10-21", "region_field": "Programmatic name",
-                                "country_basis": "explicit_region_geography_or_physical_location"},
+            "location_source": _location_source(region),
             "account_scope": "public_catalog", "tax_scope": "unspecified", "availability": "unknown",
             "observed_at": observed_at, "effective_from": effective.isoformat(), "effective_until": None,
             "source_url": query_url(arm_sku), "source_type": SOURCE_TYPE,

@@ -16,6 +16,8 @@ from gpu_price_monitor.collector import IMPLEMENTED_PROVIDERS
 from gpu_price_monitor.geography import describe_geography, geography_summary
 from gpu_price_monitor.providers import ucloud
 
+OBSERVED = "2026-10-21T08:40:00+00:00"
+
 
 def quote(**changes):
     value = {"provider": "ucloud", "gpu_model": "A100", "gpu_count": 1,
@@ -29,6 +31,27 @@ def quote(**changes):
 
 
 class DocumentScopeTests(unittest.TestCase):
+    def setUp(self):
+        transport = patch("gpu_price_monitor.transport._request_text",
+                          side_effect=AssertionError("Offline tests may not make requests"))
+        transport.start()
+        self.addCleanup(transport.stop)
+
+    def collect_nebius(self, rows, filters):
+        catalog = quote(provider="nebius", source_type="official_pricing_document",
+                        unit="gpu_hour", billing_mode="on_demand", currency="USD",
+                        regions=["eu-north1", "us-central1"], zones=[],
+                        compute_countries=[], geographic_scope="regions")
+        spots = [{**copy.deepcopy(row), "observed_at": OBSERVED, "effective_from": OBSERVED,
+                  "source_snapshot_at": OBSERVED, "availability": "unknown",
+                  "price_basis": "advertised_per_gpu"} for row in rows]
+        with patch("gpu_price_monitor.collector.fetch_text", return_value="synthetic-public-tariff"), patch(
+            "gpu_price_monitor.providers.nebius.parse_prices", return_value=[catalog]
+        ), patch("gpu_price_monitor.providers.nebius_spot.collect_quotes", return_value=spots), patch(
+            "gpu_price_monitor.collector._now", return_value=OBSERVED
+        ):
+            return collect_prices(["nebius"], filters, settings=Settings())
+
     def test_document_providers_and_public_expansion_are_registered(self):
         self.assertEqual(set(IMPLEMENTED_PROVIDERS), {"nebius", "lambda", "crusoe", "autodl", "ucloud",
                                                     "runpod", "digitalocean", "verda", "azure"})
@@ -67,10 +90,61 @@ class DocumentScopeTests(unittest.TestCase):
             describe_geography(row)
             self.assertEqual(row["compute_countries"], [])
             self.assertFalse(row["region_price_verified"])
-        self.assertEqual(rows[0]["regions"], originals[0]["regions"])
+        self.assertEqual(rows[0]["regions"], [])
+        self.assertEqual(rows[0]["coverage_regions"], originals[0]["regions"])
+        self.assertEqual(rows[0]["coverage_countries"], ["FI", "US"])
+        self.assertEqual(rows[0]["coverage_location_source"]["country_mapping"],
+                         {"eu-north1": "FI", "us-central1": "US"})
         summary = geography_summary(rows)
         self.assertEqual(summary["region_bound_quote_count"], 0)
         self.assertEqual(summary["platform_coverage_quote_count"], 1)
+        self.assertEqual(summary["country_codes"], [])
+        self.assertEqual(summary["coverage_country_codes"], ["FI", "US"])
+
+    def test_public_spot_api_preserves_region_and_country_as_price_evidence(self):
+        row = quote(provider="nebius", source_type="official_public_api", geographic_scope="regions",
+                    regions=["me-west1"], zones=[], compute_countries=["IL"],
+                    unit="gpu_hour", billing_mode="spot", currency="USD")
+        describe_geography(row)
+        self.assertEqual(row["regions"], ["me-west1"])
+        self.assertEqual(row["compute_countries"], ["IL"])
+        self.assertEqual(row["price_scope"], "regional_quote")
+        self.assertTrue(row["region_price_verified"])
+        self.assertNotIn("coverage_regions", row)
+
+    def test_region_and_country_filters_must_intersect_on_the_same_quote(self):
+        rows = [quote(provider="nebius", gpu_model="H100", unit="gpu_hour", billing_mode="spot",
+                      currency="USD", geographic_scope="regions", zones=[],
+                      regions=[region], compute_countries=[country])
+                for region, country in (("eu-north1", "FI"), ("us-central1", "US"))]
+        result = self.collect_nebius(rows, {"regions": ["us-central1"], "compute_countries": ["FI"]})
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["prices"], [])
+        self.assertEqual(result["provider_results"][0]["status"], "no_matches")
+        self.assertEqual(result["provider_results"][0]["excluded_unbound_geography_count"], 1)
+        matched = self.collect_nebius(rows, {"regions": ["us-central1"], "compute_countries": ["US"]})
+        self.assertEqual([q["regions"] for q in matched["prices"]], [["us-central1"]])
+
+    def test_country_filters_exclude_catalog_coverage_but_keep_unknown_regional_country_unverifiable(self):
+        rows = [quote(provider="nebius", gpu_model="H100", unit="gpu_hour", billing_mode="spot",
+                      currency="USD", geographic_scope="regions", zones=[],
+                      regions=["eu-north1"], compute_countries=["FI"]),
+                quote(provider="nebius", gpu_model="H100", unit="gpu_hour", billing_mode="spot",
+                      currency="USD", geographic_scope="regions", zones=[],
+                      regions=["us-future1"], compute_countries=[])]
+        known = self.collect_nebius(rows, {"regions": ["eu-north1"], "compute_countries": ["FI"]})
+        self.assertEqual(known["status"], "success")
+        self.assertEqual(len(known["prices"]), 1)
+        self.assertTrue(known["prices"][0]["region_price_verified"])
+        self.assertEqual(known["provider_results"][0]["excluded_unbound_geography_count"], 1)
+        unknown = self.collect_nebius(rows, {"regions": ["us-future1"], "compute_countries": ["US"]})
+        self.assertEqual(unknown["status"], "failed")
+        self.assertEqual(unknown["prices"], [])
+        self.assertEqual(unknown["provider_results"][0]["error"]["code"], "unverifiable_filter")
+        self.assertEqual(unknown["provider_results"][0]["filters"]["compute_countries"]["status"], "unverifiable")
+        absent = self.collect_nebius(rows, {"regions": ["us-central1"], "compute_countries": ["US"]})
+        self.assertEqual(absent["provider_results"][0]["status"], "no_matches")
+        self.assertEqual(absent["prices"], [])
 
     def test_cli_country_filter_remains_json_and_exposes_provenance(self):
         out, err = io.StringIO(), io.StringIO()

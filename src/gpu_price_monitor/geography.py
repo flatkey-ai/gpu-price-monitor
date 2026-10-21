@@ -2,9 +2,11 @@
 
 from collections import Counter
 
+from .providers.nebius_regions import REGION_COUNTRIES, REGIONS_URL, VERIFIED_ON
+
 
 def describe_geography(quote: dict) -> None:
-    """Add explicit price scope while keeping the source location arrays intact."""
+    """Separate price locations from documented coverage and live capacity."""
     countries = quote.get("compute_countries", [])
     if not isinstance(countries, list) or any(
         not isinstance(code, str) or len(code) != 2 or not code.isascii()
@@ -13,8 +15,27 @@ def describe_geography(quote: dict) -> None:
         raise ValueError("Invalid source country metadata")
     quote["compute_countries"] = list(dict.fromkeys(countries))
     scope = quote.get("geographic_scope", "unspecified")
-    if quote["provider"] == "nebius" and quote.get("source_type") != "official_quote_api":
-        price_scope = "platform_coverage" if quote.get("regions") else "unlocated_catalog"
+    if quote["provider"] == "nebius" and quote.get("source_type") in {
+        "official_pricing_document", "public_documentation", "public_page",
+    }:
+        coverage = quote.get("coverage_regions", quote.get("regions", []))
+        if (not isinstance(coverage, list)
+                or any(not isinstance(region, str) or not region for region in coverage)):
+            raise ValueError("Invalid source platform coverage")
+        quote["coverage_regions"] = list(dict.fromkeys(coverage))
+        quote["coverage_countries"] = sorted({REGION_COUNTRIES[r] for r in coverage if r in REGION_COUNTRIES})
+        quote["coverage_location_source"] = {
+            "regions_url": REGIONS_URL, "pricing_url": quote.get("source_url"),
+            "verified_on": VERIFIED_ON,
+            "basis": "documented_platform_availability_not_independent_region_quote",
+            "country_mapping": {r: REGION_COUNTRIES[r] for r in coverage if r in REGION_COUNTRIES},
+        }
+        # Even a single-region platform restriction is coverage evidence. It
+        # must not be silently expanded into an independently obtained quote.
+        quote["regions"] = []
+        quote["zones"] = []
+        quote["geographic_scope"] = "platform_coverage" if coverage else "unspecified"
+        price_scope = "platform_coverage" if coverage else "unlocated_catalog"
     elif scope == "requested_zone":
         price_scope = "requested_zone_quote"
     elif scope == "requested_region":
@@ -45,4 +66,6 @@ def geography_summary(quotes: list[dict]) -> dict:
         "region_bound_quote_count": sum(quote["region_price_verified"] for quote in quotes),
         "unlocated_quote_count": scopes["unlocated_catalog"],
         "platform_coverage_quote_count": scopes["platform_coverage"],
+        "coverage_region_codes": sorted({r for q in quotes for r in q.get("coverage_regions", [])}),
+        "coverage_country_codes": sorted({c for q in quotes for c in q.get("coverage_countries", [])}),
     }

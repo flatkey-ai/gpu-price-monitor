@@ -1,6 +1,6 @@
 # GPU 云算力价格采集库实施方案
 
-更新：2026-10-21，版本 0.10.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
+更新：2026-10-21，版本 0.11.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
 
 ## 交付边界
 
@@ -14,7 +14,7 @@
 
 | 平台 | 默认实施路径 | 已实现的可选路径 | 验证限制 |
 | --- | --- | --- | --- |
-| Nebius | 官方 Compute 文档，组件 / 币种 / Spot / 日期区间 | 项目地区 GET 核验 + Estimate Batch 完整配置估价，支持 hour / month 聚合及账号合同口径 | 公开已实抓；API 14 项合成测试，未成功真实鉴权 |
+| Nebius | 官方 Compute 文档目录 + 免费匿名当前地区 Spot API，生效时间分别保留 | 项目地区 GET 核验 + Estimate Batch 完整配置估价，支持 hour / month 聚合及账号合同口径 | 文档及匿名地区 Spot 已实抓；账号估价有合成测试，未成功真实鉴权 |
 | Lambda | 官方实例页，保留 1 / 2 / 4 / 8 卡配置 | 认证 instance-types，整机美分 / GPU 数分摊，容量地区另存 | 公开已实抓；API 未成功真实鉴权，容量不能补地区价 |
 | Crusoe | GPU instances 独立区块，按需 / Spot / Contact sales | 未确认公共 VM 价格 API；不调用账单或托管推理作替代 | 公开已实抓；价格未绑定地区 |
 | AutoDL | 公开首页普通 / 会员价，新未登录上下文 | 用户授权 storage state 的按量市场，读取页面金额 / 单位、地区及配置 | 首页已实抓；市场 8 项合成测试，未成功登录实抓 |
@@ -46,20 +46,20 @@ gpu-price-monitor collect --env-file .env --providers nebius --nebius-source api
 gpu-price-monitor collect --env-file .env --providers autodl --autodl-source market --pretty
 ```
 
-结果包含 `prices`、逐平台 `provider_results` 与本次 `geographic_coverage`；`--coverage` 可增加型号覆盖报告。它只描述本批结果，不代表所有平台、硬件变体、国家或库存已覆盖，不输出跨币种 / 跨单位最低价。stdout 默认输出 JSON，`--format csv` 只输出 UTF-8 BOM / CRLF 报价表；失败诊断写 stderr，退出码区分全部成功、部分失败和失败。CSV 不附加来源状态或覆盖表，完整汇总保留在 JSON。结构改变或凭据失效不返回上次价格。
+结果包含全部筛选后来源 `prices`、比较条件的 `comparison.eligible_quote_count` / `excluded_quote_count`、逐平台 `provider_results` 与本次 `geographic_coverage`；`--coverage` 可增加型号覆盖报告。它只描述本批结果，不代表所有平台、硬件变体、国家或库存已覆盖，不输出跨币种 / 跨单位最低价。stdout 默认输出 JSON，`--format csv` 只输出 UTF-8 BOM / CRLF 报价表；失败诊断写 stderr，退出码区分全部成功、部分失败和失败。0.11.0 默认 CSV 为严格 10 列，只保留国家及 region 已核实的实际每 GPU 小时数值报价，排除未知位置、覆盖、起价、组件、月包及明确不可用项；`prices_to_csv(result, profile="full")` / `--csv-profile full` 保留原 51 列全量审计记录。比较 CSV 在 stderr 提示保留及排除条数；来源成功但无合格行仍退出 0，仅有表头。完整状态及覆盖汇总保留在 JSON。结构改变或凭据失效不返回上次价格。
 
 `.env` 只显式加载；进程环境优先，包括空值。FILE / JSON 目标来源互斥，FILE 相对 env 文件目录解析，没有 env 文件时相对当前目录。模板仅演示配置，不能当已确认可售规格。密钥、授权会话、私有目标配置不入 Git，认证信息不写到价格返回。
 
 ## 地理链路
 
-先保存来源位置证据，再筛选，不先为每个平台列国家并复制相同价格。
+先保存来源位置证据，再筛选，不先为每个平台列国家并复制相同价格。缺少位置不证明全球统一价，当前没有依据作这种宣称。
 
 1. UCloud 公开月包使用官方地区 / zone 目录；认证入口每次也加载目录，核对完整请求位置与国家，国家筛选已开放。
-2. Nebius 公开覆盖标为 `platform_coverage`；认证估价只有在项目地区 GET 与目标一致、官方国家映射通过时才标 `requested_region_quote`。合同价仍为账号价。
+2. Nebius 文档供给范围标为 `platform_coverage`，另存 `coverage_regions` / `coverage_countries`；免费当前 Spot API 的实际 region 及官方国家映射才生成 `regional_quote`。认证估价核验项目地区后标 `requested_region_quote`，合同价仍为账号价。
 3. AutoDL 首页不补位置；授权市场仅保留来源 region 及地区名，不猜国家 / zone。
 4. Lambda 容量地区单列；Crusoe 公开表没有价格位置。未知位置保持 `unlocated_catalog`，不写成 global。
 5. RunPod、DigitalOcean、Verda 不补地区。Azure 使用价格响应的 ARM region 与官方地区目录已核验国家映射，未知国家保持空，不推断 zone，也不将地域零售牌价当现货。
-6. 组合筛选必须满足同一报价的位置关系。不支持报 `unsupported_filter`；相关报价缺证据报 `unverifiable_filter`，不静默当无匹配。
+6. `--country` / `--region` 只匹配价格位置；文档覆盖另用 `--coverage-country` / `--coverage-region`。组合筛选必须满足同一报价的位置关系。不支持报 `unsupported_filter`；相关报价缺证据报 `unverifiable_filter`，不静默当无匹配。
 
 ## 价格语义
 
@@ -69,7 +69,9 @@ Lambda API 的美分是整实例价；Nebius / UCloud 估价是完整指定配�
 
 ## 当前验收证据
 
-**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [九平台公开采样](../examples/nine-providers-2026-10-21.json)。原 2026-10-21 14:35（北京时间）[五平台历史采样](../examples/five-providers-2026-10-21.json) 为 480 条：374 条 UCloud 中国下线月包、36 条 Nebius 平台覆盖及 70 条位置未知目录价；它不等于新九家全量或可购地区报价。采样时刻不是页面发布时间，也不是实时库存承诺。
+**2026-10-21T08:45:38.349457Z** 九家公开来源实采成功：845 条来源记录中，224 条满足默认地区 GPU 小时比较条件（Nebius 当前 Spot 12、Azure 212），见 [原币 10 列样本](../examples/regional-hourly-2026-10-21.csv)。其余七家当前免费来源缺少完整价格位置或是下线月包，比较表中没有合格项，不能据此宣称其无可购资源。
+
+[833 条九家旧 JSON](../examples/nine-providers-2026-10-21.json) 与 [480 条五家旧 JSON](../examples/five-providers-2026-10-21.json) 保留历史宽表来源证据，包含覆盖、未知地区、询价、组件和下线月包，不代表当前严格比较结果。采样时刻不是实时库存承诺，历史数值不进入运行时回退。
 
 公开端已有真实 Python / CLI 返回；新增认证 / 授权路径以明确合成样本测试解析和拒绝错误行为，尚无有效账号成功联调证据。其余验收命令：
 
