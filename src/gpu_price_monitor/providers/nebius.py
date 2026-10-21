@@ -24,8 +24,9 @@ _MONTHS = {
 }
 _DATE_RE = re.compile(r"([A-Za-z]+)\s+(\d{1,2})(?:,?\s+(\d{4}))?")
 _TAB_RE = re.compile(
-    r'<Tab\s+title=["\'](USD|ILS)["\']\s*>(.*?)</Tab>', re.DOTALL
+    r'<Tab\s+title=["\']([A-Z]{3})["\']\s*>(.*?)</Tab>', re.DOTALL
 )
+_CURRENCY_HEADING_RE = re.compile(r"^[ \t]*\*\*([A-Z]{3})\*\*[ \t]*$", re.MULTILINE)
 
 
 def _plain(value: str) -> str:
@@ -67,6 +68,43 @@ def _period(header: str) -> tuple[date | None, date | None]:
             return start, end
         return _parse_date(value), None
     raise ValueError("Nebius pricing has an unsupported effective period")
+
+
+def _currency_tables(body: str) -> tuple[str, list[tuple[str, str]]]:
+    """Accept the documentation's MDX tabs or its expanded Markdown export.
+
+    The official Markdown export can flatten ``<Tab title="USD">`` wrappers
+    into standalone ``**USD**`` headings. Currency boundaries must remain
+    explicit; neither position nor a price symbol is used to guess them.
+    """
+    tabs = list(_TAB_RE.finditer(body))
+    headings = list(_CURRENCY_HEADING_RE.finditer(body))
+    if tabs and headings:
+        raise ValueError("Nebius GPU currency table formats are ambiguous")
+    if tabs:
+        if len(tabs) != len(re.findall(r"<Tab\b", body)):
+            raise ValueError("Nebius GPU currency tab structure changed")
+        preamble = body[:tabs[0].start()]
+        tables = [(tab[1], tab[2]) for tab in tabs]
+    elif headings and not re.search(r"</?Tabs?\b", body):
+        preamble = body[:headings[0].start()]
+        tables = [
+            (heading[1], body[heading.end():headings[index + 1].start()
+                              if index + 1 < len(headings) else len(body)])
+            for index, heading in enumerate(headings)
+        ]
+    else:
+        raise ValueError("Nebius GPU currency tables were not found")
+    if re.search(r"^\s*\|", preamble, re.MULTILINE):
+        raise ValueError("Nebius GPU pricing table is missing its currency heading")
+    currencies = [currency for currency, _ in tables]
+    if any(currency not in {"USD", "ILS"} for currency in currencies):
+        raise ValueError("Nebius GPU pricing has an unsupported currency")
+    if len(currencies) != len(set(currencies)):
+        raise ValueError("Nebius GPU pricing has duplicate currency sections")
+    if any(not re.search(r"\|\s*1 GPU hour\s*\|", table) for _, table in tables):
+        raise ValueError("Nebius GPU resource rows were not found")
+    return preamble, tables
 
 
 def _table_rows(body: str, currency: str, as_of: date) -> list[dict]:
@@ -154,18 +192,12 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
     seen = set()
     for platform in platforms:
         title, body = platform["title"], platform["body"]
-        preamble = body.split("<Tabs>", 1)[0]
+        preamble, tables = _currency_tables(body)
         regions = list(dict.fromkeys(re.findall(r"`([a-z]{2}-[a-z]+\d+)`", preamble)))
         raw_sku_match = re.search(r"\b(gpu-[a-z0-9-]+)\b", title)
         raw_sku = raw_sku_match[1] if raw_sku_match else None
-        tabs = list(_TAB_RE.finditer(body))
-        if not tabs:
-            raise ValueError("Nebius GPU currency tables were not found")
-        if not re.search(r"\|\s*1 GPU hour\s*\|", body):
-            raise ValueError("Nebius GPU resource rows were not found")
-        for tab in tabs:
-            currency = tab[1]
-            rows = _table_rows(tab[2], currency, as_of)
+        for currency, table in tables:
+            rows = _table_rows(table, currency, as_of)
             for row in rows:
                 if row["unit"] != "1 GPU hour":
                     continue

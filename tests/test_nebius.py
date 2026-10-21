@@ -9,6 +9,7 @@ from gpu_price_monitor.providers.nebius import parse_prices
 
 OBSERVED = "2026-10-15T00:00:00+00:00"
 FIXTURE = Path(__file__).parent / "fixtures" / "nebius-pricing.md"
+EXPANDED_FIXTURE = Path(__file__).parent / "fixtures" / "nebius-pricing-expanded.md"
 
 
 class NebiusParserTests(unittest.TestCase):
@@ -113,6 +114,58 @@ class NebiusParserTests(unittest.TestCase):
         content = self.content.replace("until October 8, 2026", "until October 20, 2026")
         with self.assertRaisesRegex(ValueError, "overlapping"):
             self.parse(content=content)
+
+    def test_current_markdown_export_with_expanded_currency_headings(self):
+        content = EXPANDED_FIXTURE.read_text(encoding="utf-8")
+        rows = self.parse(content=content, as_of=date(2026, 10, 21))
+        self.assertEqual(len(rows), 12)
+        self.assertEqual({row["gpu_model"] for row in rows}, {"H100", "RTX PRO 6000", "L40S"})
+        self.assertEqual({row["currency"] for row in rows}, {"USD", "ILS"})
+        h100 = self.rate(rows)
+        self.assertEqual(h100["amount"], "4.50")
+        self.assertEqual(h100["effective_from"], "2026-10-08")
+        self.assertEqual(h100["regions"], ["eu-north1"])
+        self.assertEqual(h100["tax_scope"], "excluded")
+        self.assertEqual(self.rate(rows, currency="ILS")["amount"], "13.95")
+        spot = self.rate(rows, mode="spot")
+        self.assertEqual((spot["amount"], spot["quote_status"]), ("0.79", "starting_at"))
+        rtx = self.rate(rows, model="RTX PRO 6000")
+        self.assertEqual((rtx["amount"], rtx["raw_sku"]), ("1.80", "gpu-rtx6000"))
+        l40s = self.rate(rows, model="L40S")
+        self.assertEqual(l40s["price_basis"], "gpu_component")
+        self.assertEqual([component["amount"] for component in l40s["components"]], ["0.012", "0.0032"])
+
+    def test_expanded_markdown_preserves_effective_date_boundaries(self):
+        content = EXPANDED_FIXTURE.read_text(encoding="utf-8")
+        before = self.rate(self.parse(content=content, as_of=date(2026, 9, 30)))
+        middle = self.rate(self.parse(content=content, as_of=date(2026, 10, 1)), mode="spot")
+        after = self.rate(self.parse(content=content, as_of=date(2026, 10, 8)), mode="spot")
+        self.assertEqual((before["amount"], before["effective_until"]), ("3.85", "2026-10-01"))
+        self.assertEqual((middle["amount"], middle["effective_until"]), ("2.15", "2026-10-08"))
+        self.assertEqual((after["amount"], after["effective_from"]), ("0.79", "2026-10-08"))
+
+    def test_expanded_currency_order_is_explicit_and_not_positional(self):
+        content = EXPANDED_FIXTURE.read_text(encoding="utf-8")
+        changed = content.replace("**USD**", "**TEMP**").replace("**ILS**", "**USD**").replace("**TEMP**", "**ILS**")
+        changed = changed.replace("\\$", "TEMP_CURRENCY").replace("₪", "\\$").replace("TEMP_CURRENCY", "₪")
+        rows = self.parse(content=changed)
+        self.assertEqual(self.rate(rows, currency="ILS")["amount"], "4.50")
+        self.assertEqual(self.rate(rows, currency="USD")["amount"], "13.95")
+
+    def test_ambiguous_missing_or_unsupported_currency_sections_fail_closed(self):
+        content = EXPANDED_FIXTURE.read_text(encoding="utf-8")
+        cases = [
+            content.replace("**ILS**", "**USD**", 1),
+            content.replace("**ILS**", "**EUR**", 1),
+            content.replace("**USD**", "", 1),
+            content.replace("**USD**", '<Tab title="USD">', 1),
+            content.replace("**USD**", '<Tab title="USD">**USD**</Tab>\n\n**USD**', 1),
+            self.content.replace('title="USD"', 'title="EUR"', 1),
+        ]
+        for changed in cases:
+            with self.subTest(content=changed[:100]):
+                with self.assertRaises(ValueError):
+                    self.parse(content=changed)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ _PRICE = re.compile(
     re.IGNORECASE,
 )
 _BILLING_MODES = {"on-demand": "on_demand", "current spot": "spot"}
+_VARIANT = re.compile(r"\b(?:HGX|NVL\d+|SXM\d*|PCIe)\b", re.IGNORECASE)
 
 
 def _text(element) -> str:
@@ -78,20 +79,36 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
         if len(names) != 1 or len(prices) != 2:
             raise ValueError("Crusoe GPU instance row structure changed")
         raw_name = _text(names[0])
-        gpu_model = re.sub(r"^(?:NVIDIA|AMD)\s+", "", raw_name, flags=re.IGNORECASE).upper()
+        model_name = re.sub(r"^(?:NVIDIA|AMD)\s+", "", raw_name, flags=re.IGNORECASE)
+        heading_variants = [match.group() for match in _VARIANT.finditer(model_name)]
+        gpu_model = " ".join(_VARIANT.sub("", model_name).split()).upper()
         if not gpu_model:
             raise ValueError("Crusoe GPU instance row is missing its model")
         tags = [_text(tag) for tag in row.select(".pricing-tag")]
-        memories = [_MEMORY.fullmatch(tag) for tag in tags if _MEMORY.fullmatch(tag)]
-        if len(memories) != 1:
+        parsed_prices = [_price(_text(price)) for price in prices]
+        memories = [match for tag in tags if (match := _MEMORY.fullmatch(tag))]
+        # The public table includes forthcoming contact-sales products whose
+        # CMS memory and variant fields are empty. Preserve those as unknown;
+        # missing memory on a numeric quote still signals a malformed row.
+        empty_contact_listing = (
+            not memories
+            and bool(tags)
+            and not any(tags)
+            and all(status == "contact_sales" for _, status, _ in parsed_prices)
+        )
+        if len(memories) != 1 and not empty_contact_listing:
             raise ValueError("Crusoe GPU instance row has no unique GB memory size")
-        vram_gb = int(memories[0].group(1))
-        if vram_gb <= 0:
+        vram_gb = int(memories[0].group(1)) if memories else None
+        if vram_gb is not None and vram_gb <= 0:
             raise ValueError("Crusoe GPU instance row has an invalid memory size")
-        variant = " ".join(tag for tag in tags if not _MEMORY.fullmatch(tag)) or None
+        variant_parts = []
+        for value in heading_variants + [tag for tag in tags if tag and not _MEMORY.fullmatch(tag)]:
+            canonical = "PCIe" if value.casefold() == "pcie" else value.upper()
+            if canonical not in variant_parts:
+                variant_parts.append(canonical)
+        variant = " ".join(variant_parts) or None
 
-        for column, price in zip(columns[1:], prices):
-            amount, status, basis = _price(_text(price))
+        for column, (amount, status, basis) in zip(columns[1:], parsed_prices):
             billing_mode = _BILLING_MODES[column]
             identity = (gpu_model, variant, vram_gb, billing_mode)
             if identity in seen:
@@ -103,6 +120,8 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
             ]
             if status == "contact_sales":
                 notes.append("The source requests contacting sales and provides no numeric price.")
+            if vram_gb is None:
+                notes.append("The source does not specify GPU memory capacity for this contact-sales listing.")
             result.append({
                 "provider": "crusoe",
                 "product_type": "gpu_instance",

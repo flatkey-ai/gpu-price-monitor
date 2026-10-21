@@ -6,7 +6,7 @@ An open-source library that collects GPU cloud rental prices from official sourc
 
 ## Supported sources
 
-Version 0.6.0 provides **11 free official public sources**: Nebius, Crusoe, Lambda, AutoDL, UCloud, RunPod, DigitalOcean, Verda, EBCloud, Suanli and Azure. Public collection needs no login, API keys, top-ups or payment card. Existing keys do not automatically select authenticated sources. Install from source; this version has not been published to PyPI.
+Version 0.6.1 provides **11 free official public sources**: Nebius, Crusoe, Lambda, AutoDL, UCloud, RunPod, DigitalOcean, Verda, EBCloud, Suanli and Azure. Public collection needs no login, API keys, top-ups or payment card. Existing keys do not automatically select authenticated sources. Install from source; this version has not been published to PyPI.
 
 Sources cover GPU instances, container rentals and explicitly advertised GPU compute rates while retaining each price's conditions. Add `--coverage` to inspect observed target models and gaps; this does not claim every provider, region or live inventory is covered. See the [11-provider capture](examples/all-providers-2026-10-20.json) and [mainstream model coverage](examples/mainstream-coverage-2026-10-20.json).
 

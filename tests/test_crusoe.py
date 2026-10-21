@@ -8,6 +8,7 @@ from gpu_price_monitor.providers.crusoe import SOURCE_URL, parse_prices
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "crusoe-pricing.html"
+CURRENT_FIXTURE = Path(__file__).parent / "fixtures" / "crusoe-pricing-20261021.html"
 OBSERVED_AT = "2026-10-15T09:00:00+00:00"
 
 
@@ -68,6 +69,48 @@ class CrusoeParserTests(unittest.TestCase):
         prices = parse(self.content.replace("On-demand", "TEMP").replace("Current spot", "On-demand").replace("TEMP", "Current spot"))
         h100 = next(p for p in prices if p["gpu_model"] == "H100" and p["amount"])
         self.assertEqual(h100["billing_mode"], "spot")
+
+    def test_current_catalog_preserves_unpriced_new_products_without_losing_numeric_quotes(self):
+        prices = parse(CURRENT_FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(len(prices), 24)
+        numeric = [price for price in prices if price["amount"] is not None]
+        self.assertEqual(len(numeric), 8)
+        self.assertEqual(
+            [(price["gpu_model"], price["gpu_variant"], price["amount"]) for price in numeric],
+            [("B200", "HGX", "8.50"), ("H200", "HGX", "5.40"),
+             ("H100", "HGX", "4.50"), ("A100", "SXM", "2.30"),
+             ("A100", "PCIe", "2.00"), ("L40S", None, "1.50"),
+             ("MI300X", None, "3.45"), ("B300", "HGX", "9.90")],
+        )
+        unknown_memory = [price for price in prices if price["vram_gb"] is None]
+        self.assertEqual(len(unknown_memory), 4)
+        self.assertEqual({price["gpu_model"] for price in unknown_memory}, {"GB300", "VERA RUBIN"})
+        for price in unknown_memory:
+            self.assertEqual(price["quote_status"], "contact_sales")
+            self.assertEqual(price["gpu_variant"], "NVL72")
+            self.assertIsNone(price["amount"])
+            self.assertIsNone(price["gpu_count"])
+            self.assertEqual(price["availability"], "unknown")
+            self.assertIn("does not specify GPU memory", " ".join(price["notes"]))
+
+    def test_variant_in_heading_and_tag_is_deduplicated(self):
+        prices = parse(self.content.replace("NVIDIA H100", "NVIDIA HGX H100"))
+        h100 = next(price for price in prices if price["gpu_model"] == "H100")
+        self.assertEqual(h100["gpu_variant"], "HGX")
+        self.assertEqual(h100["raw_name"], "NVIDIA HGX H100")
+
+    def test_missing_or_ambiguous_memory_still_rejected_for_numeric_quotes(self):
+        variants = [
+            self.content.replace("141GB", ""),
+            self.content.replace("141GB", "<span>141GB</span><span>80GB</span>"),
+            self.content.replace(
+                '<div class="pricing-tag">141GB</div>',
+                '<div class="pricing-tag">141GB</div><div class="pricing-tag">80GB</div>',
+            ),
+        ]
+        for content in variants:
+            with self.subTest(content=content[:100]), self.assertRaises(ValueError):
+                parse(content)
 
     def test_unrecognized_page_or_structure_fails_closed(self):
         cases = [
