@@ -1,0 +1,53 @@
+{
+  "description": "Historical B200 screenshot reproduction; not current spot-price quotes.",
+  "source_url": "https://api.nebius.cloud/billing/v1alpha1/spot-price/list-series",
+  "documentation_url": "https://docs.nebius.com/signup-billing/spot-prices",
+  "request": {
+    "filters.startTime": "2026-10-21T07:00:00Z",
+    "filters.endTime": "2026-10-21T08:00:00Z",
+    "filters.skuIds": [
+      "sku-e00k58wq19wjszct65fwm",
+      "sku-e00fjjc4gwdx48pck9b46"
+    ],
+    "aggregation.granularity": "GRANULARITY_HOUR_1",
+    "aggregation.method": "METHOD_LAST_PRICE"
+  },
+  "interpretation": "The 08:00Z point is the end of the 07:00Z to 08:00Z time step. METHOD_LAST_PRICE is its last price, not a current quote at later collection time and not an hourly average.",
+  "response": {
+    "items": [
+      {
+        "skuId": "sku-e00k58wq19wjszct65fwm",
+        "productTitle": "Preemptible NVIDIA® B200 NVLink",
+        "region": "me-west1",
+        "computeInstance": {
+          "platform": "gpu-b200-sxm-a"
+        },
+        "currency": "usd",
+        "unitTitle": "GPU hour",
+        "points": [
+          {
+            "timestamp": "2026-10-21T08:00:00Z",
+            "value": "4.1"
+          }
+        ]
+      },
+      {
+        "skuId": "sku-e00fjjc4gwdx48pck9b46",
+        "productTitle": "Preemptible NVIDIA® B200 NVLink",
+        "region": "us-central1",
+        "computeInstance": {
+          "platform": "gpu-b200-sxm"
+        },
+        "currency": "usd",
+        "unitTitle": "GPU hour",
+        "points": [
+          {
+            "timestamp": "2026-10-21T08:00:00Z",
+            "value": "1.9"
+          }
+        ]
+      }
+    ],
+    "snapshotTime": "2026-10-21T08:34:22.112398Z"
+  }
+}

@@ -1,6 +1,6 @@
 # 安装和接入
 
-本库只抓取并返回 JSON / CSV 文本，调用者自行安排定时、保存、换汇和上传。0.10.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
+本库只抓取并返回 JSON / CSV 文本，调用者自行安排定时、保存、换汇和上传。0.11.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
 
 ## 免费公开模式
 
@@ -20,18 +20,22 @@ Windows PowerShell 的前两步使用 `py -3 -m venv .venv`、`.\.venv\Scripts\A
 
 `configs/collect.all.example.json` 启用全部九家；`collect.example.json` 保留两家 HTTP 来源最小示例；`collect.free.example.json` 保留 Lambda/AutoDL/UCloud 三家示例。RunPod、DigitalOcean、Verda、Azure 无新增 env 必填项；Azure 当前只采四个固定已核验 GPU SKU，完整条数以采样为准。`all` 仍不包含旧版全部平台。
 
-## CSV 接入（0.9.0 起）
+## CSV 接入（0.11.0 严格比较表）
 
 ```bash
 gpu-price-monitor --version
 gpu-price-monitor collect --providers all --format csv > prices.csv
-# 程序处理使用稳定的英文列名。
+# 默认 10 列；程序处理可选择稳定英文列名。
 gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
+# 全部来源记录的原 51 列审计表。
+gpu-price-monitor collect --providers all --format csv --csv-profile full > prices.audit.csv
 ```
 
-`--format` 默认 `json`，原 JSON 调用兼容。0.10.0 起 CSV 的所有表头默认英中双语；`--csv-headers bilingual` 可显式选择，`--csv-headers english` 使用纯英文 ID。这个参数只影响 CSV 第一行，JSON、原始金额和枚举值保持不变。已有程序按英文列名读取时，请使用英文模式；Python 对应 `prices_to_csv(result, bilingual_headers=False)`。`--format csv` 的 stdout 为 UTF-8 BOM / CRLF 的报价表；shell 重定向才负责写文件。库的 `prices_to_csv(result)` 同样只返回 CSV 字符串，可由调用者用 `Path("prices.csv").write_text(text, encoding="utf-8", newline="")` 保存，文本已经包含 BOM，无需再使用 `utf-8-sig` 添加第二个。
+`--format` 默认 `json`，原 JSON 调用兼容。0.11.0 默认 `compact` 比较 CSV 为 10 列，仅包含实际数值、国家与 region 均已核实的每 GPU 小时价；`--csv-profile full` 或 `prices_to_csv(result, profile="full")` 保留原 51 列全部来源记录。两种表头均默认英中双语；`--csv-headers bilingual` 可显式选择，`--csv-headers english` 使用纯英文 ID。这个参数只影响 CSV 第一行，JSON、原始金额和枚举值保持不变。已有程序按英文列名读取时，请使用英文模式；Python 对应 `prices_to_csv(result, bilingual_headers=False)`。`--format csv` 的 stdout 为 UTF-8 BOM / CRLF 的报价表；shell 重定向才负责写文件。库的 `prices_to_csv(result)` 同样只返回 CSV 字符串，可由调用者用 `Path("prices.csv").write_text(text, encoding="utf-8", newline="")` 保存，文本已经包含 BOM，无需再使用 `utf-8-sig` 添加第二个。
 
-CSV 保留来源原币 / 原计费周期、配置、地区证据与会员 / 云档位 / Spot / 下线状态，不换汇、不上传、不补造国家。CSV 没有 provider 状态或 coverage 附表；完整诊断与覆盖需查看 JSON。即使生成了 CSV 文件，也要检查退出码：全部成功 `0`、部分失败 `2`、全部失败 / 配置无效 `1`。错误写 stderr，CSV 只包含成功报价，无报价时仅表头。调用者负责决定是否发布部分结果，RackRate 自己负责美元换算和网站更新。
+默认比较 CSV 排除地区不完整、平台覆盖、起步价、GPU 组件、月包、询价和明确下线 / 不可用项。月价保留在 JSON / full 审计表中，不按 720 小时换算。原币、精确金额、配置、会员 / 云档位 / Spot、税费及账号条件和原 ISO 时间保留，不换汇、不上传、不补造国家。CSV 没有 provider 状态或 coverage 附表；完整诊断与覆盖需查看 JSON。即使生成了 CSV 文件，也要检查退出码：全部成功 `0`、部分失败 `2`、全部失败 / 配置无效 `1`。错误写 stderr，默认比较 CSV 另提示保留及排除条数。来源成功但没有合格地区小时价时仅表头且仍退出 0；原始记录可在 JSON / full 审计表核对。调用者负责决定是否发布部分结果，RackRate 自己负责美元换算和网站更新。
+
+Nebius 默认公开模式同时读取文档目录和无需认证的当前地区 Spot API；文档供给覆盖另用 `--coverage-region` / `--coverage-country` 查询，`--region` / `--country` 只筛实际价格位置。未给地区不证明全球统一价。
 
 ## 可选凭据及地区报价
 

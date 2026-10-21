@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
+from gpu_price_monitor.collector import collect_prices
 from gpu_price_monitor.providers import azure
 from gpu_price_monitor.settings import Settings
 from gpu_price_monitor.transport import FetchError
@@ -88,12 +89,75 @@ class AzureTests(unittest.TestCase):
         base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
         for region, countries in (("westus3", ["US"]), ("westeurope", ["NL"]),
                                   ("northeurope", ["IE"]), ("southeastasia", ["SG"]),
-                                  ("eastasia", ["HK"]), ("unmappedregion", [])):
+                                  ("eastasia", ["HK"])):
             quote = parse([{**base, "armRegionName": region}])[0]
             self.assertEqual(quote["compute_countries"], countries)
             self.assertEqual(quote["location_source"]["url"], azure.REGIONS_DOCUMENTATION_URL)
+            self.assertEqual(quote["location_source"]["verified_on"], "2026-10-21")
             self.assertEqual(quote["regions"], [region])
             self.assertEqual(quote["zones"], [])
+
+    def test_additional_country_mappings_keep_region_specific_official_evidence(self):
+        base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
+        expected = (
+            ("attatlanta1", "US", azure.MEC_REGIONS_DOCUMENTATION_URL, "Edge Zone ID"),
+            ("attdallas1", "US", azure.MEC_REGIONS_DOCUMENTATION_URL, "Edge Zone ID"),
+            ("jioindiacentral", "IN", azure.SENTINEL_GEOGRAPHY_DOCUMENTATION_URL, "SIEM supported region"),
+            ("jioindiawest", "IN", azure.SENTINEL_GEOGRAPHY_DOCUMENTATION_URL, "SIEM supported region"),
+            ("usgovarizona", "US", azure.GOVERNMENT_REGIONS_DOCUMENTATION_URL, "Programmatic name"),
+            ("usgovvirginia", "US", azure.GOVERNMENT_REGIONS_DOCUMENTATION_URL, "Programmatic name"),
+        )
+        original = parse([base])[0]
+        for region, country, url, field in expected:
+            with self.subTest(region=region):
+                # The country depends on the exact official identifier, never the
+                # untrusted retail display name or a name-prefix heuristic.
+                quote = parse([{**base, "armRegionName": region, "location": "Untrusted display name"}])[0]
+                self.assertEqual(quote["compute_countries"], [country])
+                self.assertEqual(quote["location_source"]["url"], url)
+                self.assertEqual(quote["location_source"]["verified_on"], "2026-10-21")
+                self.assertEqual(quote["location_source"]["region_field"], field)
+                self.assertEqual(quote["regions"], [region])
+                for key in ("amount", "instance_price", "raw_sku", "gpu_model", "gpu_count",
+                            "billing_mode", "conditions", "availability", "source_url"):
+                    self.assertEqual(quote[key], original[key])
+                if region.startswith("jio"):
+                    self.assertEqual(quote["location_source"]["region_name_source_url"],
+                                     azure.REGION_NAMES_DOCUMENTATION_URL)
+                if region.startswith("att"):
+                    self.assertIs(quote["location_source"]["archived"], True)
+                    self.assertEqual(quote["location_source"]["physical_location_source_url"],
+                                     azure.MEC_LOCATIONS_DOCUMENTATION_URL)
+
+    def test_unverified_regions_keep_unknown_country_and_no_verified_evidence(self):
+        base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
+        for region in ("unmappedregion", "sgxsingapore1", "attatlanta99", "jioindiafuture", "usgovfuture"):
+            with self.subTest(region=region):
+                quote = parse([{**base, "armRegionName": region, "location": "US Gov Virginia"}])[0]
+                self.assertEqual(quote["compute_countries"], [])
+                self.assertIsNone(quote["location_source"]["url"])
+                self.assertIsNone(quote["location_source"]["verified_on"])
+                self.assertEqual(quote["location_source"]["country_basis"], "unverified_region")
+
+    def test_country_filter_uses_verified_mappings_and_preserves_unknown_failure(self):
+        base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
+        quotes = [parse([{**base, "armRegionName": region}])[0]
+                  for region in ("jioindiacentral", "usgovvirginia", "sgxsingapore1")]
+        with patch.object(azure, "collect_quotes", return_value=quotes[:2]):
+            result = collect_prices(["azure"], {"compute_countries": ["IN"]}, settings=Settings())
+        self.assertEqual([q["regions"] for q in result["prices"]], [["jioindiacentral"]])
+        self.assertEqual(result["provider_results"][0]["filters"]["compute_countries"]["status"], "applied_locally")
+        with patch.object(azure, "collect_quotes", return_value=quotes):
+            result = collect_prices(["azure"], {"compute_countries": ["US"]}, settings=Settings())
+        self.assertEqual(result["prices"], [])
+        self.assertEqual(result["provider_results"][0]["error"]["code"], "unverifiable_filter")
+        self.assertEqual(result["provider_results"][0]["filters"]["compute_countries"]["status"], "unverifiable")
+        # An explicit region constraint can remove the unrelated unknown quote
+        # before checking whether the requested country can be verified.
+        with patch.object(azure, "collect_quotes", return_value=quotes):
+            result = collect_prices(["azure"], {"compute_countries": ["US"], "regions": ["usgovvirginia"]},
+                                    settings=Settings())
+        self.assertEqual([q["regions"] for q in result["prices"]], [["usgovvirginia"]])
 
     def test_current_revision_wins_older_and_future_rates_do_not_become_current(self):
         row = deepcopy(next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3"))

@@ -1,21 +1,31 @@
 # 平台能力与官方依据
 
-核查与实现口径：2026-10-21，版本 0.10.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
+核查与实现口径：2026-10-21，版本 0.11.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
 
-本页说明来源、单位和地理证据；实际条数随来源变化。**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [九家公开采样](../examples/nine-providers-2026-10-21.json)。原 [五家采样](../examples/five-providers-2026-10-21.json) 是北京时间 2026-10-21 14:35 的历史证据：共 480 条，其中 374 条 UCloud 中国月包已下线，36 条 Nebius 仅平台覆盖，其余 70 条没有价格地区。采集成功不等于当前可购或覆盖所有国家。
+本页说明来源、单位和地理证据，实际条数随来源变化。**2026-10-21T08:45:38.349457Z** 匿名实采得到 **845 条来源记录、224 条符合默认比较条件的地区 GPU 小时报价**：Nebius 当前 Spot 12 条、Azure 212 条。其他七家当前免费来源因缺少价格国家 / 地区，或仅有下线月包，未进入比较表；这不等于服务商没有可购产品。见 [224 行原币比较 CSV](../examples/regional-hourly-2026-10-21.csv)。
+
+[九家历史采样](../examples/nine-providers-2026-10-21.json) 是 0.10.0 的 833 条来源记录，含未知位置、Nebius 文档覆盖和 374 条已下线 UCloud 月包；[五家历史采样](../examples/five-providers-2026-10-21.json) 保留更早的 480 条原 Word 范围证据。它们是历史宽表，不代表当前比较条数或现货。
+
+默认 CSV 排除地区不完整、仅覆盖、起步价、GPU 组件、月价、询价和明确不可用项。原始记录可在 JSON 或 `--csv-profile full` 的 51 列审计表核对；库不按 720 小时折算月价，不换汇或上传。
 
 ## 地理与金额共同约定
 
 - `compute_countries` 表示价格所绑定的部署国家，使用 ISO 两字母代码。币种、销售税区、公司所在地、容量地区和机房覆盖不能单独证明这个字段。
-- `regions` / `zones` 保留来源代码。`price_scope` 区分未知位置目录、平台覆盖、地区 / 可用区报价及请求配置询价。`geographic_coverage` 只汇总本批返回的证据，不是库存报告。
+- `regions` / `zones` 仅保留实际价格位置；`coverage_regions` / `coverage_countries` 独立保存文档供给范围。`price_scope` 区分未知位置目录、平台覆盖、地区 / 可用区报价及请求配置询价。`geographic_coverage` 只汇总本批返回的证据，不是库存报告。
 - 地区、国家和可用区组合必须在同一报价内成立。来源不支持的维度返回 `unsupported_filter`；支持但证据不足返回 `unverifiable_filter`。
 - 金额字符串、币种、GPU / 整实例单位、配置、折扣和生效日期保留。按月不折算为假定小时数；未知金额不填 0；`observed_at` 是抓取时刻，不是价格生效日。
 
-## Nebius：公开组件价与可选配置估价
+## Nebius：公开目录、免费地区 Spot 与可选配置估价
 
-默认 `NEBIUS_SOURCE=public`，读取 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing) 的 [官方 Markdown](https://docs.nebius.com/compute/resources/pricing.md)。解析 GPU / CPU / RAM 分项、USD / ILS、按需 / Spot 及来源明确的生效日期；存在多个日期区间时按采样日期选择，未知或冲突结构会失败。GPU 分项不等于整机费用；Spot 的 From 保留为起价。
+默认 `NEBIUS_SOURCE=public` 同时读取 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing) 的 [官方 Markdown](https://docs.nebius.com/compute/resources/pricing.md) 和免费匿名的 [当前 Spot API](https://api.nebius.cloud/billing/v1alpha1/spot-price)。文档保留 GPU / CPU / RAM 分项、USD / ILS、按需 / Spot 和明确生效日期，多日期区间按采样日期选择。GPU 组件不当整机费用，Spot 的 From 保留为起价。
 
-公开文档里的地区表示平台可用范围，返回 `price_scope=platform_coverage`。可按来源覆盖代码筛选，但不能据此宣称芬兰、美国等国家各有独立报价。ILS 的计价或税务适用对象也不等于 GPU 部署在以色列。公开路径不推断国家、可用区或实例卡数。
+文档地区只表示平台供给范围，返回 `price_scope=platform_coverage`，另存 `coverage_regions` / `coverage_countries` 及官方国家映射依据，不填价格 `regions` / `compute_countries`。单 region 的平台限制也不变成独立地区询价。`--coverage-region` / `--coverage-country` 可筛该范围，它不进入默认比较 CSV；`--region` / `--country` 只匹配实际价格位置。缺少地区字段不证明全球统一价。
+
+新增只读 `GET /billing/v1alpha1/spot-price`，官方明确 [无需认证](https://docs.nebius.com/signup-billing/spot-prices)。核对平台、`skuId`、`region`、原币金额、`GPU hour`、`effectiveTime` 和 `snapshotTime`，完成分页及快照新鲜度检查后，返回 `source_type=official_public_api`、`billing_mode=spot`、`quote_status=quoted`、`price_scope=regional_quote`。国家来自 [官方地区目录](https://docs.nebius.com/overview/regions)，未知映射不进入默认比较 CSV。本次观察、源快照与单项生效时间分开保存；未公布的卡数、显存和整机配置保持未知，不编造实例总价。文档或 Spot API 失败会报来源错误，不用历史点、起价或截图数字兜底。
+
+**2026-10-21 08:00 UTC** 截图中 B200 `me-west1` **4.10**、`us-central1` **1.90 USD/GPU/hour** 是历史 Spot 图表的最后价，不是普通按需价或固定现价。08:45:03 UTC 的当前 API 采样已变为 **3.8 / 1.6**，分别对应这两个地区；这些数值仅属于该次观察。历史 ListSeries 的第一价、最后价和平均价是不同聚合口径，当前采集使用当前价格接口，不将历史点写成现价。Spot 在使用前及使用中均可动态变化，比较 CSV 保留生效时间和中断条件。
+
+USD / ILS 描述客户计费辖区，ILS 适用于以色列公司，不表示 GPU 一定部署在以色列；币种直接按来源读取。库存、账号可购性和最终结算仍未核验。
 
 可选 `NEBIUS_SOURCE=api` 已实现 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)：
 
@@ -27,7 +37,7 @@
 
 配置估价为 `source_type=official_quote_api`、账号专属 `account_scope` 与 `requested_region_quote`，不是匿名全目录枚举。目标、响应资源关联、GPU 卡数、完整聚合单位和分项合计均需通过验证；可变范围或不完整配置不输出可疑价格。
 
-**验证边界：14 项合成离线测试通过；尚未使用有效 token 完成真实成功询价。** 官方 [OpenAPI](https://api.nebius.cloud/openapi.json) 和配置模板用于实现核对，不作为实际可售规格或账号报价的证据。
+**验证边界：账号估价的合成离线测试通过；尚未使用有效 token 完成真实成功询价。** 官方 [OpenAPI](https://api.nebius.cloud/openapi.json) 和配置模板用于实现核对，不作为实际可售规格或账号报价的证据。
 
 ## Lambda：公开实例页与可选认证目录
 
@@ -70,7 +80,7 @@ API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填�
 
 本次 374 条均为中国月卡且 `availability=offline`。`DurationUnit=month`、`Durations=[1]`，`CurPrice` / `OriginalPrice` 的分值除 100 为 CNY 整套餐月价，再按卡数分摊 `gpu_month`，整套餐保留 `instance_month`；不除 720。CPU、内存、磁盘、带宽与 CPU 平台保留。
 
-国家 / region / zone 来自官方目录关联，当前已支持 `--country CN` 及地区 / zone / 卡数筛选。活动限购、优惠续费及资格说明单列；接口元数据与促销页面资格文案有差异时保持未验证。下线状态不得丢弃，非下线标志也不等于现货。不将 [活动页](https://www.ucloud.cn/site/active/gpu.html) 的限量新客体验价当通用月价。
+国家 / region / zone 来自官方目录关联，当前已支持 `--country CN` 及地区 / zone / 卡数筛选。活动限购、优惠续费及资格说明单列；接口元数据与促销页面资格文案有差异时保持未验证。下线状态保留在 JSON / full 审计表，默认比较 CSV 排除此类月包；非下线标志也不等于现货。不将 [活动页](https://www.ucloud.cn/site/active/gpu.html) 的限量新客体验价当通用月价。
 
 可选 `UCLOUD_SOURCE=api` 调用 [GetUHostInstancePrice](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)，需公私钥与 [完整目标](../configs/ucloud-targets.example.json)。当前限定 1–20 项、JSON ≤128 KiB、`MachineType=G`、`ChargeType=Dynamic`、`Count=1`；指定地区、zone、GPU、CPU、内存 MB 与磁盘 GB。私钥只在本地生成签名，不作为请求参数发送。仅 `RetCode=0` 且金额 / 计费方式通过校验才返回报价。
 
@@ -111,4 +121,4 @@ Spot 与按需分开，Spot 可能每日改变并被回收；B300 风冷 / 液�
 
 只接受对应基础 VM 产品、USD、`Consumption`、主计量地区、`1 Hour`、已到生效时间的按需 / Spot 条目；保留并按生效时间选择地区费率。不将 Windows 许可、Low Priority、Dev/Test、预留或嵌套 Savings Plan 费率合并。所有分页必须完成、连续且限定官方地址与原查询范围，否则来源失败，不悄悄返回前几页。
 
-`retailPrice` 是完整 VM 小时价，按 [T4 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series)、[GB200 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series)、[H100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/ncads-h100-v5)、[A100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series) 的明确 GPU 数量分摊；保留原实例价、规格和 meter 信息。磁盘、网络等其他服务另计。`armRegionName` / `location` 来自价格响应，可按 region 筛选；部署国家依据 [官方地区目录](https://learn.microsoft.com/en-us/azure/reliability/regions-list) 中已核验的 58 个 programmatic name 映射，记录 `location_source`；未知新地区保持空国家，不由前缀、币种或地区名称猜测。支持已核验国家和地区筛选，当前不推断可用区。四 SKU 本次返回 214 条、45 个地区、22 个已映射国家 / 地区代码；14 条 edge / government / Jio 等地区保留未知国家。全局国家筛选遇到相关未知国家记录会返回 `unverifiable_filter`，可结合明确地区筛选，例如 US + eastus，不静默排除缺证据报价。零售目录不证明订阅配额、容量、税或可购性。
+`retailPrice` 是完整 VM 小时价，按 [T4 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series)、[GB200 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series)、[H100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/ncads-h100-v5)、[A100 规格](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series) 的明确 GPU 数量分摊；保留原实例价、规格和 meter 信息。磁盘、网络等其他服务另计。`armRegionName` / `location` 来自价格响应，可按 region 筛选；部署国家依据 [官方地区目录](https://learn.microsoft.com/en-us/azure/reliability/regions-list) 中已核验的 64 个 programmatic name 映射，记录 `location_source`；未知新地区保持空国家，不由前缀、币种或地区名称猜测。支持已核验国家和地区筛选，当前不推断可用区。四 SKU 本次返回 214 条、45 个价格地区，其中 212 条具备已核验国家关联；`sgxsingapore1` 两条国家仍未知，不进入默认比较 CSV。全局国家筛选遇到相关未知国家记录会返回 `unverifiable_filter`，可结合明确地区筛选，例如 US + eastus，不静默排除缺证据报价。零售目录不证明订阅配额、容量、税或可购性。

@@ -4,15 +4,15 @@ A Python library and JSON / CSV CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud
 
 [中文](README.md) · [Document requirements and implementation](docs/DOCUMENT_COVERAGE.md) · [Provider details](docs/PROVIDERS.md) · [Environment template](.env.example)
 
-The current **0.10.0** release adds English–Chinese translations to every CSV header by default, with an English-only option. CSV export was introduced in 0.9.0. Version 0.8.0 added RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope; `--providers all` still selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI. Run `gpu-price-monitor --version` after installation; CSV requires 0.9.0 or newer; translated headers and header selection require 0.10.0 or newer.
+The current **0.11.0** release defaults to a strict **10-column regional GPU-hour comparison CSV**. Only actual numeric hourly quotes with verified countries and regions are included. Use `--csv-profile full` for the original 51-column source audit table. Nebius public mode now includes its free, anonymous current regional Spot API; documented platform coverage is stored separately. Both profiles retain bilingual headers by default, with an English-only option. `--providers all` selects the nine providers above. Install from source and check `gpu-price-monitor --version`; this version has not been published to PyPI.
 
 ## What the locations mean
 
-A public catalog does not necessarily publish a separate price for each country. The library does not infer a price location from headquarters, currency, IP address, capacity, or a platform's list of data centers, and does not copy one catalog price to every country.
+A public catalog does not necessarily publish a separate price for each country. The library does not infer a price location from headquarters, currency, IP address, capacity, or a platform's list of data centers, and does not copy one catalog price to every country. Missing region fields do not establish globally uniform pricing; no such claim is made without explicit official evidence.
 
 | Provider | Free default | Geographic evidence |
 | --- | --- | --- |
-| Nebius | Official Compute pricing document, including USD / ILS and resource components | Public region labels describe platform coverage. Optional authenticated estimates verify the project region and official country mapping for a complete configuration |
+| Nebius | Official Compute document plus the anonymous current Spot API | Actual Spot entries bind a platform, region, currency and effective time; countries use the official region directory. Document coverage stays separate. Optional configuration estimates require a token |
 | Lambda | Public instance page, retaining 1 / 2 / 4 / 8 GPU configurations | Public prices are not region-bound; API capacity locations are retained separately from price locations |
 | Crusoe | The public GPU instances section | No region-specific prices in this table; Contact sales remains a nonnumeric quote |
 | AutoDL | Public ordinary / member price cards | Homepage prices have no location. Optional authorized market collection preserves the market's region codes |
@@ -22,7 +22,11 @@ A public catalog does not necessarily publish a separate price for each country.
 | Verda | Official USD / EUR GPU instances tables | Fetch each currency separately; retain on-demand / Spot and instance totals; no inferred compute countries |
 | Azure | Anonymous official Retail Prices API | Already-effective regional rates for four verified SKUs only (T4, GB200, H100 NVL, and A100 PCIe); official region-directory country mappings; not all SKUs, countries, or capacity |
 
-**Live public capture: October 21, 2026, 15:12:56 China time, 833 records across all nine sources.** Counts: Nebius 36, Crusoe 24, Lambda 22, UCloud 374, AutoDL 24, RunPod 68, DigitalOcean 19, Verda 52, and Azure 214. There are 574 country-bound records and 588 region/zone-bound records, including 374 offline UCloud packages; 36 have platform coverage only and 209 are unlocated catalogs. Azure covers 45 price regions, with 14 records retaining unknown countries. These counts do not establish currently purchasable capacity everywhere. See the [actual JSON](examples/nine-providers-2026-10-21.json); the original Word-scope [five-provider capture](examples/five-providers-2026-10-21.json) is retained separately.
+**Public capture at 2026-10-21T08:45:38.349457Z: 845 source records, with 224 eligible regional GPU-hour quotes**: 12 Nebius current Spot entries and 212 Azure entries. See the [224-row, native-currency comparison CSV](examples/regional-hourly-2026-10-21.csv). The other seven free sources lack complete price locations or provide offline monthly packages, so they contribute no eligible comparison rows. This does not establish that those providers have no purchasable products.
+
+The [833-record nine-provider JSON](examples/nine-providers-2026-10-21.json) and [five-provider JSON](examples/five-providers-2026-10-21.json) are historical audit captures. They include unlocated catalogs, platform coverage, contact-sales entries and offline monthly packages; they are not the current comparison table. Use `comparison.eligible_quote_count` for the current eligible count.
+
+The supplied Nebius chart showed B200 at **4.10 in me-west1 and 1.90 USD/GPU/hour in us-central1 at 2026-10-21 08:00 UTC**. Those are historical Spot last-price points, not ordinary on-demand rates or fixed current prices. The API observation at 08:45:03 UTC was already **3.8 / 1.6** for those respective regions. Current collection reads the [official anonymous Spot endpoint](https://docs.nebius.com/signup-billing/spot-prices), preserving its effective time; screenshot values and historical chart aggregates are never hardcoded as live prices.
 
 The collectors use read-only public requests, authenticated estimates, or an authorized market session; they do not create, launch, or purchase resources. Optional authenticated paths have offline tests but have not been successfully verified with a valid live account. Documentation examples and synthetic fixtures are not live API results.
 
@@ -56,16 +60,20 @@ for quote in result["prices"]:
 
 ## Export a CSV table
 
-**Introduced in 0.9.0:** `prices_to_csv(result)` and `collect --format csv`. **Since 0.10.0 all headers are bilingual by default**, for example `provider（平台）`; English-only IDs remain available for automated readers. JSON remains the default; the Python `collect_prices` result, existing JSON CLI, and exit codes remain compatible. CSV text is generated with the Python standard library, with no spreadsheet dependency. The library does not write files, upload results, or convert currencies.
+Since **0.11.0**, `prices_to_csv(result)` and `collect --format csv` default to ten columns: GPU model/configuration, provider, price country/region, native per-GPU amount, currency, unit, pricing conditions, availability, official source, and observation time. Ordinary/member, cloud-tier, Spot, tax and account conditions remain visible. Instance totals are included only when the source provides them.
+
+The comparison profile requires a numeric `quoted` amount, `unit=gpu_hour`, a verified regional price scope, and nonempty country and region evidence. Unlocated records, platform coverage, starting prices, GPU components, monthly packages, contact-sales entries and explicitly unavailable/offline listings are excluded. `prices_to_csv(result, profile="full")` or `--csv-profile full` preserves the original 51-column audit table and all source records. JSON remains the default full source result. The library returns text without writing files, uploading results, or converting currencies.
 
 ```bash
 # Default JSON preserves per-provider status and coverage summaries.
 gpu-price-monitor collect --providers all --coverage --pretty > prices.json
 
-# CSV goes to stdout; the shell writes the file and stderr keeps diagnostics.
+# Default strict 10-column comparison; stderr reports included/excluded counts.
 gpu-price-monitor collect --providers all --format csv > prices.csv
 # Stable English field names for automated readers.
 gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
+# All source records in the compatible 51-column audit profile.
+gpu-price-monitor collect --providers all --format csv --csv-profile full > prices.audit.csv
 ```
 
 ```python
@@ -73,17 +81,18 @@ from pathlib import Path
 from gpu_price_monitor import Settings, collect_prices, prices_to_csv
 
 result = collect_prices("all", settings=Settings())
-csv_text = prices_to_csv(result)  # English–Chinese headers by default
+csv_text = prices_to_csv(result)  # Strict 10 columns, bilingual headers by default
 english_csv_text = prices_to_csv(result, bilingual_headers=False)
+audit_csv_text = prices_to_csv(result, profile="full")
 # The returned text already contains a BOM and CRLF line endings.
 Path("prices.csv").write_text(csv_text, encoding="utf-8", newline="")
 ```
 
-`--csv-headers bilingual` explicitly selects the default translated headers; `--csv-headers english` selects English-only headers. This option only changes CSV headers, leaving JSON and quote values unchanged. Public `CSV_COLUMNS` retains stable English IDs, while `CSV_HEADERS` contains bilingual labels in the same order. When upgrading to 0.10.0, scripts that depend on English column names should explicitly select English headers.
+`--csv-profile compact` explicitly selects the default comparison table; `full` selects the audit table. `COMPACT_CSV_COLUMNS` / `COMPACT_CSV_HEADERS` define the ten comparison columns, while `CSV_COLUMNS` / `CSV_HEADERS` retain the 51-column schema. Older consumers requiring that schema must select `full`. `publishable_quote(quote)` checks comparison eligibility. `--csv-headers english` or `bilingual_headers=False` changes only the selected profile's header IDs.
 
-Each CSV row represents one filtered quote, preserving the GPU model and provider, original amount / currency / period, instance total, country / region / zone, geographic evidence scope, ordinary / member and cloud-tier conditions, Spot, offline status, source, and observation time. Unknown locations stay empty or explicitly unlocated; platform coverage does not become a regional price. CNY / EUR / ILS remain in their original currencies and monthly amounts stay monthly. RackRate separately handles USD presentation, storage, and website updates.
+Amounts retain exact native decimal strings; CNY / EUR / ILS are not converted to USD. Monthly records remain in JSON / full audit output and are never divided by 720 or any assumed number of hours. Unknown locations are not filled with global scope, and platform coverage never creates country prices. RackRate separately handles conversion, storage and publication.
 
-The output uses a **UTF-8 BOM** and **CRLF** line endings. CSV contains only the quote table, with no `provider_results`, `geographic_coverage`, or model `coverage` appendix. Use JSON for the complete summaries, even when `--coverage` is supplied. Partial failure exits `2`; complete failure or invalid configuration exits `1`; diagnostics go to stderr. CSV contains successful-source quotes, or only its header when none are returned. A file's existence is not proof of success: check the exit code or retain the JSON status.
+Output uses a **UTF-8 BOM** and **CRLF** line endings. Observation and effective timestamps retain their original ISO representation. CSV has no provider-status or coverage appendix; use JSON for the full result. The default comparison writes an inclusion/exclusion count to stderr. Successful source collection with no eligible quotes produces a header-only CSV and still exits `0`; partial source failure exits `2`, and complete failure or invalid configuration exits `1`. Keep JSON or full audit output when investigating excluded records.
 
 ## Country, region, and zone filters
 
@@ -96,8 +105,11 @@ gpu-price-monitor collect --providers ucloud --country CN --region cn-bj2 --zone
 # Azure meters bind ARM regions; countries use verified official-directory mappings.
 gpu-price-monitor collect --providers azure --gpu T4 --country US --region eastus --pretty
 
-# Public Nebius region labels indicate platform coverage, not a regional quote.
-gpu-price-monitor collect --providers nebius --region eu-north1 --currency USD --pretty
+# Current Nebius regional Spot prices; country/region refer to actual price locations.
+gpu-price-monitor collect --providers nebius --gpu B200 --billing-mode spot --country US --region us-central1 --pretty
+
+# Documented platform coverage is queried separately from price locations.
+gpu-price-monitor collect --providers nebius --coverage-region eu-north1 --coverage-country FI --pretty
 
 # Optional authenticated paths, after completing local credentials and targets.
 gpu-price-monitor collect --env-file .env --providers nebius --nebius-source api --country FI --region eu-north1 --pretty
@@ -107,7 +119,7 @@ gpu-price-monitor collect --env-file .env --providers ucloud --ucloud-source api
 gpu-price-monitor collect --env-file .env --providers autodl --autodl-source market --pretty
 ```
 
-Python filters accept arrays under `compute_countries`, `regions`, `zones`, `gpu_models`, `gpu_counts`, `currencies`, and `billing_modes`. For example:
+Python filters accept arrays under `compute_countries`, `regions`, `zones`, `gpu_models`, `gpu_counts`, `currencies`, `billing_modes`, `coverage_regions`, and `coverage_countries`. For example:
 
 ```python
 result = collect_prices(
@@ -117,7 +129,7 @@ result = collect_prices(
 )
 ```
 
-Deployment countries and sales jurisdictions differ; `sales_countries` is unsupported. `geographic_coverage` summarizes location evidence for the returned quotes. `price_scope` distinguishes `unlocated_catalog`, `platform_coverage`, `regional_quote`, `zone_quote`, `requested_region_quote`, and `requested_zone_quote`. Neither field guarantees capacity or purchase eligibility. Azure has some regions without verified country mappings. A country-only request can therefore return `unverifiable_filter`; combine it with an evidenced region, such as US + eastus above, rather than silently excluding records with unknown countries.
+`--country` / `--region` match only actual price locations. Use `--coverage-country` / `--coverage-region` for documented Nebius platform coverage, usually in a separate request. Coverage does not populate price `compute_countries` / `regions`. Deployment countries and sales jurisdictions differ; `sales_countries` is unsupported. `geographic_coverage` summarizes location evidence for the returned quotes. `price_scope` distinguishes `unlocated_catalog`, `platform_coverage`, `regional_quote`, `zone_quote`, `requested_region_quote`, and `requested_zone_quote`. Neither field guarantees capacity or purchase eligibility. Azure has some regions without verified country mappings. A country-only request can therefore return `unverifiable_filter`; combine it with an evidenced region, such as US + eastus above, rather than silently excluding records with unknown countries.
 
 ## Optional account configuration
 
@@ -153,4 +165,4 @@ python -m unittest discover -s tests -v
 gpu-price-monitor validate-config --config configs/collect.all.example.json
 ```
 
-Offline fixtures validate parsing and failure behavior, not live account access. Nebius's new quote adapter has 14 synthetic tests; AutoDL's authorized market adapter has eight. The dated public captures are evidence of their observation time and are never used as runtime fallbacks.
+Offline fixtures validate parsing and failure behavior, not live account access. The anonymous current Nebius Spot source has a live public capture; optional account estimates and the authorized AutoDL market still require successful live-account verification. The dated public captures are evidence of their observation time and are never used as runtime fallbacks.

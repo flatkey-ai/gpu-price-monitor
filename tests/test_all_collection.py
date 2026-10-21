@@ -18,6 +18,7 @@ from gpu_price_monitor.transport import FetchError
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl",
              "runpod", "digitalocean", "verda", "azure"}
+OBSERVED = "2026-10-21T08:40:00+00:00"
 
 
 def quote(provider):
@@ -32,6 +33,13 @@ def quote(provider):
     }
 
 
+def spot_quote(observed_at):
+    return {**quote("nebius"), "source_type": "official_public_api", "billing_mode": "spot",
+            "regions": ["eu-north1"], "compute_countries": ["FI"], "geographic_scope": "regions",
+            "price_basis": "advertised_per_gpu", "observed_at": observed_at,
+            "effective_from": observed_at, "source_snapshot_at": observed_at}
+
+
 class AllCollectionTests(unittest.TestCase):
     def setUp(self):
         self.addCleanup(patch.stopall)
@@ -39,6 +47,9 @@ class AllCollectionTests(unittest.TestCase):
         patch("gpu_price_monitor.collector.fetch_text", return_value="synthetic-public-page").start()
         patch("gpu_price_monitor.transport._request_text",
               side_effect=AssertionError("Offline tests may not make requests")).start()
+        patch("gpu_price_monitor.collector._now", return_value=OBSERVED).start()
+        self.spot = patch("gpu_price_monitor.providers.nebius_spot.collect_quotes",
+                          side_effect=lambda *, settings, observed_at: [spot_quote(observed_at)]).start()
         self.sources = {}
         for name, module in IMPLEMENTED_PROVIDERS.items():
             method = "collect_quotes" if hasattr(module, "collect_quotes") else "parse_prices"
@@ -63,6 +74,7 @@ class AllCollectionTests(unittest.TestCase):
         self.assertEqual(set(h100["units"]), {"gpu_hour", "gpu_month"})
         self.assertEqual(json.loads(json.dumps(result, allow_nan=False)), result)
         self.assertTrue(all(source.call_count == 1 for source in self.sources.values()))
+        self.spot.assert_called_once()
 
     def test_default_python_response_does_not_add_coverage_or_change_providers(self):
         result = collect_prices(settings=Settings())
@@ -103,6 +115,40 @@ class AllCollectionTests(unittest.TestCase):
         self.assertEqual(result["provider_results"][0]["error"]["code"], "public_api_error")
         self.assertEqual(result["coverage"]["collection_status"], "partial")
 
+    def test_public_spot_failure_does_not_publish_nebius_catalog_as_a_fallback(self):
+        self.spot.side_effect = FetchError("public_api_error", "Current spot prices could not be reached.")
+        result = collect_prices("all", settings=Settings())
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual({q["provider"] for q in result["prices"]}, PROVIDERS - {"nebius"})
+        nebius = next(p for p in result["provider_results"] if p["provider"] == "nebius")
+        self.assertEqual(nebius["status"], "failed")
+        self.assertEqual(nebius["error"]["code"], "public_api_error")
+
+    def test_all_comparison_excludes_coverage_monthly_and_unlocated_catalog_prices(self):
+        self.sources["nebius"].return_value = [
+            {**quote("nebius"), "regions": ["us-central1"], "geographic_scope": "regions"},
+        ]
+        self.sources["azure"].return_value = [
+            {**quote("azure"), "regions": ["westus3"], "compute_countries": ["US"],
+             "geographic_scope": "regions", "price_basis": "instance_total_allocated"},
+        ]
+        self.sources["ucloud"].return_value = [
+            {**quote("ucloud"), "regions": ["cn-bj2"], "zones": ["cn-bj2-02"],
+             "compute_countries": ["CN"], "geographic_scope": "zone"},
+        ]
+        result = collect_prices("all", settings=Settings())
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["comparison"]["scope"], "verified_regional_gpu_hour")
+        self.assertEqual(result["comparison"]["eligible_quote_count"], 2)
+        self.assertEqual(result["comparison"]["excluded_quote_count"], len(result["prices"]) - 2)
+        catalog = next(q for q in result["prices"] if q["provider"] == "nebius"
+                       and q["source_type"] == "public_documentation")
+        self.assertEqual(catalog["coverage_regions"], ["us-central1"])
+        self.assertEqual(catalog["coverage_countries"], ["US"])
+        self.assertEqual(catalog["regions"], [])
+        self.assertEqual(catalog["compute_countries"], [])
+        self.assertFalse(catalog["region_price_verified"])
+
     def test_card_counts_are_supported_only_for_explicit_instance_configurations(self):
         for name in ("lambda", "ucloud"):
             with self.subTest(provider=name):
@@ -127,6 +173,7 @@ class AllCollectionTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ConfigurationError):
                 collect_prices(["nebius"], settings=Settings(), include_coverage=value)
         self.assertTrue(all(source.call_count == 0 for source in self.sources.values()))
+        self.spot.assert_not_called()
 
     def test_public_sources_do_not_require_or_serialize_credentials(self):
         settings = replace(Settings(), lambda_api_key="unused-secret", ucloud_private_key="unused-secret",

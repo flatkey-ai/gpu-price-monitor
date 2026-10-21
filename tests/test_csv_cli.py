@@ -9,7 +9,9 @@ from copy import deepcopy
 from unittest.mock import patch
 
 import gpu_price_monitor
-from gpu_price_monitor import CSV_COLUMNS, CSV_HEADERS, prices_to_csv
+from gpu_price_monitor import (
+    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS, prices_to_csv, publishable_quote,
+)
 from gpu_price_monitor.cli import main
 
 OBSERVED = "2026-10-21T08:30:00+00:00"
@@ -41,7 +43,7 @@ def result(status="success"):
 
 
 def read_csv(text):
-    headers_to_ids = dict(zip(CSV_HEADERS, CSV_COLUMNS))
+    headers_to_ids = {**dict(zip(CSV_HEADERS, CSV_COLUMNS)), **dict(zip(COMPACT_CSV_HEADERS, COMPACT_CSV_COLUMNS))}
     reader = csv.DictReader(io.StringIO(text.removeprefix("\ufeff"), newline=""))
     return [{headers_to_ids.get(key, key): value for key, value in row.items()} for row in reader]
 
@@ -70,10 +72,10 @@ class CsvCliTests(unittest.TestCase):
         response = result()
         response["coverage"] = {"not_a_price_row": "coverage-json-must-not-appear"}
         code, stdout, stderr, collector = self.run_cli(
-            ["collect", "--provider", "nebius", "--format", "csv", "--pretty", "--coverage"], response)
+            ["collect", "--provider", "nebius", "--format", "csv", "--csv-profile", "full", "--pretty", "--coverage"], response)
         self.assertEqual(code, 0)
         self.assertEqual(stderr, "")
-        self.assertEqual(stdout, prices_to_csv(response))
+        self.assertEqual(stdout, prices_to_csv(response, profile="full"))
         self.assertTrue(stdout.startswith("\ufeff" + ",".join(CSV_HEADERS) + "\r\n"))
         rows = read_csv(stdout)
         self.assertEqual(len(rows), 1)
@@ -95,7 +97,7 @@ class CsvCliTests(unittest.TestCase):
             with patch.dict("os.environ", {}, clear=True), \
                     patch("gpu_price_monitor.cli.collect_prices", return_value=result()), \
                     patch("sys.stdout", stdout), redirect_stderr(stderr):
-                code = main(["collect", "--format", "csv"])
+                code = main(["collect", "--format", "csv", "--csv-profile", "full"])
                 stdout.flush()
             data = output.getvalue()
         finally:
@@ -111,17 +113,17 @@ class CsvCliTests(unittest.TestCase):
 
     def test_partial_retains_successful_prices_returns_two_and_errors_only_on_stderr(self):
         response = result("partial")
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "full"], response)
         self.assertEqual(code, 2)
         self.assertEqual(len(read_csv(stdout)), 1)
         self.assertEqual(read_csv(stdout)[0]["collection_status"], "partial")
         self.assertIn("crusoe: network_error:", stderr)
         self.assertNotIn("network_error", stdout)
-        self.assertEqual(stdout, prices_to_csv(response))
+        self.assertEqual(stdout, prices_to_csv(response, profile="full"))
 
     def test_failed_collection_returns_one_header_only_and_provider_error_on_stderr(self):
         response = result("failed")
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "full"], response)
         self.assertEqual(code, 1)
         self.assertEqual(stdout, "\ufeff" + ",".join(CSV_HEADERS) + "\r\n")
         self.assertEqual(read_csv(stdout), [])
@@ -131,7 +133,7 @@ class CsvCliTests(unittest.TestCase):
     def test_configuration_error_returns_one_header_only_without_collecting_or_secret(self):
         secret = "synthetic-invalid-timeout-secret"
         code, stdout, stderr, collector = self.run_cli(
-            ["collect", "--format", "csv"], environment={"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": secret})
+            ["collect", "--format", "csv", "--csv-profile", "full"], environment={"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": secret})
         self.assertEqual(code, 1)
         self.assertEqual(stdout, "\ufeff" + ",".join(CSV_HEADERS) + "\r\n")
         self.assertIn("Invalid configuration:", stderr)
@@ -157,16 +159,16 @@ class CsvCliTests(unittest.TestCase):
         self.assertTrue(callable(prices_to_csv))
         response = result()
         original = deepcopy(response)
-        text = prices_to_csv(response)
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        text = prices_to_csv(response, profile="full")
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "full"], response)
         self.assertEqual((code, stderr), (0, ""))
         self.assertEqual(text, stdout)
         self.assertEqual(response, original)
         self.assertEqual(read_csv(text)[0]["instance_amount"], "36.000000000008")
 
 
-    def test_default_csv_translates_every_header_without_changing_quote_values(self):
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], result())
+    def test_full_csv_translates_every_header_without_changing_quote_values(self):
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "full"], result())
         self.assertEqual((code, stderr), (0, ""))
         self.assertEqual(csv_header(stdout), list(CSV_HEADERS))
         self.assertEqual(len(CSV_HEADERS), len(CSV_COLUMNS))
@@ -184,28 +186,94 @@ class CsvCliTests(unittest.TestCase):
     def test_explicit_english_headers_keep_machine_readable_ids_and_identical_data(self):
         response = result()
         code, stdout, stderr, _ = self.run_cli(
-            ["collect", "--format", "csv", "--csv-headers", "english"], response)
+            ["collect", "--format", "csv", "--csv-profile", "full", "--csv-headers", "english"], response)
         self.assertEqual((code, stderr), (0, ""))
         self.assertEqual(csv_header(stdout), list(CSV_COLUMNS))
-        self.assertEqual(stdout, prices_to_csv(response, bilingual_headers=False))
-        self.assertEqual(read_csv(stdout), read_csv(prices_to_csv(response)))
+        self.assertEqual(stdout, prices_to_csv(response, bilingual_headers=False, profile="full"))
+        self.assertEqual(read_csv(stdout), read_csv(prices_to_csv(response, profile="full")))
         self.assertEqual(response["prices"][0]["amount"], "4.500000000001")
 
     def test_explicit_bilingual_matches_default_and_empty_english_keeps_exit_codes(self):
         response = result()
         code, stdout, stderr, _ = self.run_cli(
-            ["collect", "--format", "csv", "--csv-headers", "bilingual"], response)
+            ["collect", "--format", "csv", "--csv-profile", "full", "--csv-headers", "bilingual"], response)
         self.assertEqual((code, stderr), (0, ""))
-        self.assertEqual(stdout, prices_to_csv(response))
+        self.assertEqual(stdout, prices_to_csv(response, profile="full"))
         for env, response in (({}, result("failed")),
                               ({"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": "invalid"}, None)):
             with self.subTest(configuration_error=bool(env)):
                 code, stdout, stderr, _ = self.run_cli(
-                    ["collect", "--format", "csv", "--csv-headers", "english"], response, env)
+                    ["collect", "--format", "csv", "--csv-profile", "full", "--csv-headers", "english"], response, env)
                 self.assertEqual(code, 1)
                 self.assertEqual(csv_header(stdout), list(CSV_COLUMNS))
                 self.assertEqual(read_csv(stdout), [])
                 self.assertTrue(stderr)
+
+    def test_default_compact_has_ten_columns_and_only_actual_country_region_hourly_quotes(self):
+        regional = {**quote(), "provider": "azure", "compute_countries": ["US"], "regions": ["westus3"],
+                    "price_scope": "regional_quote", "region_price_verified": True,
+                    "source_url": "https://prices.azure.com/api/retail/prices"}
+        response = result()
+        response["prices"] = [quote(), regional,
+                              {**regional, "unit": "gpu_month", "billing_mode": "monthly"},
+                              {**regional, "quote_status": "starting_at", "price_basis": "starting_price"},
+                              {**regional, "price_basis": "gpu_component"},
+                              {**regional, "availability": "offline"}]
+        original = deepcopy(response)
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        self.assertEqual(code, 0)
+        self.assertIn("CSV comparison: 1 verified regional GPU-hour quotes; 5 collected records excluded.", stderr)
+        self.assertEqual(csv_header(stdout), list(COMPACT_CSV_HEADERS))
+        self.assertEqual(stdout, prices_to_csv(response))
+        actual = read_csv(stdout)
+        self.assertEqual(len(actual), 1)
+        self.assertEqual(tuple(actual[0]), COMPACT_CSV_COLUMNS)
+        self.assertEqual((actual[0]["provider"], actual[0]["amount"], actual[0]["unit"]),
+                         ("azure", regional["amount"], "gpu_hour"))
+        self.assertIn("国家=US", actual[0]["location"])
+        self.assertIn("地区=westus3", actual[0]["location"])
+        self.assertIn(regional["instance_price"]["amount"], actual[0]["pricing_conditions"])
+        self.assertTrue(publishable_quote(regional))
+        code, english, stderr, _ = self.run_cli(
+            ["collect", "--format", "csv", "--csv-profile", "compact", "--csv-headers", "english"], response)
+        self.assertEqual(code, 0)
+        self.assertIn("CSV comparison: 1 verified regional GPU-hour quotes; 5 collected records excluded.", stderr)
+        self.assertEqual(csv_header(english), list(COMPACT_CSV_COLUMNS))
+        self.assertEqual(read_csv(english), actual)
+        code, json_text, stderr, _ = self.run_cli(["collect", "--csv-profile", "compact"], response)
+        self.assertEqual((code, stderr), (0, ""))
+        self.assertEqual(json.loads(json_text), original)
+        self.assertEqual(response, original)
+
+    def test_successful_sources_with_no_comparable_quotes_emit_only_compact_header(self):
+        response = result()
+        response["prices"] = [quote(), {**quote(), "compute_countries": ["FI"],
+                                       "coverage_regions": ["eu-north1"], "price_scope": "platform_coverage",
+                                       "region_price_verified": False}]
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        self.assertEqual(code, 0)
+        self.assertIn("CSV comparison: 0 verified regional GPU-hour quotes; 2 collected records excluded.", stderr)
+        self.assertEqual(stdout, "\ufeff" + ",".join(COMPACT_CSV_HEADERS) + "\r\n")
+        self.assertEqual(read_csv(stdout), [])
+        code, json_text, stderr, _ = self.run_cli(["collect", "--format", "json"], response)
+        self.assertEqual((code, stderr), (0, ""))
+        self.assertEqual(json.loads(json_text), response)
+        self.assertEqual(json.loads(json_text)["status"], "success")
+        code, full, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "full"], response)
+        self.assertEqual((code, stderr), (0, ""))
+        self.assertEqual(len(read_csv(full)), 2)
+
+    def test_compact_public_exports_and_configuration_error_keep_profile_header(self):
+        for symbol in ("COMPACT_CSV_COLUMNS", "COMPACT_CSV_HEADERS", "publishable_quote"):
+            self.assertIn(symbol, gpu_price_monitor.__all__)
+        code, stdout, stderr, collector = self.run_cli(
+            ["collect", "--format", "csv"], environment={"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": "invalid"})
+        self.assertEqual(code, 1)
+        self.assertEqual(csv_header(stdout), list(COMPACT_CSV_HEADERS))
+        self.assertEqual(read_csv(stdout), [])
+        self.assertIn("Invalid configuration:", stderr)
+        self.assertNotIn("CSV comparison:", stderr)
+        collector.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from decimal import Decimal, DecimalException
 
 from .filters import apply_filters, filter_support, normalize_filters
 from .geography import describe_geography, geography_summary
+from .csv_export import publishable_quote
 from .providers import (autodl, azure, crusoe, digitalocean, lambda_cloud, lambda_public,
                         nebius, runpod, ucloud, ucloud_public, verda)
 from .settings import ConfigurationError, PROVIDERS, Settings
@@ -123,6 +124,9 @@ def collect_prices(
             "returned_count": 0, "filters": filter_support(provider, conditions[provider], settings=settings),
             "error": None,
         }
+        if module is nebius:
+            from .providers import nebius_spot
+            result["additional_source_urls"] = [nebius_spot.SOURCE_URL]
         if module is None:
             result["error"] = {"code": "not_implemented", "message": "This provider adapter is not implemented.", "retryable": False}
         elif any(item["status"] == "unsupported" for item in result["filters"].values()):
@@ -138,6 +142,11 @@ def collect_prices(
                     content = fetch_text(module.SOURCE_URL, settings)
                     observed_at = _now()
                     quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
+                    if module is nebius:
+                        # The document's From prices are only floors. The
+                        # anonymous official API supplies actual regional Spot
+                        # rates, including their separate effective times.
+                        quotes.extend(nebius_spot.collect_quotes(settings=settings, observed_at=_now()))
                 result["observed_at"] = observed_at
                 _check_prices(quotes, provider, allow_empty=is_authenticated,
                               expected_units=("gpu_month",) if module is ucloud_public else
@@ -145,10 +154,18 @@ def collect_prices(
                 for quote in quotes:
                     describe_geography(quote)
                 result["fetched_count"] = len(quotes)
+                candidates = quotes
+                if any(conditions[provider].get(k) for k in ("regions", "zones", "compute_countries")):
+                    # A requested price location never matches platform
+                    # coverage or a catalog without a price-region binding.
+                    # Region-bound rows with missing country evidence remain
+                    # candidates, so the existing unverifiable check applies.
+                    candidates = [q for q in quotes if q["region_price_verified"]]
+                    result["excluded_unbound_geography_count"] = len(quotes) - len(candidates)
                 unverified = []
                 for dimension in ("regions", "zones", "compute_countries"):
                     other_conditions = {k: v for k, v in conditions[provider].items() if k != dimension}
-                    relevant = apply_filters(quotes, other_conditions)
+                    relevant = apply_filters(candidates, other_conditions)
                     if conditions[provider].get(dimension) and any(not q.get(dimension) for q in relevant):
                         result["filters"][dimension]["status"] = "unverifiable"
                         result["filters"][dimension]["reason"] = "One or more relevant quotes lack verified source location metadata."
@@ -156,7 +173,7 @@ def collect_prices(
                 if unverified:
                     result["error"] = {"code": "unverifiable_filter", "message": "The source cannot verify all requested geographic conditions.", "retryable": False}
                 else:
-                    matched = apply_filters(quotes, conditions[provider])
+                    matched = apply_filters(candidates, conditions[provider])
                     prices.extend(matched)
                     result["geography"] = geography_summary(matched)
                     result["returned_count"] = len(matched)
@@ -179,6 +196,11 @@ def collect_prices(
         "prices": prices,
         "provider_results": results,
         "geographic_coverage": geography_summary(prices),
+        "comparison": {
+            "scope": "verified_regional_gpu_hour",
+            "eligible_quote_count": sum(publishable_quote(q) for q in prices),
+            "excluded_quote_count": sum(not publishable_quote(q) for q in prices),
+        },
     }
     if include_coverage:
         from .coverage import report_coverage

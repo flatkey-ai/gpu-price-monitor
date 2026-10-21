@@ -18,6 +18,7 @@ import re
 
 from ..settings import Settings
 from ..transport import FetchError, request_json
+from .nebius_regions import REGION_COUNTRIES
 
 SOURCE_URL = "https://api.nebius.cloud/billing/v1/calculator/estimate-batch"
 DOCUMENTATION_URL = "https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch"
@@ -29,9 +30,7 @@ MAX_TARGETS = 20
 MAX_TARGET_JSON_BYTES = 256 * 1024
 _TYPE_PREFIX = "type.googleapis.com/nebius.compute.v1."
 _KINDS = {"CreateInstanceRequest", "CreateDiskRequest", "CreateFilesystemRequest"}
-_COUNTRIES = {"eu-north1": "FI", "eu-north2": "IS", "eu-south1": "ES",
-              "eu-west1": "FR", "eu-west2": "FR", "uk-south1": "GB", "uk-south2": "GB",
-              "us-central1": "US", "us-north1": "US", "me-west1": "IL"}
+_COUNTRIES = REGION_COUNTRIES
 _UNITS = {"hour": ("FILTER_AGGREGATION_UNIT_HOUR", "gpu_hour", "instance_hour"),
           "month": ("FILTER_AGGREGATION_UNIT_MONTH", "gpu_month", "instance_month")}
 _LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
