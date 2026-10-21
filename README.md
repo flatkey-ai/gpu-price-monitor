@@ -6,7 +6,7 @@
 
 ## 当前支持
 
-0.6.0 支持 **11 家官方公开来源的免费采集**：Nebius、Crusoe、Lambda、AutoDL、UCloud、RunPod、DigitalOcean、Verda、EBCloud、Suanli、Azure。公开模式无需登录、API key、充值或绑卡；已有 key 不会自动切换认证来源。当前版本尚未发布到 PyPI，请从源码安装。
+0.6.1 支持 **11 家官方公开来源的免费采集**：Nebius、Crusoe、Lambda、AutoDL、UCloud、RunPod、DigitalOcean、Verda、EBCloud、Suanli、Azure。公开模式无需登录、API key、充值或绑卡；已有 key 不会自动切换认证来源。当前版本尚未发布到 PyPI，请从源码安装。
 
 覆盖 GPU 实例、容器租赁和明确的单卡算力费率，保留各自价格条件。使用 `--coverage` 查看目标型号哪些已取到数值、哪些仍缺失；它不代表已覆盖所有厂商、所有地区或实时库存。查看 [11 家来源 JSON](examples/all-providers-2026-10-20.json) 和 [主流型号覆盖报告](examples/mainstream-coverage-2026-10-20.json)。
 
