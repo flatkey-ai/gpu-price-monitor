@@ -1,6 +1,6 @@
 # GPU 云算力价格采集库实施方案
 
-更新：2026-10-21，版本 0.9.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
+更新：2026-10-21，版本 0.10.0。当前范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家；原 Word 核查前五家，后四家按用户扩大平台要求新增。这是已实现能力与验证边界的说明，原始事项逐项见 [文档覆盖对照](DOCUMENT_COVERAGE.md)。
 
 ## 交付边界
 

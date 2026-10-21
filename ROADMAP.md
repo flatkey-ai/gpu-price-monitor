@@ -1,10 +1,11 @@
 # 实现状态与验证清单
 
-更新：2026-10-21，版本 0.9.0。当前采集范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家。保留原 Word 五家并按用户要求扩展四家，`--providers all` 运行九家；旧日期样本保留当时范围，不代表当前全市场支持。详细口径见 [需求对照](docs/DOCUMENT_COVERAGE.md) 和 [平台说明](docs/PROVIDERS.md)。
+更新：2026-10-21，版本 0.10.0。当前采集范围为 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家。保留原 Word 五家并按用户要求扩展四家，`--providers all` 运行九家；旧日期样本保留当时范围，不代表当前全市场支持。详细口径见 [需求对照](docs/DOCUMENT_COVERAGE.md) 和 [平台说明](docs/PROVIDERS.md)。
 
 ## 已实现并真实公开采样
 
 - [x] Python `collect_prices`、默认兼容 JSON CLI、配置校验、逐来源错误与部分成功状态。
+- [x] 0.10.0 为 CSV 全部列新增默认英中双语表头（`CSV_HEADERS`），保留英文 `CSV_COLUMNS`；CLI `--csv-headers english` / Python `bilingual_headers=False` 支持原英文列名，报价值、JSON 和退出码不变。
 - [x] 0.9.0 新增标准库 CSV 文本导出：Python `prices_to_csv(result)` / CLI `collect --format csv`，UTF-8 BOM / CRLF，保留原币、周期、地区 scope、会员 / Spot / 下线及来源时间；文件写入、换汇和上传由调用者负责。CSV 仅报价，完整状态与 coverage 仍看 JSON。
 - [x] 源码 clone 安装、显式 `.env`、进程优先及 FILE / JSON targets，默认无需凭据。
 - [x] Nebius Compute 公开价目：GPU / CPU / RAM 分项、USD / ILS、按需 / Spot、生效日期与平台覆盖标记。

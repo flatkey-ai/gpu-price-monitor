@@ -84,12 +84,12 @@ def _print_json(result: dict, pretty: bool = False) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2 if pretty else None, allow_nan=False))
 
 
-def _print_collection(result: dict, output_format: str, pretty: bool = False) -> None:
+def _print_collection(result: dict, output_format: str, pretty: bool = False, *, csv_headers: str = "bilingual") -> None:
     if output_format == "csv":
         # Keep the promised encoding and CRLF bytes when redirected on Windows.
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", newline="")
-        sys.stdout.write(prices_to_csv(result))
+        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual"))
     else:
         _print_json(result, pretty)
 
@@ -110,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
                          help="stdout format (default: json); csv is UTF-8 with a BOM and one row per quote")
+    collect.add_argument("--csv-headers", choices=("bilingual", "english"), default="bilingual",
+                         help="CSV header labels: English identifiers with Chinese translations (default), or English only")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
@@ -180,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
-        _print_collection(result, args.format, args.pretty)
+        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers)
         for provider in result["provider_results"]:
             if provider["error"]:
                 print(f"{provider['provider']}: {provider['error']['code']}: {provider['error']['message']}", file=sys.stderr)
@@ -188,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigurationError as exc:
         if args.command == "collect":
             _print_collection({"schema_version": 1, "collected_at": datetime.now(timezone.utc).isoformat(), "status": "failed", "prices": [], "provider_results": [],
-                               "error": {"code": "configuration_error", "message": str(exc), "retryable": False}}, args.format, args.pretty)
+                               "error": {"code": "configuration_error", "message": str(exc), "retryable": False}}, args.format, args.pretty,
+                              csv_headers=args.csv_headers)
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 1

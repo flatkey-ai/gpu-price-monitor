@@ -4,7 +4,7 @@
 
 [English](README.en.md) · [文档需求与实现对照](docs/DOCUMENT_COVERAGE.md) · [数据口径](docs/DATA_MODEL.md) · [环境配置](.env.example)
 
-当前版本 **0.9.0** 新增 CSV 导出；0.8.0 已在原 Word 五家基础上增加 RunPod、DigitalOcean、Verda、Azure，`--providers all` 仍运行这九家。旧日期示例保留当时范围，不代表当前支持全市场。本版本从源码安装，未发布至 PyPI。安装后可用 `gpu-price-monitor --version` 确认 CSV 所需的 0.9.0 或更新版本。
+当前版本 **0.10.0** 为 CSV 的全部列提供默认英中双语表头，可选纯英文表头；0.9.0 已新增 CSV 导出；0.8.0 已在原 Word 五家基础上增加 RunPod、DigitalOcean、Verda、Azure，`--providers all` 仍运行这九家。旧日期示例保留当时范围，不代表当前支持全市场。本版本从源码安装，未发布至 PyPI。安装后可用 `gpu-price-monitor --version` 确认版本：CSV 导出需 0.9.0 起，默认双语表头及表头切换需 0.10.0 起。
 
 ## 先看地区能力
 
@@ -56,7 +56,7 @@ for quote in result["prices"]:
 
 ## 导出 CSV 表格
 
-**0.9.0 新增** `prices_to_csv(result)` 与 `collect --format csv`。JSON 仍是默认格式，已有 Python `collect_prices` 返回结构、CLI JSON 和退出码兼容。CSV 使用 Python 标准库生成文本，无需额外表格依赖；库不会自行写文件、上传或换汇。
+**0.9.0 新增** `prices_to_csv(result)` 与 `collect --format csv`；**0.10.0 起所有表头默认英中双语**，例如 `provider（平台）`，可选择英文 ID 表头供程序读取。JSON 仍是默认格式，已有 Python `collect_prices` 返回结构、CLI JSON 和退出码兼容。CSV 使用 Python 标准库生成文本，无需额外表格依赖；库不会自行写文件、上传或换汇。
 
 ```bash
 # 默认仍返回完整 JSON，可查看逐平台状态和覆盖汇总。
@@ -64,6 +64,8 @@ gpu-price-monitor collect --providers all --coverage --pretty > prices.json
 
 # CSV 输出到 stdout；由 shell 保存文件，诊断单独留在 stderr。
 gpu-price-monitor collect --providers all --format csv > prices.csv
+# 程序读取：保留纯英文固定字段名。
+gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
 ```
 
 ```python
@@ -71,10 +73,13 @@ from pathlib import Path
 from gpu_price_monitor import Settings, collect_prices, prices_to_csv
 
 result = collect_prices("all", settings=Settings())
-csv_text = prices_to_csv(result)
+csv_text = prices_to_csv(result)  # 默认英中双语表头
+english_csv_text = prices_to_csv(result, bilingual_headers=False)
 # 返回文本已含 BOM 与 CRLF；使用 utf-8、禁用换行改写，避免重复 BOM。
 Path("prices.csv").write_text(csv_text, encoding="utf-8", newline="")
 ```
+
+`--csv-headers bilingual` 可显式选择默认双语表头；`--csv-headers english` 使用纯英文表头。这个选项只影响 CSV 表头，JSON 与报价值不变。Python 公开常量 `CSV_COLUMNS` 保留稳定英文 ID，`CSV_HEADERS` 为按相同顺序排列的英中表头；0.10.0 升级后，依赖英文列名的脚本应显式选择英文模式。
 
 每条 CSV 行对应一条通过筛选的报价，保留型号 / 平台、原始金额 / 币种 / 计费周期、完整实例价、国家 / 地区 / 可用区、地区证据范围、普通 / 会员和云档位条件、Spot、下线状态、来源与采样时间。未知地区保持空或明确未知范围，不补成 global，不把平台覆盖当地区价。CNY / EUR / ILS 不转换为美元，月价不转小时价；RackRate 应用另行负责 USD 展示、存储和网站更新。
 

@@ -1,6 +1,6 @@
 # 返回数据和价格口径
 
-0.9.0 采集 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。Python `collect_prices` 返回标准 dict；CLI stdout 默认是相同的 JSON。0.9.0 可选 `prices_to_csv(result)` / `collect --format csv` 返回报价表文本。库不存储、上传、换汇、补造库存或使用历史样本回退。
+0.10.0 采集 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。Python `collect_prices` 返回标准 dict；CLI stdout 默认是相同的 JSON。0.9.0 起可选 `prices_to_csv(result)` / `collect --format csv` 返回报价表文本，0.10.0 起全部列默认英中双语表头，可选纯英文表头。库不存储、上传、换汇、补造库存或使用历史样本回退。
 
 ## 批次结果
 
@@ -19,7 +19,9 @@
 
 CSV 行保留原币金额、周期、型号和实例配置、国家 / 地区 / zone 与 `price_scope`、会员 / 云档位 / Spot 条件、下线状态、来源 URL 和 `observed_at`。未知地区不补齐，组件价、普通价、会员价、Spot 与月包仍是不同口径；不能只读金额列混合排序。
 
-固定列名由公开常量 `CSV_COLUMNS` 定义；国家 / 地区 / zone 数组及 `_json` 列使用紧凑 JSON，金额保留十进制字符串。`collected_at` 与 `collection_status` 在每条报价上标记批次时间和状态，`availability` 中的 `offline` 表示来源已下线，`unknown` 表示未公布库存。可能被表格软件识别成公式的文本会加前导单引号，真实数字金额保持原样。
+默认表头由公开常量 `CSV_HEADERS` 定义，全部列为“英文 ID + 中文翻译”；`CSV_COLUMNS` 继续保存同序的稳定英文 ID。`prices_to_csv(result, bilingual_headers=False)` 或 CLI `--csv-headers english` 返回纯英文表头，显式 `--csv-headers bilingual` 与默认一致。该选择只改变 CSV 第一行，不翻译报价枚举值、不改变数据顺序，JSON 不受影响；按英文列名处理的旧脚本升级到 0.10.0 时应显式选择英文模式。
+
+国家 / 地区 / zone 数组及 `_json` 列使用紧凑 JSON，金额保留十进制字符串。`collected_at` 与 `collection_status` 在每条报价上标记批次时间和状态，`availability` 中的 `offline` 表示来源已下线，`unknown` 表示未公布库存。可能被表格软件识别成公式的文本会加前导单引号，真实数字金额保持原样。
 
 `provider_results`、`geographic_coverage` 与型号 `coverage` 不作为附表输出。CLI 默认 JSON 契约不变，CSV 失败诊断写 stderr，退出码仍为成功 `0`、部分失败 `2`、失败 / 配置错误 `1`。返回空报价时 CSV 仅有表头，不以错误行或零价伪造报价。需要完整来源状态和覆盖时保留 JSON。
 

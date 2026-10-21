@@ -24,6 +24,31 @@ CSV_COLUMNS = (
     "collected_at", "collection_status",
 )
 
+_COLUMN_TRANSLATIONS = {
+    "provider": "平台", "product_type": "产品类型", "gpu_vendor": "GPU厂商",
+    "gpu_model": "GPU型号", "gpu_variant": "GPU规格", "vram_gb": "单GPU显存GB",
+    "gpu_count": "实例GPU数量", "raw_name": "来源名称", "raw_sku": "来源SKU",
+    "amount": "原币单GPU价格", "currency": "原币币种", "unit": "计费单位",
+    "billing_mode": "计费模式", "price_basis": "价格口径", "quote_status": "报价状态",
+    "pricing_tier": "价格档位", "membership_required": "是否要求会员",
+    "membership_discount": "会员折扣", "cloud_tier": "云类型", "availability": "可用状态",
+    "account_scope": "账户适用范围", "tax_scope": "税费口径",
+    "compute_countries": "计算资源国家", "regions": "地区", "zones": "可用区",
+    "price_scope": "价格地域范围", "region_price_verified": "地区价格是否核实",
+    "geographic_scope": "来源地域口径", "location_json": "位置详情JSON",
+    "location_source_json": "地域证据JSON", "instance_amount": "实例原币价格",
+    "instance_currency": "实例币种", "instance_unit": "实例计费单位",
+    "instance_original_amount": "实例原价", "resources_json": "资源配置JSON",
+    "conditions_json": "报价条件JSON", "promotion_json": "促销条件JSON",
+    "minimum_commitment_json": "最低承诺条件JSON", "selected_configuration_json": "选定配置JSON",
+    "components_json": "价格组成JSON", "normalization_json": "单GPU折算规则JSON",
+    "notes_json": "来源说明JSON", "source_url": "官方来源链接", "source_type": "来源类型",
+    "observed_at": "报价采集时间", "effective_from": "生效时间", "effective_until": "失效时间",
+    "source_last_verified": "来源最近核查日期", "extra_metadata_json": "补充元数据JSON",
+    "collected_at": "本批采集时间", "collection_status": "本批采集状态",
+}
+CSV_HEADERS = tuple(f"{column}（{_COLUMN_TRANSLATIONS[column]}）" for column in CSV_COLUMNS)
+
 _JSON_FIELDS = {
     "compute_countries": "compute_countries", "regions": "regions", "zones": "zones",
     "location_json": "location", "location_source_json": "location_source",
@@ -78,7 +103,7 @@ def _amount_cell(value: object) -> str:
     return value
 
 
-def prices_to_csv(result: dict) -> str:
+def prices_to_csv(result: dict, *, bilingual_headers: bool = True) -> str:
     """Return UTF-8-BOM CSV text with one row per returned quote and CRLF rows.
 
     Input order, native decimal strings, billing periods and source geography
@@ -92,13 +117,18 @@ def prices_to_csv(result: dict) -> str:
     Empty results contain only the header, with no synthetic quote or price.
     Text cells that could become spreadsheet formulas are prefixed with an
     apostrophe; validated numeric decimal price strings remain unchanged.
+    English/Chinese ``CSV_HEADERS`` are used by default. Set
+    ``bilingual_headers=False`` for the unchanged English ``CSV_COLUMNS``
+    machine headers; this option never changes the data rows.
     """
+    if type(bilingual_headers) is not bool:
+        raise ValueError("bilingual_headers must be boolean")
     if not isinstance(result, dict) or not isinstance(result.get("prices"), list):
         raise ValueError("CSV input must be a collection result with a prices list")
     output = io.StringIO(newline="")
     output.write("\ufeff")
     writer = csv.writer(output, lineterminator="\r\n", quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(CSV_COLUMNS)
+    writer.writerow(CSV_HEADERS if bilingual_headers else CSV_COLUMNS)
     for quote in result["prices"]:
         if not isinstance(quote, dict):
             raise ValueError("CSV price records must be objects")
