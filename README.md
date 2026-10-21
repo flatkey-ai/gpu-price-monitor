@@ -4,27 +4,31 @@
 
 [English](README.en.md) · [文档需求与实现对照](docs/DOCUMENT_COVERAGE.md) · [数据口径](docs/DATA_MODEL.md) · [环境配置](.env.example)
 
-当前版本 **0.11.0** 默认导出严格的 **10 列地区每 GPU 小时比较 CSV**，仅保留实际数值、国家和 region 均已核实的小时报价；`--csv-profile full` 保留原 51 列来源审计表。Nebius 公开模式新增免费匿名的实时地区 Spot API，公开文档的平台覆盖另存。表头仍默认英中双语，可选纯英文。`--providers all` 运行九家；旧日期示例是当时的来源记录，不代表当前全市场覆盖。本版本从源码安装，未发布至 PyPI，可用 `gpu-price-monitor --version` 确认版本。
+当前版本 **0.12.0** 增加接口优先的来源策略。原文档五家建议使用 `--providers nebius,lambda,crusoe,autodl,ucloud --source-policy api_preferred`：有合适接口时调用接口，缺少接口或密钥时按明确规则选择公开页面，并返回实际来源。所有采集由 Python 程序执行，不需要 Codex、LLM、模型 API Key 或人工读取页面。Crusoe、AutoDL 的公开价格目前仍用固定页面规则，不能称为五家纯 API 采集。
+
+默认仍输出严格的 **10 列地区每 GPU 小时比较 CSV**，仅保留实际数值、国家和 region 均已核实的小时报价；`--csv-profile full` 保留原 51 列来源审计表。表头默认英中双语，可选纯英文。`--providers all` 运行九家；旧日期示例是当时的来源记录，不代表当前全市场覆盖。本版本从源码安装，未发布至 PyPI，可用 `gpu-price-monitor --version` 确认版本。
 
 ## 先看地区能力
 
 公开价格页并不一定提供不同国家的独立价格。库不根据公司总部、币种、访问 IP、机房库存或平台覆盖地点推测价格地区，也不会将同一目录价复制到多个国家。来源缺少地区字段不证明全球统一价；当前没有依据据此宣称这些目录价格全球相同。
 
-| 平台 | 默认免费来源 | 地区报价能力 |
+| 平台 | 接口优先策略下的来源 | 地区报价能力 |
 | --- | --- | --- |
-| Nebius | 官方计算价目文档 + 无需认证的当前 Spot API | Spot API 实际绑定平台、地区、币种及生效时间，国家按官方地区目录关联。文档中的供给覆盖单独保存；可选 `api` 完整配置询价需 access token |
-| Lambda | 官方实例价格页，保留 1 / 2 / 4 / 8 卡配置 | 公开表不绑定具体地区。可选 API 的容量地区单独保留，不当成逐地区价 |
-| Crusoe | 官网 GPU instances 区块 | 当前公开表未给逐地区价格；保留未知地区及 Contact sales，不混入托管推理报价 |
-| AutoDL | 官网普通用户 / 炼丹会员价 | 公开首页不绑定地区。可选 `market` 读取用户授权登录态的市场挂牌，保留市场地区；需有效会话 |
-| UCloud | 官方匿名促销套餐及位置目录 | 每条套餐绑定原始国家 / 地区 / 可用区。可选 `api` 按完整配置询价；需公私钥及 targets |
+| Nebius | 公开模式仅调用无需认证的当前 Spot API；显式 `api` 仍是账号完整配置估价 | Spot API 实际绑定平台、地区、币种及生效时间，国家按官方地区目录关联；无需抓计算价目文档 |
+| Lambda | 配置 `LAMBDA_API_KEY` 时调用实例 API；无密钥时解析官方实例页 | 公开表不绑定具体地区。API 的容量地区单独保留，不当成逐地区价；1 / 2 / 4 / 8 卡配置分开 |
+| Crusoe | 固定规则解析官网 GPU instances 区块；未找到可核实的公共 VM 价目 API | 当前公开表未给逐地区价格；保留未知地区及 Contact sales，不混入账单或托管推理报价 |
+| AutoDL | Playwright 固定 DOM 规则读取官网普通用户 / 炼丹会员价；显式 `market` 保留授权市场模式 | 公开首页不绑定地区。市场挂牌保留来源地区；已有资源的 Pro API 不当成市场价格 API |
+| UCloud | 有任一账号密钥配置时走完整配置询价 API；无密钥时走匿名活动 API | 完整询价要求两把密钥和 targets；匿名来源为地区月包，不能伪造为小时价 |
 | RunPod | 官方匿名 GraphQL GPU Pods 目录 | Secure / Community 云档位分开；目录未绑定价格地区，不把机房覆盖当地区价 |
 | DigitalOcean | 官方 GPU Droplet 定价文档 | 按需 / Spot 分开，整实例按明确 1 / 8 卡数分摊；文档未给价格地区 |
 | Verda | 官方 USD / EUR GPU instances 表 | 每种币种分别抓取，按需 / Spot 和完整实例总价保留；不推断芬兰等部署国家 |
 | Azure | 官方匿名 Retail Prices API | 当前只采四个已核验 SKU（T4、GB200、H100 NVL、A100 PCIe）的已生效地区零售价及官方目录已核验国家映射；不表示全 SKU、国家或库存覆盖 |
 
-**2026-10-21T08:45:38.349457Z 实采：845 条来源记录，224 条严格地区小时比较价（Nebius 当前 Spot 12、Azure 212）**，见 [224 行原币 10 列 CSV](examples/regional-hourly-2026-10-21.csv)。其他七家当前免费来源缺少完整价格国家 / region，或仅有下线月包，因此没有合格比较项；这不表示其没有可购产品。
+**0.12.0 五家实跑于 2026-10-21 17:18:56（北京时间）完成，全部来源成功，共 456 条记录**：Nebius 12、Lambda 22、Crusoe 24、AutoDL 24、UCloud 374。详见[实际来源报告](examples/five-api-preferred-sources-2026-10-21.json)。这次无账号密钥，Lambda 使用公开页，UCloud 使用匿名月包 API；严格地区小时 CSV 仅 12 条 Nebius。没有将月套餐或缺少价格地区的记录算作五家地区小时报价。
 
-旧版 **2026-10-21 15:12:56（北京时间）的 833 条来源记录**保存在 [九家历史 JSON](examples/nine-providers-2026-10-21.json)，其中包含未知价格地区、平台覆盖、询价和 374 条已下线 UCloud 月包。它们是历史宽表审计证据，不能作为 0.11.0 当前小时比较结果；[五家历史样本](examples/five-providers-2026-10-21.json) 同样保留当时范围。当前可比较条数看返回的 `comparison.eligible_quote_count` 和 CLI 的 CSV 汇总。
+**0.11.0 于 2026-10-21T08:45:38.349457Z 实采：845 条来源记录，224 条严格地区小时比较价（Nebius 当前 Spot 12、Azure 212）**，见 [224 行原币 10 列 CSV](examples/regional-hourly-2026-10-21.csv)。其他七家该批免费来源缺少完整价格国家 / region，或仅有下线月包，因此没有合格比较项；这不表示其没有可购产品，也不证明 0.12.0 的认证分支已成功联调。
+
+旧版 **2026-10-21 15:12:56（北京时间）的 833 条来源记录**保存在 [九家历史 JSON](examples/nine-providers-2026-10-21.json)，其中包含未知价格地区、平台覆盖、询价和 374 条已下线 UCloud 月包。它们是历史宽表审计证据，不能作为当前小时比较结果；[五家历史样本](examples/five-providers-2026-10-21.json) 同样保留当时范围。当前可比较条数看返回的 `comparison.eligible_quote_count` 和 CLI 的 CSV 汇总。
 
 Nebius 截图中 **2026-10-21 08:00 UTC** 的 B200 `me-west1` **4.10** 与 `us-central1` **1.90 USD/GPU/hour** 是历史 Spot 图表的最后价，反映当时的地区差价，不是普通按需价或固定现价。Spot 会动态改变；当前采集读取 [官方 Spot API](https://docs.nebius.com/signup-billing/spot-prices)，不硬编码截图数字或用历史点代替现价。
 
@@ -41,7 +45,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install '.[browser]'
 python -m playwright install chromium
-python -m gpu_price_monitor collect --providers all --coverage --pretty
+python -m gpu_price_monitor collect --providers nebius,lambda,crusoe,autodl,ucloud --source-policy api_preferred --pretty
 ```
 
 Windows PowerShell 使用 `py -3 -m venv .venv` 与 `.\.venv\Scripts\Activate.ps1`。Linux 若缺少浏览器系统库，使用 `python -m playwright install --with-deps chromium`。仅 HTTP 采集可安装基础包 `python -m pip install .` 并指定 `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`。
@@ -51,12 +55,30 @@ CLI 的 stdout 默认只包含 JSON，`collect --format csv` 时只包含 CSV；
 ```python
 from gpu_price_monitor import Settings, collect_prices
 
-result = collect_prices("all", settings=Settings(), include_coverage=True)
+result = collect_prices(
+    ["nebius", "lambda", "crusoe", "autodl", "ucloud"],
+    settings=Settings(source_policy="api_preferred"),
+    include_coverage=True,
+)
 for quote in result["prices"]:
     print(quote["provider"], quote["gpu_model"], quote["amount"],
           quote["currency"], quote["unit"], quote["price_scope"],
           quote["compute_countries"], quote["regions"], quote["zones"])
 ```
+
+## 来源策略与可追溯执行
+
+| 策略 | 行为 |
+| --- | --- |
+| `configured` | 默认兼容行为，按各 `*_SOURCE` 配置采集；没有密钥也不会自动启用账号 API |
+| `api_preferred` | 推荐五家采集方式：Nebius 公开模式只走 Spot API；Lambda 有 key 用 API，否则公开页；UCloud 配有任一 key 就要求完整账号询价配置，否则匿名活动 API；Crusoe、AutoDL 使用已标明的页面规则 |
+| `api_only` | 只允许价格 API；Crusoe、AutoDL 等页面来源返回 `api_price_source_unavailable`，不悄悄抓页；Lambda 缺 key 或账号配置不完整会报错 |
+
+Python 使用 `Settings(source_policy="api_preferred")`；CLI 使用 `--source-policy api_preferred`；环境配置为 `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`，通过 `Settings.from_env()` 或显式 `--env-file` 加载。显式选择账号 API 后，鉴权失败、请求错误或响应格式变化均直接返回失败，不降级成网页目录或历史样本。
+
+JSON 的 `execution` 声明 `runtime=python`、`parsing=deterministic_rules`、`uses_llm=false` 和所选 `source_policy`。每个 `provider_results` 条目保留实际 `source_type`、`collection_method`、`selection_reason` 和适用时的 `fallback_reason`；方法分别为 `http_json`、`http_html`、`http_document`、`browser_dom`，兼容模式 Nebius 的文档与 API 混合来源为 `hybrid_http`。这些信息可核对“到底调用接口还是解析页面”，不会因开启接口优先就把页面标成 API。
+
+五个平台都可尝试采集原始来源，**不表示五家都有国家和地区完整的每小时比较价**。Lambda 容量地区不代表地区报价，UCloud 匿名月包不转换成小时价，Crusoe / AutoDL 缺少价格位置的首页记录仍不进入默认 CSV。
 
 ## 导出 CSV 表格
 
@@ -125,6 +147,15 @@ Python 价格位置筛选字段为 `compute_countries`、`regions`、`zones`，�
 
 ## 可选账号配置
 
+原文档五家可先使用独立配置模板，保留已有 `.env`：
+
+```bash
+cp .env.five.example .env.five.local
+gpu-price-monitor collect --env-file .env.five.local --providers nebius,lambda,crusoe,autodl,ucloud --pretty
+```
+
+该模板设置 `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`；密钥留空可运行公开路径，填入 Lambda / UCloud 凭据后按策略选择账号接口。只填一把 UCloud 密钥或漏填 targets 会报配置错误，不能当成功取到小时价。下面的通用模板仍以 `configured` 保持兼容：
+
 ```bash
 cp .env.example .env
 cp configs/nebius-targets.example.json configs/nebius-targets.local.json
@@ -136,10 +167,10 @@ gpu-price-monitor status --env-file .env
 
 | 来源 | 必要配置 |
 | --- | --- |
-| 九家公开模式 | 无必填 env；可切换模式的来源保持 `*_SOURCE=public`，新增四家仅使用匿名公开来源 |
+| 九家公开模式 | 无必填 env；兼容模式保持 `*_SOURCE=public`；五家推荐 `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred` |
 | Nebius 配置估价 | `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`、`NEBIUS_PRICE_TARGETS_FILE` 或 `NEBIUS_PRICE_TARGETS_JSON` |
-| Lambda 认证目录 | `LAMBDA_SOURCE=api`、`LAMBDA_API_KEY`；返回容量位置但不生成地区差价 |
-| UCloud 配置询价 | `UCLOUD_SOURCE=api`、`UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`、`UCLOUD_PRICE_TARGETS_FILE` 或 `UCLOUD_PRICE_TARGETS_JSON`，可选 `UCLOUD_PROJECT_ID` |
+| Lambda 认证目录 | `LAMBDA_API_KEY`，配合 `api_preferred` 或显式 `LAMBDA_SOURCE=api`；返回容量位置但不生成地区差价 |
+| UCloud 配置询价 | `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`、`UCLOUD_PRICE_TARGETS_FILE` 或 `UCLOUD_PRICE_TARGETS_JSON`，配合 `api_preferred` 或显式 `UCLOUD_SOURCE=api`；可选 `UCLOUD_PROJECT_ID` |
 | AutoDL 地区市场 | `AUTODL_SOURCE=market`、`AUTODL_STORAGE_STATE_PATH`；失效会话返回登录错误，不回退首页目录价 |
 
 targets 模板是待填写配置示例，不是已验证可售规格。Nebius 的项目、平台、预设、GPU 数量及磁盘配置必须与账号实际配置一致；只将资源规格发送到 calculator，不调用资源创建接口。UCloud 需要指定一台完整主机的地区、可用区、GPU、CPU、内存、磁盘与计费方式。私钥仅本地签名，认证字段不写入结果。

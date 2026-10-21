@@ -22,19 +22,79 @@ PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
                     "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
                     "runpod": "official_public_api", "digitalocean": "public_documentation",
                     "verda": "public_page", "azure": "official_public_api"}
+API_SOURCE_TYPES = frozenset({"official_api", "official_quote_api", "official_public_api"})
+
+
+def _selected_module(provider: str, settings: Settings | None = None):
+    """Choose a deterministic adapter before I/O; never retry via another source."""
+    if settings is None:
+        return IMPLEMENTED_PROVIDERS.get(provider)
+    prefer_api = settings.source_policy in {"api_preferred", "api_only"}
+    if provider == "lambda" and (settings.lambda_source == "api" or (
+        prefer_api and (settings.lambda_api_key or settings.source_policy == "api_only")
+    )):
+        return lambda_cloud
+    if provider == "ucloud" and (settings.ucloud_source == "api" or (
+        prefer_api and (settings.ucloud_public_key or settings.ucloud_private_key)
+    )):
+        # Partial account configuration must fail visibly, rather than returning
+        # unrelated monthly promotions when the caller intended hourly quotes.
+        return ucloud
+    if provider == "nebius":
+        if settings.nebius_source == "api":
+            from .providers import nebius_quote
+            return nebius_quote
+        if prefer_api:
+            from .providers import nebius_spot
+            return nebius_spot
+    if provider == "autodl" and settings.autodl_source == "market":
+        from .providers import autodl_market
+        return autodl_market
+    return IMPLEMENTED_PROVIDERS.get(provider)
 
 
 def provider_source(provider: str, settings: Settings | None = None) -> str:
     """Return the selected source type without making any requests."""
-    if provider == "lambda" and settings is not None and settings.lambda_source == "api":
+    module = _selected_module(provider, settings)
+    if module is lambda_cloud:
         return "official_api"
-    if provider == "ucloud" and settings is not None and settings.ucloud_source == "api":
+    if module is ucloud:
         return "official_quote_api"
     if provider == "nebius" and settings is not None and settings.nebius_source == "api":
         return "official_quote_api"
+    if provider == "nebius" and settings is not None and settings.source_policy != "configured":
+        return "official_public_api"
     if provider == "autodl" and settings is not None and settings.autodl_source == "market":
         return "authorized_browser"
     return PROVIDER_SOURCES[provider]
+
+
+def _source_selection(provider: str, settings: Settings, module) -> dict:
+    source = provider_source(provider, settings)
+    method = ("http_json" if source in API_SOURCE_TYPES else
+              "browser_dom" if provider == "autodl" else
+              "hybrid_http" if module is nebius else
+              "http_document" if source == "public_documentation" else "http_html")
+    reason, fallback = "configured_source", None
+    if settings.source_policy != "configured":
+        if source in API_SOURCE_TYPES:
+            reason = "api_selected"
+            if provider == "nebius" and settings.nebius_source == "public":
+                reason = "anonymous_regional_spot_api"
+            elif module is ucloud_public:
+                reason = "anonymous_monthly_promotion_api"
+        else:
+            if settings.source_policy == "api_only":
+                reason = "api_required_but_unavailable"
+            else:
+                reason = "programmatic_page_fallback"
+                fallback = ("api_credentials_not_configured" if provider == "lambda" else
+                            "no_verified_gpu_rental_price_api" if provider == "crusoe" else
+                            "no_verified_market_price_api" if provider == "autodl" else
+                            "no_configured_public_price_api_adapter")
+    api_endpoint = (getattr(module, "API_URL", None) or getattr(module, "SOURCE_URL", None)) if source in API_SOURCE_TYPES else None
+    return {"collection_method": method, "selection_reason": reason, "fallback_reason": fallback,
+            "api_endpoint": api_endpoint}
 
 
 def _now() -> str:
@@ -106,29 +166,22 @@ def collect_prices(
 
     prices, results = [], []
     for provider in selected:
-        module = IMPLEMENTED_PROVIDERS.get(provider)
-        if provider == "lambda" and settings.lambda_source == "api":
-            module = lambda_cloud
-        if provider == "ucloud" and settings.ucloud_source == "api":
-            module = ucloud
-        if provider == "nebius" and settings.nebius_source == "api":
-            from .providers import nebius_quote
-            module = nebius_quote
-        if provider == "autodl" and settings.autodl_source == "market":
-            from .providers import autodl_market
-            module = autodl_market
+        module = _selected_module(provider, settings)
         result = {
             "provider": provider, "source_url": module.SOURCE_URL if module else None,
             "source_type": provider_source(provider, settings) if module else None,
             "status": "failed", "observed_at": None, "fetched_count": 0,
             "returned_count": 0, "filters": filter_support(provider, conditions[provider], settings=settings),
             "error": None,
+            **_source_selection(provider, settings, module),
         }
         if module is nebius:
             from .providers import nebius_spot
             result["additional_source_urls"] = [nebius_spot.SOURCE_URL]
         if module is None:
             result["error"] = {"code": "not_implemented", "message": "This provider adapter is not implemented.", "retryable": False}
+        elif settings.source_policy == "api_only" and result["source_type"] not in API_SOURCE_TYPES:
+            result["error"] = {"code": "api_price_source_unavailable", "message": "No suitable price API adapter is selected; API-only mode forbids page and browser collection.", "retryable": False}
         elif any(item["status"] == "unsupported" for item in result["filters"].values()):
             result["error"] = {"code": "unsupported_filter", "message": "The source cannot verify one or more requested conditions.", "retryable": False}
         else:
@@ -193,6 +246,8 @@ def collect_prices(
         "schema_version": 1,
         "collected_at": _now(),
         "status": "success" if successful == len(results) else "partial" if successful else "failed",
+        "execution": {"runtime": "python", "parsing": "deterministic_rules", "uses_llm": False,
+                      "source_policy": settings.source_policy},
         "prices": prices,
         "provider_results": results,
         "geographic_coverage": geography_summary(prices),

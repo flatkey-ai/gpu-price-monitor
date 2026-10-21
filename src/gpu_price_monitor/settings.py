@@ -17,6 +17,7 @@ SOURCES = frozenset({
     "official_api", "public_documentation", "public_page",
     "official_quote_api", "official_public_api", "authorized_browser",
 })
+SOURCE_POLICIES = ("configured", "api_preferred", "api_only")
 
 
 class ConfigurationError(ValueError):
@@ -86,6 +87,7 @@ class Settings:
     lambda_source: str = "public"
     ucloud_source: str = "public"
     autodl_source: str = "public"
+    source_policy: str = "configured"
 
     def __post_init__(self) -> None:
         if not isinstance(self.providers, tuple) or not self.providers:
@@ -100,6 +102,8 @@ class Settings:
             raise ConfigurationError("timeout_seconds must be finite and in (0, 300]")
         if type(self.max_retries) is not int or not 0 <= self.max_retries <= 10:
             raise ConfigurationError("max_retries must be an integer in [0, 10]")
+        if not isinstance(self.source_policy, str) or self.source_policy not in SOURCE_POLICIES:
+            raise ConfigurationError("GPU_PRICE_MONITOR_SOURCE_POLICY must be configured, api_preferred or api_only")
         if self.lambda_source not in ("public", "api"):
             raise ConfigurationError("LAMBDA_SOURCE must be public or api")
         if self.ucloud_source not in ("public", "api"):
@@ -177,6 +181,7 @@ class Settings:
             ucloud_source=values.get("UCLOUD_SOURCE", "public"),
             nebius_source=values.get("NEBIUS_SOURCE", "public"),
             autodl_source=values.get("AUTODL_SOURCE", "public"),
+            source_policy=values.get("GPU_PRICE_MONITOR_SOURCE_POLICY", "configured"),
         )
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at

@@ -17,10 +17,30 @@ from gpu_price_monitor.cli import main, validate_config
 
 class EnvironmentTests(unittest.TestCase):
     def test_explicit_empty_mapping_does_not_read_host_credentials(self):
-        with patch.dict(os.environ, {"LAMBDA_API_KEY": "host-only-key"}, clear=True):
+        with patch.dict(os.environ, {"LAMBDA_API_KEY": "host-only-key",
+                                    "GPU_PRICE_MONITOR_SOURCE_POLICY": "api_only"}, clear=True):
             settings = Settings.from_env({})
         self.assertIsNone(settings.lambda_api_key)
         self.assertEqual(settings.providers, ("nebius", "crusoe"))
+        self.assertEqual(settings.source_policy, "configured")
+
+    def test_source_policy_defaults_and_explicit_values_preserve_source_flags(self):
+        self.assertEqual(Settings().source_policy, "configured")
+        for policy in ("configured", "api_preferred", "api_only"):
+            with self.subTest(policy=policy):
+                self.assertEqual(Settings(source_policy=policy).source_policy, policy)
+                settings = Settings.from_env({"GPU_PRICE_MONITOR_SOURCE_POLICY": policy,
+                                              "LAMBDA_API_KEY": "synthetic-secret"})
+                self.assertEqual(settings.source_policy, policy)
+                self.assertEqual((settings.nebius_source, settings.lambda_source,
+                                  settings.ucloud_source, settings.autodl_source),
+                                 ("public", "public", "public", "public"))
+
+    def test_invalid_direct_source_policy_is_a_safe_configuration_error(self):
+        for policy in (None, True, 1, [], {}, "API_ONLY", "", "synthetic-secret-policy"):
+            with self.subTest(policy=policy), self.assertRaises(ConfigurationError) as raised:
+                Settings(source_policy=policy)
+            self.assertNotIn("synthetic-secret-policy", str(raised.exception))
 
     def test_all_credentials_are_optional_and_hidden_from_repr(self):
         names = ("LAMBDA_API_KEY", "NEBIUS_ACCESS_TOKEN", "UCLOUD_PUBLIC_KEY",
@@ -56,6 +76,9 @@ class EnvironmentTests(unittest.TestCase):
             ("GPU_PRICE_MONITOR_MAX_RETRIES", "11"),
             ("GPU_PRICE_MONITOR_MAX_RETRIES", "secret-not-integer"),
             ("UCLOUD_SOURCE", "secret-unsupported-source"),
+            ("GPU_PRICE_MONITOR_SOURCE_POLICY", "secret-unsupported-policy"),
+            ("GPU_PRICE_MONITOR_SOURCE_POLICY", ""),
+            ("GPU_PRICE_MONITOR_SOURCE_POLICY", "API_ONLY"),
         ]
         for name, value in cases:
             with self.subTest(name=name, value=value):
@@ -73,6 +96,31 @@ class EnvironmentTests(unittest.TestCase):
         self.assertNotIn("do-not-print", output.getvalue() + errors.getvalue())
         self.assertIn("not implemented", output.getvalue())
 
+    def test_status_shows_policy_and_actual_source_types_without_requests_or_secrets(self):
+        output, errors = io.StringIO(), io.StringIO()
+        sources = {"lambda": "official_api", "nebius": "official_public_api", "ucloud": "official_quote_api"}
+        env = {"GPU_PRICE_MONITOR_PROVIDERS": "lambda,nebius,ucloud",
+               "GPU_PRICE_MONITOR_SOURCE_POLICY": "api_preferred",
+               "LAMBDA_API_KEY": "synthetic-secret-lambda",
+               "NEBIUS_ACCESS_TOKEN": "synthetic-secret-nebius",
+               "UCLOUD_PUBLIC_KEY": "synthetic-secret-public",
+               "UCLOUD_PRIVATE_KEY": "synthetic-secret-private"}
+        with patch.dict(os.environ, env, clear=True), patch(
+            "gpu_price_monitor.cli.provider_source", side_effect=lambda provider, settings: sources[provider]
+        ) as selected, patch("gpu_price_monitor.cli.collect_prices") as collector, patch(
+            "gpu_price_monitor.transport._request_text", side_effect=AssertionError("Status must stay offline")
+        ) as transport, redirect_stdout(output), redirect_stderr(errors):
+            code = main(["status"])
+        self.assertEqual(code, 0)
+        self.assertIn("Source policy: api_preferred", output.getvalue())
+        for provider, source in sources.items():
+            self.assertIn(f"{provider} source type: {source}", output.getvalue())
+        self.assertEqual([call.args[0] for call in selected.call_args_list], list(sources))
+        self.assertTrue(all(call.args[1].source_policy == "api_preferred" for call in selected.call_args_list))
+        self.assertNotIn("synthetic-secret", output.getvalue() + errors.getvalue())
+        collector.assert_not_called()
+        transport.assert_not_called()
+
 
 class CollectionBoundaryTests(unittest.TestCase):
     def setUp(self):
@@ -88,6 +136,14 @@ class CollectionBoundaryTests(unittest.TestCase):
                 config = copy.deepcopy(self.config)
                 config[section] = {}
                 self.assertTrue(validate_config(config))
+
+    def test_source_policy_does_not_expand_the_json_configuration_schema(self):
+        config = copy.deepcopy(self.config)
+        config["source_policy"] = "api_preferred"
+        self.assertTrue(validate_config(config))
+        config = copy.deepcopy(self.config)
+        config["request"]["source_policy"] = "api_only"
+        self.assertTrue(validate_config(config))
 
     def test_filters_validate_conditions_without_enabling_collection(self):
         filters = self.config["providers"][0]["filters"]
