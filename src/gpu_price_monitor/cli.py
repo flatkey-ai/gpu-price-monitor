@@ -105,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
                          help="Lambda source; public page is the free default, api requires a key")
     collect.add_argument("--ucloud-source", choices=("public", "api"),
                          help="UCloud source; public promotional packages are free to read, api requires keys and targets")
+    collect.add_argument("--nebius-source", choices=("public", "api"),
+                         help="Nebius public tariff or explicit authenticated regional configuration estimate")
+    collect.add_argument("--autodl-source", choices=("public", "market"),
+                         help="AutoDL public tariff or regional market using an explicitly supplied saved session")
     options = {
         "gpu": "gpu_models", "region": "regions", "currency": "currencies",
         "billing-mode": "billing_modes", "country": "compute_countries",
@@ -119,6 +123,10 @@ def main(argv: list[str] | None = None) -> int:
             settings = replace(settings, lambda_source=args.lambda_source)
         if getattr(args, "ucloud_source", None) is not None:
             settings = replace(settings, ucloud_source=args.ucloud_source)
+        if getattr(args, "nebius_source", None) is not None:
+            settings = replace(settings, nebius_source=args.nebius_source)
+        if getattr(args, "autodl_source", None) is not None:
+            settings = replace(settings, autodl_source=args.autodl_source)
         if args.command == "status":
             print(f"GPU Price Monitor {__version__}")
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
@@ -126,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Configured providers: " + ", ".join(settings.providers))
             print("Lambda source: " + settings.lambda_source)
             print("UCloud source: " + settings.ucloud_source)
+            print("Nebius source: " + settings.nebius_source)
+            print("AutoDL source: " + settings.autodl_source)
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")
             print("No requests were made. Scheduling, storage and uploads belong to the caller.")
             return 0

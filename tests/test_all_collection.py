@@ -16,14 +16,13 @@ from gpu_price_monitor.transport import FetchError
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl",
-             "runpod", "digitalocean", "verda", "ebcloud", "azure", "suanli"}
+PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl"}
 
 
 def quote(provider):
     return {
         "provider": provider, "gpu_model": "H100", "gpu_variant": "SXM",
-        "gpu_count": None if provider == "runpod" else 1,
+        "gpu_count": 1,
         "amount": "2.5", "currency": "CNY" if provider == "ucloud" else "USD",
         "unit": "gpu_month" if provider == "ucloud" else "gpu_hour",
         "billing_mode": "monthly" if provider == "ucloud" else "on_demand",
@@ -96,26 +95,26 @@ class AllCollectionTests(unittest.TestCase):
         self.assertNotIn("coverage", result)
 
     def test_new_sources_preserve_success_when_one_source_fails(self):
-        self.sources["runpod"].side_effect = FetchError("public_api_error", "Public catalog request failed.")
-        result = collect_prices(["runpod", "digitalocean", "verda"], settings=Settings(), include_coverage=True)
+        self.sources["nebius"].side_effect = FetchError("public_api_error", "Public catalog request failed.")
+        result = collect_prices(["nebius", "lambda", "crusoe"], settings=Settings(), include_coverage=True)
         self.assertEqual(result["status"], "partial")
-        self.assertEqual({q["provider"] for q in result["prices"]}, {"digitalocean", "verda"})
+        self.assertEqual({q["provider"] for q in result["prices"]}, {"lambda", "crusoe"})
         self.assertEqual(result["provider_results"][0]["error"]["code"], "public_api_error")
         self.assertEqual(result["coverage"]["collection_status"], "partial")
 
     def test_card_counts_are_supported_only_for_explicit_instance_configurations(self):
-        for name in ("digitalocean", "verda", "ebcloud", "azure"):
+        for name in ("lambda", "ucloud"):
             with self.subTest(provider=name):
                 result = collect_prices([name], {"gpu_counts": [1]}, settings=Settings())
                 self.assertEqual(result["status"], "success")
                 self.assertEqual(len(result["prices"]), 1)
-        result = collect_prices(["runpod"], {"gpu_counts": [1]}, settings=Settings())
+        result = collect_prices(["autodl"], {"gpu_counts": [1]}, settings=Settings())
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["provider_results"][0]["error"]["code"], "unsupported_filter")
-        self.sources["runpod"].assert_not_called()
+        self.sources["autodl"].assert_not_called()
 
     def test_new_sources_do_not_assign_geography_to_public_rates(self):
-        for name in ("runpod", "digitalocean", "verda"):
+        for name in ("lambda", "crusoe", "autodl"):
             with self.subTest(provider=name):
                 result = collect_prices([name], {"regions": ["us-east-1"]}, settings=Settings())
                 self.assertEqual(result["status"], "failed")
@@ -125,13 +124,13 @@ class AllCollectionTests(unittest.TestCase):
     def test_coverage_option_is_validated_before_any_source_runs(self):
         for value in ("yes", 1, None, []):
             with self.subTest(value=value), self.assertRaises(ConfigurationError):
-                collect_prices(["runpod"], settings=Settings(), include_coverage=value)
+                collect_prices(["nebius"], settings=Settings(), include_coverage=value)
         self.assertTrue(all(source.call_count == 0 for source in self.sources.values()))
 
     def test_public_sources_do_not_require_or_serialize_credentials(self):
         settings = replace(Settings(), lambda_api_key="unused-secret", ucloud_private_key="unused-secret",
                            autodl_token="unused-secret", autodl_storage_state_path="/nonexistent/unused-session")
-        result = collect_prices(["runpod", "digitalocean", "verda"], settings=settings)
+        result = collect_prices("all", settings=settings)
         self.assertEqual(result["status"], "success")
         self.assertNotIn("unused-", json.dumps(result))
 

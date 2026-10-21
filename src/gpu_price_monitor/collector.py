@@ -4,22 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException
 
 from .filters import apply_filters, filter_support, normalize_filters
-from .providers import (autodl, azure, crusoe, digitalocean, ebcloud, lambda_cloud, lambda_public,
-                        nebius, runpod, suanli, ucloud, ucloud_public, verda)
+from .geography import describe_geography, geography_summary
+from .providers import (autodl, crusoe, lambda_cloud, lambda_public,
+                        nebius, ucloud, ucloud_public)
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
 IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
-                         "ucloud": ucloud_public, "autodl": autodl,
-                         "runpod": runpod, "digitalocean": digitalocean, "verda": verda,
-                         "ebcloud": ebcloud, "azure": azure, "suanli": suanli}
+                         "ucloud": ucloud_public, "autodl": autodl}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
-                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
-                    "runpod": "official_public_api", "digitalocean": "public_documentation", "verda": "public_page",
-                    "ebcloud": "public_page", "azure": "official_public_api", "suanli": "public_page"}
+                    "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page"}
 
 
 def provider_source(provider: str, settings: Settings | None = None) -> str:
@@ -28,6 +25,10 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
         return "official_api"
     if provider == "ucloud" and settings is not None and settings.ucloud_source == "api":
         return "official_quote_api"
+    if provider == "nebius" and settings is not None and settings.nebius_source == "api":
+        return "official_quote_api"
+    if provider == "autodl" and settings is not None and settings.autodl_source == "market":
+        return "authorized_browser"
     return PROVIDER_SOURCES[provider]
 
 
@@ -36,11 +37,11 @@ def _now() -> str:
 
 
 def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = False,
-                  expected_unit: str = "gpu_hour") -> None:
+                  expected_units: tuple[str, ...] = ("gpu_hour",)) -> None:
     if not isinstance(prices, list) or (not prices and not allow_empty):
         raise ValueError("No recognizable GPU price records were found.")
     for quote in prices:
-        if quote["provider"] != provider or quote["unit"] != expected_unit:
+        if quote["provider"] != provider or quote["unit"] not in expected_units:
             raise ValueError("Unrecognized provider or price unit.")
         if quote["quote_status"] == "contact_sales":
             if quote["amount"] is not None:
@@ -105,6 +106,12 @@ def collect_prices(
             module = lambda_cloud
         if provider == "ucloud" and settings.ucloud_source == "api":
             module = ucloud
+        if provider == "nebius" and settings.nebius_source == "api":
+            from .providers import nebius_quote
+            module = nebius_quote
+        if provider == "autodl" and settings.autodl_source == "market":
+            from .providers import autodl_market
+            module = autodl_market
         result = {
             "provider": provider, "source_url": module.SOURCE_URL if module else None,
             "source_type": provider_source(provider, settings) if module else None,
@@ -118,32 +125,41 @@ def collect_prices(
             result["error"] = {"code": "unsupported_filter", "message": "The source cannot verify one or more requested conditions.", "retryable": False}
         else:
             try:
-                is_authenticated = module in (lambda_cloud, ucloud)
+                is_authenticated = provider_source(provider, settings) in {"official_api", "official_quote_api", "authorized_browser"}
                 if hasattr(module, "collect_quotes"):
                     observed_at = _now()
-                    quotes = module.collect_quotes(settings=settings, observed_at=observed_at)
+                    extra = {"include_geography": True} if module is ucloud else {}
+                    quotes = module.collect_quotes(settings=settings, observed_at=observed_at, **extra)
                 else:
                     content = fetch_text(module.SOURCE_URL, settings)
                     observed_at = _now()
                     quotes = module.parse_prices(content, observed_at=observed_at, as_of=datetime.fromisoformat(observed_at).date())
                 result["observed_at"] = observed_at
                 _check_prices(quotes, provider, allow_empty=is_authenticated,
-                              expected_unit="gpu_month" if module is ucloud_public else "gpu_hour")
+                              expected_units=("gpu_month",) if module is ucloud_public else
+                              ("gpu_hour", "gpu_month") if provider == "nebius" and settings.nebius_source == "api" else ("gpu_hour",))
+                for quote in quotes:
+                    describe_geography(quote)
                 result["fetched_count"] = len(quotes)
-                other_conditions = {k: v for k, v in conditions[provider].items() if k != "regions"}
-                relevant = apply_filters(quotes, other_conditions)
-                if conditions[provider].get("regions") and any(not q["regions"] for q in relevant):
-                    result["filters"]["regions"]["status"] = "unverifiable"
-                    result["filters"]["regions"]["reason"] = "One or more relevant quotes do not state applicable regions."
-                    result["error"] = {"code": "unverifiable_filter", "message": "The source does not state regions for all relevant quotes.", "retryable": False}
+                unverified = []
+                for dimension in ("regions", "zones", "compute_countries"):
+                    other_conditions = {k: v for k, v in conditions[provider].items() if k != dimension}
+                    relevant = apply_filters(quotes, other_conditions)
+                    if conditions[provider].get(dimension) and any(not q.get(dimension) for q in relevant):
+                        result["filters"][dimension]["status"] = "unverifiable"
+                        result["filters"][dimension]["reason"] = "One or more relevant quotes lack verified source location metadata."
+                        unverified.append(dimension)
+                if unverified:
+                    result["error"] = {"code": "unverifiable_filter", "message": "The source cannot verify all requested geographic conditions.", "retryable": False}
                 else:
                     matched = apply_filters(quotes, conditions[provider])
                     prices.extend(matched)
+                    result["geography"] = geography_summary(matched)
                     result["returned_count"] = len(matched)
                     result["status"] = "success" if matched else "no_matches"
             except FetchError as exc:
                 result["error"] = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
-            except (ValueError, KeyError, TypeError, InvalidOperation):
+            except (ValueError, KeyError, TypeError, DecimalException):
                 result["error"] = {"code": "parse_failed", "message": "The source structure, dates or price fields were not recognized.", "retryable": False}
         # A filter was only applied if the source actually succeeded.
         if result["status"] == "failed":
@@ -158,6 +174,7 @@ def collect_prices(
         "status": "success" if successful == len(results) else "partial" if successful else "failed",
         "prices": prices,
         "provider_results": results,
+        "geographic_coverage": geography_summary(prices),
     }
     if include_coverage:
         from .coverage import report_coverage

@@ -1,0 +1,39 @@
+{
+  "currency": "usd",
+  "resourceCosts": [
+    {
+      "metadata": {"id": "synthetic-vm", "parentId": "project-private-test", "name": "private-resource-name"},
+      "aggregationUnit": {"unit": "hour", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "fixedInstance": {
+        "instanceCount": 1,
+        "total": {"cost": "24.123456789123", "costRounded": "24.13", "skuCosts": [{"skuId": "sku-gpu-compute", "quantity": "8", "cost": "24.123456789123"}]},
+        "perInstance": {"cost": "24.123456789123", "costRounded": "24.13", "skuCosts": [{"skuId": "sku-gpu-compute", "quantity": "8", "cost": "24.123456789123"}]}
+      }
+    },
+    {
+      "metadata": {"name": "private-boot-name"},
+      "aggregationUnit": {"unit": "hour", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "general": {"total": {"cost": "0.1", "costRounded": "0.1", "skuCosts": [{"skuId": "sku-managed-boot-disk", "quantity": "100", "cost": "0.1"}]}}
+    },
+    {
+      "metadata": {"name": "private-resource-name"},
+      "aggregationUnit": {"unit": "month", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "general": {"total": {"cost": "17999.99", "costRounded": "17999.99", "skuCosts": [{"skuId": "sku-gpu-compute", "quantity": "8", "cost": "17999.99"}]}}
+    },
+    {
+      "metadata": {"name": "private-boot-name"},
+      "aggregationUnit": {"unit": "month", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "general": {"total": {"cost": "77", "costRounded": "77", "skuCosts": [{"skuId": "sku-managed-boot-disk", "quantity": "100", "cost": "77"}]}}
+    }
+  ],
+  "totalCosts": [
+    {
+      "aggregationUnit": {"unit": "hour", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "general": {"total": {"cost": "24.223456789123", "costRounded": "24.23", "skuCosts": [{"skuId": "sku-gpu-compute", "quantity": "8", "cost": "24.123456789123"}, {"skuId": "sku-managed-boot-disk", "quantity": "100", "cost": "0.1"}]}}
+    },
+    {
+      "aggregationUnit": {"unit": "month", "unitType": "UNIT_TYPE_TIME_BASED"},
+      "general": {"total": {"cost": "18076.99", "costRounded": "18076.99", "skuCosts": [{"skuId": "sku-gpu-compute", "quantity": "8", "cost": "17999.99"}, {"skuId": "sku-managed-boot-disk", "quantity": "100", "cost": "77"}]}}
+    }
+  ]
+}

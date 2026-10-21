@@ -11,8 +11,7 @@ from pathlib import Path
 
 from dotenv.parser import parse_stream
 
-PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl",
-                       "runpod", "digitalocean", "verda", "ebcloud", "azure", "suanli"})
+PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl"})
 SOURCES = frozenset({
     "official_api", "public_documentation", "public_page",
     "official_quote_api", "official_public_api", "authorized_browser",
@@ -24,7 +23,8 @@ class ConfigurationError(ValueError):
 
 
 _MAX_ENV_BYTES = 256 * 1024
-_TARGET_SOURCES = {"UCLOUD_PRICE_TARGETS_JSON", "UCLOUD_PRICE_TARGETS_FILE"}
+_TARGET_GROUPS = ({"UCLOUD_PRICE_TARGETS_JSON", "UCLOUD_PRICE_TARGETS_FILE"},
+                  {"NEBIUS_PRICE_TARGETS_JSON", "NEBIUS_PRICE_TARGETS_FILE"})
 
 
 def _read_text_file(path: Path, limit: int, error_message: str) -> str:
@@ -79,8 +79,12 @@ class Settings:
     autodl_token: str | None = field(default=None, repr=False)
     autodl_storage_state_path: str | None = field(default=None, repr=False)
     ucloud_price_targets_file: str | None = field(default=None, repr=False)
+    nebius_price_targets_json: str | None = field(default=None, repr=False)
+    nebius_price_targets_file: str | None = field(default=None, repr=False)
+    nebius_source: str = "public"
     lambda_source: str = "public"
     ucloud_source: str = "public"
+    autodl_source: str = "public"
 
     def __post_init__(self) -> None:
         if not isinstance(self.providers, tuple) or not self.providers:
@@ -99,6 +103,10 @@ class Settings:
             raise ConfigurationError("LAMBDA_SOURCE must be public or api")
         if self.ucloud_source not in ("public", "api"):
             raise ConfigurationError("UCLOUD_SOURCE must be public or api")
+        if self.nebius_source not in ("public", "api"):
+            raise ConfigurationError("NEBIUS_SOURCE must be public or api")
+        if self.autodl_source not in ("public", "market"):
+            raise ConfigurationError("AUTODL_SOURCE must be public or market")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None, *,
@@ -120,12 +128,12 @@ class Settings:
         values = {**file_values, **process_values}
         # JSON and FILE select the same target source. An explicitly supplied
         # process key selects that layer for both keys, even if its value is blank.
-        source_values = (process_values if _TARGET_SOURCES & process_values.keys()
-                         else file_values)
-        for name in _TARGET_SOURCES:
-            values.pop(name, None)
-            if name in source_values:
-                values[name] = source_values[name]
+        for group in _TARGET_GROUPS:
+            source_values = process_values if group & process_values.keys() else file_values
+            for name in group:
+                values.pop(name, None)
+                if name in source_values:
+                    values[name] = source_values[name]
         providers_value = values.get("GPU_PRICE_MONITOR_PROVIDERS", "nebius,crusoe")
         providers = tuple(item.strip().lower() for item in providers_value.split(","))
         try:
@@ -145,6 +153,10 @@ class Settings:
         targets_file = credential("UCLOUD_PRICE_TARGETS_FILE")
         if targets_json and targets_file:
             raise ConfigurationError("Set only one of UCLOUD_PRICE_TARGETS_JSON and UCLOUD_PRICE_TARGETS_FILE.")
+        nebius_targets_json = credential("NEBIUS_PRICE_TARGETS_JSON")
+        nebius_targets_file = credential("NEBIUS_PRICE_TARGETS_FILE")
+        if nebius_targets_json and nebius_targets_file:
+            raise ConfigurationError("Set only one of NEBIUS_PRICE_TARGETS_JSON and NEBIUS_PRICE_TARGETS_FILE.")
         settings = cls(
             providers=providers,
             timeout_seconds=timeout,
@@ -156,10 +168,14 @@ class Settings:
             ucloud_project_id=credential("UCLOUD_PROJECT_ID"),
             ucloud_price_targets_json=targets_json,
             ucloud_price_targets_file=targets_file,
+            nebius_price_targets_json=nebius_targets_json,
+            nebius_price_targets_file=nebius_targets_file,
             autodl_token=credential("AUTODL_TOKEN"),
             autodl_storage_state_path=credential("AUTODL_STORAGE_STATE_PATH"),
             lambda_source=values.get("LAMBDA_SOURCE", "public"),
             ucloud_source=values.get("UCLOUD_SOURCE", "public"),
+            nebius_source=values.get("NEBIUS_SOURCE", "public"),
+            autodl_source=values.get("AUTODL_SOURCE", "public"),
         )
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at
@@ -179,4 +195,18 @@ class Settings:
                 load_targets(settings)
             except FetchError:
                 raise ConfigurationError("UCLOUD_PRICE_TARGETS_FILE must contain valid UCloud GPU quote targets.") from None
+        if nebius_targets_file:
+            from .providers.nebius_quote import MAX_TARGET_JSON_BYTES, load_targets
+            from .transport import FetchError
+
+            target_path = Path(nebius_targets_file)
+            if not target_path.is_absolute() and env_path is not None:
+                target_path = env_path.parent / target_path
+            raw_targets = _read_text_file(target_path, MAX_TARGET_JSON_BYTES,
+                                         "Cannot read NEBIUS_PRICE_TARGETS_FILE within the size limit.")
+            settings = replace(settings, nebius_price_targets_json=raw_targets)
+            try:
+                load_targets(settings)
+            except (FetchError, ValueError, KeyError, TypeError):
+                raise ConfigurationError("NEBIUS_PRICE_TARGETS_FILE must contain valid Nebius GPU quote targets.") from None
         return settings

@@ -107,7 +107,13 @@ def _decode_details(raw) -> dict:
     return details
 
 
-def _location_maps(regions_payload, zones_payload):
+def parse_location_catalog(regions_payload: dict, zones_payload: dict) -> dict[str, dict]:
+    """Bind zones to countries using the provider's explicit region directory.
+
+    CountryCode is retained exactly as published, including the provider's
+    classification of territories. Region prefixes and translated names are
+    never used to infer a country. Only the location whitelist is returned.
+    """
     regions = {}
     for row in _rows(regions_payload, "ListAllRegions", "Regions"):
         name, country = _label(row.get("Region")), row.get("CountryCode")
@@ -123,6 +129,31 @@ def _location_maps(regions_payload, zones_payload):
     if not zones or not regions:
         raise _invalid()
     return zones
+
+
+def resolve_location(location_catalog: dict, *, region: str, zone: str) -> dict:
+    """Resolve one exact region/zone pair; never borrow another zone's country."""
+    if not isinstance(location_catalog, dict):
+        raise _invalid()
+    location = location_catalog.get(zone)
+    if not isinstance(location, dict) or location.get("region") != region:
+        raise FetchError(
+            "unverifiable_geography",
+            "The requested UCloud region/zone pair could not be verified in the official location directory.",
+        )
+    country = location.get("country_code")
+    if not isinstance(country, str) or not re.fullmatch(r"[A-Z]{2}", country):
+        raise _invalid()
+    return {"region": _label(region), "zone": _label(zone), "country_code": country,
+            "region_name": _text(location.get("region_name")),
+            "zone_name": _text(location.get("zone_name"))}
+
+
+def location_source(*, price_location_basis: str) -> dict:
+    """Describe the public mapping separately from a price's request context."""
+    return {"api_url": API_URL, "source_type": "official_public_api",
+            "region_action": "ListAllRegions", "zone_action": "ListAllZones",
+            "country_field": "CountryCode", "price_location_basis": price_location_basis}
 
 
 def _offline_zones(payload) -> set[str]:
@@ -142,7 +173,7 @@ def _offline_zones(payload) -> set[str]:
 
 def parse_catalog(*, activities, regions, zones, packages: dict, flags: dict, observed_at: str) -> list[dict]:
     """Parse complete source responses. Unknown structures fail closed."""
-    location_map = _location_maps(regions, zones)
+    location_map = parse_location_catalog(regions, zones)
     metadata = {}
     for row in _rows(activities, "ListActivity"):
         if row.get("ActivityId") in ACTIVITY_IDS:
@@ -209,7 +240,9 @@ def parse_catalog(*, activities, regions, zones, packages: dict, flags: dict, ob
                     "currency": "CNY", "unit": "gpu_month", "billing_mode": "monthly",
                     "price_basis": "instance_total_allocated", "quote_status": "quoted",
                     "regions": [location["region"]], "zones": [zone],
+                    "compute_countries": [location["country_code"]],
                     "location": dict(location, zone=zone), "geographic_scope": "zone",
+                    "location_source": location_source(price_location_basis="package_zones"),
                     "account_scope": "public_promotion", "tax_scope": "unspecified",
                     "observed_at": observed_at, "effective_from": None, "effective_until": None,
                     "source_url": SOURCE_URL, "source_type": "official_public_api",
@@ -244,6 +277,13 @@ def _query(action: str, settings: Settings, **parameters) -> dict:
                         headers={"Content-Type": "application/x-www-form-urlencoded"},
                         data=urlencode({"Action": action, **parameters}).encode("ascii"),
                         authenticated=False)
+
+
+def load_location_catalog(*, settings: Settings) -> dict[str, dict]:
+    """Read only the two anonymous location directories, with no API keys."""
+    regions = _query("ListAllRegions", settings)
+    zones = _query("ListAllZones", settings)
+    return parse_location_catalog(regions, zones)
 
 
 def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:

@@ -29,6 +29,11 @@ def response(payload_file):
 
 class AuthenticatedIntegrationTests(unittest.TestCase):
     def setUp(self):
+        catalog = {"cn-bj2-02": {"region": "cn-bj2", "zone": "cn-bj2-02",
+                   "country_code": "CN", "region_name": "北京二", "zone_name": "可用区B"}}
+        geography = patch("gpu_price_monitor.providers.ucloud_public.load_location_catalog", return_value=catalog)
+        geography.start()
+        self.addCleanup(geography.stop)
         self.settings = Settings(
             providers=("lambda", "ucloud"), max_retries=0,
             lambda_source="api", ucloud_source="api",

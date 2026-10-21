@@ -40,6 +40,12 @@ class UCloudPublicTests(unittest.TestCase):
         self.assertEqual(second["zones"], ["cn-sh2-02"])
         self.assertEqual(second["location"]["country_code"], "CN")
         for quote in quotes:
+            self.assertEqual(quote["compute_countries"], [quote["location"]["country_code"]])
+            self.assertEqual(quote["location_source"], {
+                "api_url": "https://api.ucloud.cn/", "source_type": "official_public_api",
+                "region_action": "ListAllRegions", "zone_action": "ListAllZones",
+                "country_field": "CountryCode", "price_location_basis": "package_zones",
+            })
             self.assertEqual(quote["billing_mode"], "monthly")
             self.assertEqual(quote["account_scope"], "public_promotion")
             self.assertEqual(quote["availability"], "offline")
@@ -104,6 +110,75 @@ class UCloudPublicTests(unittest.TestCase):
         self.assertEqual(len(quotes), 5)
         self.assertEqual([q["regions"] for q in quotes[:2]], [["cn-bj2"], ["cn-wlcb"]])
         self.assertTrue(all(len(q["zones"]) == len(q["regions"]) == 1 for q in quotes))
+
+    def test_country_is_bound_to_each_package_zone_not_the_catalog_or_prefix(self):
+        data = source()
+        # Synthetic multi-country package; the historical fixture does not
+        # assert that this promotion was offered in the additional zones.
+        data["packages"]["10204"]["Data"][0]["Zones"] = ["us-ca-01", "sg-01"]
+        quotes = parse(data)
+        self.assertEqual([q["compute_countries"] for q in quotes[:2]], [["US"], ["SG"]])
+        self.assertEqual([q["regions"] for q in quotes[:2]], [["us-ca"], ["sg"]])
+        # Preserve the provider's CountryCode classification rather than
+        # infer a different country from HK/TW region names.
+        catalog = ucloud_public.parse_location_catalog(data["regions"], data["zones"])
+        self.assertEqual(catalog["hk-02"]["country_code"], "CN")
+        self.assertEqual(catalog["tw-tp-01"]["country_code"], "CN")
+
+    def test_location_catalog_and_lookup_return_only_public_location_fields(self):
+        data = source()
+        data["regions"]["Regions"][0]["unrelated"] = "not-for-output"
+        data["zones"]["Zones"][0]["unrelated"] = "not-for-output"
+        catalog = ucloud_public.parse_location_catalog(data["regions"], data["zones"])
+        location = ucloud_public.resolve_location(catalog, region="cn-bj1", zone="cn-bj1-01")
+        self.assertEqual(set(location), {"region", "zone", "country_code", "region_name", "zone_name"})
+        self.assertNotIn("not-for-output", json.dumps(catalog))
+        # A caller-supplied parsed map cannot leak arbitrary fields either.
+        catalog["cn-bj1-01"]["unrelated"] = "not-for-output"
+        self.assertNotIn("not-for-output", json.dumps(
+            ucloud_public.resolve_location(catalog, region="cn-bj1", zone="cn-bj1-01")))
+
+    def test_location_catalog_rejects_missing_country_duplicate_or_orphan_mapping(self):
+        invalid = []
+        for country in (None, "", "Europe", "cn", 1):
+            data = source()
+            data["regions"]["Regions"][0]["CountryCode"] = country
+            invalid.append(data)
+        data = source()
+        data["regions"]["Regions"].append(dict(data["regions"]["Regions"][0]))
+        invalid.append(data)
+        data = source()
+        data["zones"]["Zones"][0]["Region"] = "unknown-region"
+        invalid.append(data)
+        data = source()
+        data["zones"]["Zones"].append(dict(data["zones"]["Zones"][0]))
+        invalid.append(data)
+        for data in invalid:
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                ucloud_public.parse_location_catalog(data["regions"], data["zones"])
+
+    def test_location_lookup_never_borrows_a_country_for_an_unverified_pair(self):
+        data = source()
+        catalog = ucloud_public.parse_location_catalog(data["regions"], data["zones"])
+        for region, zone in (("cn-bj2", "us-ca-01"), ("cn-bj2", "cn-bj2-unknown")):
+            with self.subTest(region=region, zone=zone), self.assertRaises(FetchError) as captured:
+                ucloud_public.resolve_location(catalog, region=region, zone=zone)
+            self.assertEqual(captured.exception.code, "unverifiable_geography")
+
+    @patch("gpu_price_monitor.providers.ucloud_public.request_json")
+    def test_location_loader_makes_only_two_anonymous_directory_queries(self, request):
+        data = source()
+        request.side_effect = [data["regions"], data["zones"]]
+        settings = Settings(ucloud_public_key="unused-public", ucloud_private_key="unused-private")
+        catalog = ucloud_public.load_location_catalog(settings=settings)
+        self.assertEqual(request.call_count, 2)
+        for call, action in zip(request.call_args_list, ("ListAllRegions", "ListAllZones")):
+            self.assertEqual(call.args, ("https://api.ucloud.cn/", settings))
+            self.assertFalse(call.kwargs["authenticated"])
+            self.assertEqual(call.kwargs["method"], "POST")
+            self.assertEqual(parse_qs(call.kwargs["data"].decode()), {"Action": [action]})
+            self.assertNotIn("Authorization", call.kwargs["headers"])
+        self.assertNotIn("unused-", json.dumps(catalog))
 
     def test_bad_units_partial_results_duplicate_packages_and_unknown_zones_fail(self):
         mutations = []
