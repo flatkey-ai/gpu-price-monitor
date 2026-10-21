@@ -1,0 +1,222 @@
+{
+  "version": "0.13.0",
+  "status": "success",
+  "collected_at": "2026-10-21T09:45:07.897252+00:00",
+  "execution": {
+    "runtime": "python",
+    "parsing": "deterministic_rules",
+    "uses_llm": false,
+    "source_policy": "api_preferred"
+  },
+  "market_comparison": {
+    "scope": "catalog_and_regional_gpu_hour",
+    "eligible_quote_count": 111,
+    "regional_quote_count": 52,
+    "catalog_quote_count": 59,
+    "excluded_quote_count": 20,
+    "providers_with_quotes": [
+      "nebius",
+      "lambda",
+      "crusoe",
+      "autodl",
+      "ucloud"
+    ]
+  },
+  "comparison": {
+    "scope": "verified_regional_gpu_hour",
+    "eligible_quote_count": 52,
+    "excluded_quote_count": 79
+  },
+  "sources": [
+    {
+      "provider": "nebius",
+      "source_url": "https://api.nebius.cloud/billing/v1alpha1/spot-price",
+      "source_type": "official_public_sources",
+      "status": "success",
+      "observed_at": "2026-10-21T09:44:34.749656+00:00",
+      "fetched_count": 21,
+      "returned_count": 21,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_json_with_website_bootstrap",
+      "selection_reason": "regional_spot_api_and_on_demand_website_json",
+      "fallback_reason": null,
+      "api_endpoint": "https://api.nebius.cloud/billing/v1alpha1/spot-price",
+      "source_types": [
+        "official_public_api",
+        "official_website_json"
+      ],
+      "additional_source_urls": [
+        "https://nebius.com/prices"
+      ],
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "regional_quote": 12,
+          "unlocated_catalog": 9
+        },
+        "country_codes": [
+          "ES",
+          "FI",
+          "FR",
+          "GB",
+          "IL",
+          "US"
+        ],
+        "country_bound_quote_count": 12,
+        "region_bound_quote_count": 12,
+        "unlocated_quote_count": 9,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      },
+      "market_quote_count": 17,
+      "regional_hourly_quote_count": 12
+    },
+    {
+      "provider": "lambda",
+      "source_url": "https://lambda.ai/instances",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:44:41.367221+00:00",
+      "fetched_count": 22,
+      "returned_count": 22,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_html",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "api_credentials_not_configured",
+      "api_endpoint": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 22
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 22,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      },
+      "market_quote_count": 22,
+      "regional_hourly_quote_count": 0
+    },
+    {
+      "provider": "crusoe",
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:44:42.594564+00:00",
+      "fetched_count": 24,
+      "returned_count": 24,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_html",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "no_verified_gpu_rental_price_api",
+      "api_endpoint": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 24
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 24,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      },
+      "market_quote_count": 8,
+      "regional_hourly_quote_count": 0
+    },
+    {
+      "provider": "autodl",
+      "source_url": "https://www.autodl.com/home",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:44:42.620330+00:00",
+      "fetched_count": 24,
+      "returned_count": 24,
+      "filters": {},
+      "error": null,
+      "collection_method": "browser_dom",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "no_verified_market_price_api",
+      "api_endpoint": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 24
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 24,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      },
+      "market_quote_count": 24,
+      "regional_hourly_quote_count": 0
+    },
+    {
+      "provider": "ucloud",
+      "source_url": "https://www.compshare.cn/price-list",
+      "source_type": "official_public_api",
+      "status": "success",
+      "observed_at": "2026-10-21T09:44:45.446399+00:00",
+      "fetched_count": 40,
+      "returned_count": 40,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_json",
+      "selection_reason": "anonymous_compshare_hourly_quote_api",
+      "fallback_reason": null,
+      "api_endpoint": "https://api.compshare.cn/",
+      "discovery": {
+        "page_url": "https://www.compshare.cn/price-list",
+        "asset_url": "https://www.compshare.cn/_next/static/chunks/app/price-list/page-40938451635e91af.js",
+        "type": "website_configuration_catalog",
+        "discovered_target_count": 40,
+        "requested_target_count": 40,
+        "succeeded_target_count": 40,
+        "failed_target_count": 0,
+        "excluded_unverified_zones": [
+          {
+            "gpu_type": "4090",
+            "zone_id": 10033,
+            "reason": "unverified_zone_id"
+          },
+          {
+            "gpu_type": "5090",
+            "zone_id": 10049,
+            "reason": "unverified_zone_id"
+          }
+        ]
+      },
+      "target_errors": [],
+      "product_line": "UCloud · CompShare（优云智算）",
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "requested_zone_quote": 40
+        },
+        "country_codes": [
+          "CN"
+        ],
+        "country_bound_quote_count": 40,
+        "region_bound_quote_count": 40,
+        "unlocated_quote_count": 0,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      },
+      "market_quote_count": 40,
+      "regional_hourly_quote_count": 40
+    }
+  ]
+}

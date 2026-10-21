@@ -10,7 +10,9 @@ from unittest.mock import patch
 
 import gpu_price_monitor
 from gpu_price_monitor import (
-    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS, prices_to_csv, publishable_quote,
+    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS,
+    MARKET_CSV_COLUMNS, MARKET_CSV_HEADERS,
+    market_eligible_quote, prices_to_csv, publishable_quote,
 )
 from gpu_price_monitor.cli import main
 
@@ -43,7 +45,8 @@ def result(status="success"):
 
 
 def read_csv(text):
-    headers_to_ids = {**dict(zip(CSV_HEADERS, CSV_COLUMNS)), **dict(zip(COMPACT_CSV_HEADERS, COMPACT_CSV_COLUMNS))}
+    headers_to_ids = {**dict(zip(CSV_HEADERS, CSV_COLUMNS)), **dict(zip(COMPACT_CSV_HEADERS, COMPACT_CSV_COLUMNS)),
+                      **dict(zip(MARKET_CSV_HEADERS, MARKET_CSV_COLUMNS))}
     reader = csv.DictReader(io.StringIO(text.removeprefix("\ufeff"), newline=""))
     return [{headers_to_ids.get(key, key): value for key, value in row.items()} for row in reader]
 
@@ -209,7 +212,7 @@ class CsvCliTests(unittest.TestCase):
                 self.assertEqual(read_csv(stdout), [])
                 self.assertTrue(stderr)
 
-    def test_default_compact_has_ten_columns_and_only_actual_country_region_hourly_quotes(self):
+    def test_explicit_compact_has_ten_columns_and_only_actual_country_region_hourly_quotes(self):
         regional = {**quote(), "provider": "azure", "compute_countries": ["US"], "regions": ["westus3"],
                     "price_scope": "regional_quote", "region_price_verified": True,
                     "source_url": "https://prices.azure.com/api/retail/prices"}
@@ -220,11 +223,11 @@ class CsvCliTests(unittest.TestCase):
                               {**regional, "price_basis": "gpu_component"},
                               {**regional, "availability": "offline"}]
         original = deepcopy(response)
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "compact"], response)
         self.assertEqual(code, 0)
         self.assertIn("CSV comparison: 1 verified regional GPU-hour quotes; 5 collected records excluded.", stderr)
         self.assertEqual(csv_header(stdout), list(COMPACT_CSV_HEADERS))
-        self.assertEqual(stdout, prices_to_csv(response))
+        self.assertEqual(stdout, prices_to_csv(response, profile="compact"))
         actual = read_csv(stdout)
         self.assertEqual(len(actual), 1)
         self.assertEqual(tuple(actual[0]), COMPACT_CSV_COLUMNS)
@@ -250,7 +253,7 @@ class CsvCliTests(unittest.TestCase):
         response["prices"] = [quote(), {**quote(), "compute_countries": ["FI"],
                                        "coverage_regions": ["eu-north1"], "price_scope": "platform_coverage",
                                        "region_price_verified": False}]
-        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv", "--csv-profile", "compact"], response)
         self.assertEqual(code, 0)
         self.assertIn("CSV comparison: 0 verified regional GPU-hour quotes; 2 collected records excluded.", stderr)
         self.assertEqual(stdout, "\ufeff" + ",".join(COMPACT_CSV_HEADERS) + "\r\n")
@@ -264,16 +267,41 @@ class CsvCliTests(unittest.TestCase):
         self.assertEqual(len(read_csv(full)), 2)
 
     def test_compact_public_exports_and_configuration_error_keep_profile_header(self):
-        for symbol in ("COMPACT_CSV_COLUMNS", "COMPACT_CSV_HEADERS", "publishable_quote"):
+        for symbol in ("COMPACT_CSV_COLUMNS", "COMPACT_CSV_HEADERS", "publishable_quote", "market_eligible_quote"):
             self.assertIn(symbol, gpu_price_monitor.__all__)
         code, stdout, stderr, collector = self.run_cli(
-            ["collect", "--format", "csv"], environment={"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": "invalid"})
+            ["collect", "--format", "csv", "--csv-profile", "compact"],
+            environment={"GPU_PRICE_MONITOR_TIMEOUT_SECONDS": "invalid"})
         self.assertEqual(code, 1)
         self.assertEqual(csv_header(stdout), list(COMPACT_CSV_HEADERS))
         self.assertEqual(read_csv(stdout), [])
         self.assertIn("Invalid configuration:", stderr)
         self.assertNotIn("CSV comparison:", stderr)
         collector.assert_not_called()
+
+    def test_default_market_keeps_catalog_without_claiming_a_price_region(self):
+        catalog = {**quote(), "provider": "lambda", "price_scope": "unlocated_catalog",
+                   "region_price_verified": False, "regions": [], "price_basis": "advertised_per_gpu",
+                   "account_scope": "public_catalog"}
+        regional = {**quote(), "compute_countries": ["FI"], "price_scope": "regional_quote",
+                    "region_price_verified": True}
+        response = result()
+        response["prices"] = [catalog, regional, {**catalog, "unit": "gpu_month"},
+                              {**catalog, "quote_status": "contact_sales", "amount": None}]
+        code, stdout, stderr, _ = self.run_cli(["collect", "--format", "csv"], response)
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout, prices_to_csv(response, profile="market"))
+        self.assertEqual(csv_header(stdout), list(MARKET_CSV_HEADERS))
+        self.assertEqual(len(read_csv(stdout)), 2)
+        self.assertIn("CSV market: 2 numeric GPU-hour quotes (1 verified regional, 1 catalog)", stderr)
+        self.assertIn("Catalog prices do not establish regional or globally uniform pricing.", stderr)
+        self.assertIn("公开目录报价", read_csv(stdout)[0]["location"])
+        self.assertNotIn("国家=", read_csv(stdout)[0]["location"])
+        self.assertTrue(market_eligible_quote(catalog))
+        self.assertFalse(publishable_quote(catalog))
+        code, explicit, _, _ = self.run_cli(
+            ["collect", "--format", "csv", "--csv-profile", "market"], response)
+        self.assertEqual((code, explicit), (0, stdout))
 
 
 if __name__ == "__main__":

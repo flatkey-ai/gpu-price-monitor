@@ -1,10 +1,8 @@
-# 安装和接入
+# 安装和接入五家采集
 
-本库只抓取并返回 JSON / CSV 文本，调用者自行安排定时、保存、换汇和上传。0.11.0 支持 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。
+0.13.0 推荐 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。库提供独立 Python 与 CLI，只返回 JSON / CSV 文本；调用方负责定时、保存、换汇和发布。没有 Codex、LLM、模型 API Key 或人工读页的运行时依赖。
 
-## 免费公开模式
-
-Python 3.11+，无需密钥。建议使用独立虚拟环境：
+## 本地或服务器运行
 
 ```bash
 git clone https://github.com/flatkey-ai/gpu-price-monitor.git
@@ -13,55 +11,71 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install '.[browser]'
 python -m playwright install chromium
-gpu-price-monitor collect --providers all --coverage --pretty > prices.json
+cp .env.five.example .env.five.local
+gpu-price-monitor status --env-file .env.five.local
+gpu-price-monitor collect --env-file .env.five.local --pretty > prices.json
+gpu-price-monitor collect --env-file .env.five.local --format csv > prices.csv
 ```
 
-Windows PowerShell 的前两步使用 `py -3 -m venv .venv`、`.\.venv\Scripts\Activate.ps1`。Linux 容器缺少浏览器库时使用 `python -m playwright install --with-deps chromium`。AutoDL 用本地 Chromium，其余八家公开来源用基础 Python 包即可。
+Windows PowerShell 使用 `py -3 -m venv .venv` 与 `.\.venv\Scripts\Activate.ps1`。Linux 容器可安装 `python -m playwright install --with-deps chromium`。AutoDL 的免费本地 Chromium 需要浏览器依赖；不采 AutoDL 时可以只装基础包并显式选择其余平台。
 
-`configs/collect.all.example.json` 启用全部九家；`collect.example.json` 保留两家 HTTP 来源最小示例；`collect.free.example.json` 保留 Lambda/AutoDL/UCloud 三家示例。RunPod、DigitalOcean、Verda、Azure 无新增 env 必填项；Azure 当前只采四个固定已核验 GPU SKU，完整条数以采样为准。`all` 仍不包含旧版全部平台。
+`.env.five.example` 设置五家与 `api_preferred`。复制到独立 `.env.five.local`，保留已有 `.env`；密钥留空可运行公开来源。直接 Python：
 
-## CSV 接入（0.11.0 严格比较表）
+```python
+from gpu_price_monitor import Settings, collect_prices, prices_to_csv
+
+settings = Settings.from_env(env_file=".env.five.local")
+result = collect_prices(settings=settings)
+csv_text = prices_to_csv(result)
+```
+
+若调用签名 API，请先填写真实目标和完整密钥；不使用示例未验证配置为默认运行目标。`Settings()` 不读文件，`Settings.from_env` / `--env-file` 显式加载；进程变量优先，包括空值。不执行 shell / 插值。FILE 路径相对 env 文件目录解析；FILE / JSON 目标来源互斥。
+
+## 三种 CSV
 
 ```bash
-gpu-price-monitor --version
-gpu-price-monitor collect --providers all --format csv > prices.csv
-# 默认 10 列；程序处理可选择稳定英文列名。
-gpu-price-monitor collect --providers all --format csv --csv-headers english > prices.english.csv
-# 全部来源记录的原 51 列审计表。
-gpu-price-monitor collect --providers all --format csv --csv-profile full > prices.audit.csv
+# 默认 market：10 列真实小时目录价 + 地区价。
+gpu-price-monitor collect --env-file .env.five.local --format csv > prices.csv
+# compact：10 列严格国家与价格地区已核实的小时价。
+gpu-price-monitor collect --env-file .env.five.local --format csv --csv-profile compact > prices.regional.csv
+# full：原 51 列全部来源审计。
+gpu-price-monitor collect --env-file .env.five.local --format csv --csv-profile full > prices.audit.csv
 ```
 
-`--format` 默认 `json`，原 JSON 调用兼容。0.11.0 默认 `compact` 比较 CSV 为 10 列，仅包含实际数值、国家与 region 均已核实的每 GPU 小时价；`--csv-profile full` 或 `prices_to_csv(result, profile="full")` 保留原 51 列全部来源记录。两种表头均默认英中双语；`--csv-headers bilingual` 可显式选择，`--csv-headers english` 使用纯英文 ID。这个参数只影响 CSV 第一行，JSON、原始金额和枚举值保持不变。已有程序按英文列名读取时，请使用英文模式；Python 对应 `prices_to_csv(result, bilingual_headers=False)`。`--format csv` 的 stdout 为 UTF-8 BOM / CRLF 的报价表；shell 重定向才负责写文件。库的 `prices_to_csv(result)` 同样只返回 CSV 字符串，可由调用者用 `Path("prices.csv").write_text(text, encoding="utf-8", newline="")` 保存，文本已经包含 BOM，无需再使用 `utf-8-sig` 添加第二个。
+默认英中双语，`--csv-headers english` 用稳定英文 ID。Python 默认 `prices_to_csv(result)`，另可用 `profile="compact"` 或 `profile="full"`；金额不换汇，月价不换算小时。UTF-8 BOM / CRLF 已在返回文本中，调用方保存时用 `encoding="utf-8", newline=""`，无需再加 BOM。
 
-默认比较 CSV 排除地区不完整、平台覆盖、起步价、GPU 组件、月包、询价和明确下线 / 不可用项。月价保留在 JSON / full 审计表中，不按 720 小时换算。原币、精确金额、配置、会员 / 云档位 / Spot、税费及账号条件和原 ISO 时间保留，不换汇、不上传、不补造国家。CSV 没有 provider 状态或 coverage 附表；完整诊断与覆盖需查看 JSON。即使生成了 CSV 文件，也要检查退出码：全部成功 `0`、部分失败 `2`、全部失败 / 配置无效 `1`。错误写 stderr，默认比较 CSV 另提示保留及排除条数。来源成功但没有合格地区小时价时仅表头且仍退出 0；原始记录可在 JSON / full 审计表核对。调用者负责决定是否发布部分结果，RackRate 自己负责美元换算和网站更新。
+market 接受标明适用范围的有效目录，不因官网未给地区就隐藏；目录不是全球统一价，也不能据此筛出任意国家。compact 保持原严格地区规则。起价、GPU 组件、月包、询价、未核实特殊优惠与明确不可用项仅在 full / JSON 审计。详细资格见 [DATA_MODEL.md](DATA_MODEL.md)。
 
-Nebius 默认公开模式同时读取文档目录和无需认证的当前地区 Spot API；文档供给覆盖另用 `--coverage-region` / `--coverage-country` 查询，`--region` / `--country` 只筛实际价格位置。未给地区不证明全球统一价。
+stdout 只含 JSON 或 CSV，stderr 为诊断和投影计数。退出码成功 `0`、部分失败 `2`、失败 / 配置无效 `1`；来源成功但所选 profile 无合格行时只表头且仍退出 `0`。CSV 文件存在不证明全部来源成功，调用方应同时保存 JSON 状态。
 
-## 可选凭据及地区报价
+## 策略与可选凭据
 
-复制 `.env.example`，填好再显式加载：
+- `api_preferred`：五家推荐。Nebius 当前 Spot 加官网 JSON 普通目录；Lambda 依 key 选择接口 / 公开页；UCloud 无 key 为 CompShare 匿名小时询价，有任一 key 则要求完整签名 UHost 目标；Crusoe / AutoDL 固定页面规则。
+- `api_only`：只允许价格 API；Nebius 只有 Spot，Crusoe / AutoDL 页面来源报不支持。不是换个标签把页面算作 API。
+- `configured`：兼容各 `*_SOURCE`；Nebius public 为旧文档 + Spot，UCloud public 为旧 UHost 月促销。通用 `.env.example` 保留此策略。
 
-```bash
-gpu-price-monitor status --env-file .env
-gpu-price-monitor collect --env-file .env --providers all --pretty
-```
+`GPU_PRICE_MONITOR_SOURCE_POLICY` 或 `--source-policy` 选择策略。已经选中的 API 若配置 / 鉴权 / 解析失败就报错，不降级成其他产品线或网页目录。
 
-Python 使用 `Settings.from_env(env_file=".env")`。进程环境覆盖文件设置，不执行变量插值或 shell，库不自动发现 `.env`。凭据存在也不会自动选择认证模式，必须指定来源。
+| 可选路径 | 配置 |
+| --- | --- |
+| Lambda 认证实例目录 | `LAMBDA_API_KEY`，或显式 `LAMBDA_SOURCE=api` |
+| UCloud 签名 UHost | 完整 `UCLOUD_PUBLIC_KEY` / `UCLOUD_PRIVATE_KEY` 与 targets FILE / JSON，可选项目 ID；有任一 key 就要求补齐，不回退 CompShare |
+| Nebius 账号估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 与完整 targets FILE / JSON |
+| AutoDL 授权市场 | `AUTODL_SOURCE=market`、有效 `AUTODL_STORAGE_STATE_PATH` |
 
-- Nebius：设置 `NEBIUS_SOURCE=api`、access token、targets FILE/JSON。复制 `configs/nebius-targets.example.json` 到被忽略的 `*.local.json`，填写真实项目及支持平台的完整 GPU 预设/磁盘。先验证项目地区，再只读费用估算；不创建实例。国家与地区不一致会失败。
-- UCloud：设置 `UCLOUD_SOURCE=api`、公私钥及 targets FILE/JSON；可选项目 ID。复制 `configs/ucloud-targets.example.json` 并核对实际可售配置。API 分支核对官方 Region/Zone/CountryCode 后询价，不把离线促销代替按需价格。
-- Lambda：`LAMBDA_SOURCE=api` 与 API key 选择认证实例目录；容量地区不会变成逐地区价格。
-- AutoDL：`AUTODL_SOURCE=market` 与 `AUTODL_STORAGE_STATE_PATH` 选择登录市场。会话由用户在自己的浏览器中准备；过期返回错误，不自动登录、不读已租资源、不租赁 GPU。
+无 key 的 CompShare 询价不需要这些账号配置，输出仍须标明 UCloud 旗下 CompShare 产品线、普通原价及请求地区 / 配置；优惠资格未知只审计。配置发现目录里的价格不作为返回值。
 
-访问令牌、Cookie、私钥、项目和本地配置不要提交。`.env`、`configs/*.local.json`、`playwright/.auth/`、`*.storage-state.json` 已被忽略。示例模板仅说明字段，不证明示例配置可售或凭据有效。
+账号估价、Lambda 认证、签名 UHost 与 AutoDL 登录市场尚需有效凭据成功联调，离线测试不证明账号取价成功。`.env`、`.env.*.local`、私有 `*.local.json`、浏览器状态和 Cookie 不提交、不打印、不放进结果。
 
-## 调用者的发布流程
+## 调用方的云运行与发布
 
-先检查进程退出码和 `provider_results`，再将成功批次提交自己的存储或上传函数。部分失败返回 exit 2；不要把失败写成零价，也不要把旧数据换上本次采集时间。结合原币、单位、配置、购买条件、价格范围及可用性比较，换汇另记汇率来源和日期。
+任何普通云任务、容器或 CI 都可运行相同 CLI，不要求用户电脑开机。调用方自行安装 Python / AutoDL Chromium、配置网络和所需授权，安排其调度器；本库不内置 RackRate / Flatkey 上传地址、业务凭据或发布流程。
 
-本库不绑定 RackRate 或 Flatkey 上传地址。RackRate 自己的 GitHub Actions 每天北京时间 10:30 发起公开采集和发布；云任务可能排队，页面展示实际采集时间。授权账号模式若要交由调用方云任务运行，由调用方自行配置受控密钥和会话，不在库中添加业务凭据。
+发布前检查退出码、`provider_results`、`market_comparison` 和所需位置条件，决定是否接受部分结果。`comparison` 保持严格地区统计，不是默认 market 总行数。换汇应另记汇率来源 / 日期，原价与条件仍保留；不能把失败来源写成零价，也不能给旧价盖新采集时间。
 
-## 离线检查
+原文档五家优先运行；`--providers all` 会额外采 RunPod、DigitalOcean、Verda、Azure。相关配置与验证边界见 [PROVIDERS.md](PROVIDERS.md)。
+
+## 验证
 
 ```bash
 python -m compileall -q src
@@ -69,4 +83,4 @@ python -m unittest discover -s tests -v
 gpu-price-monitor validate-config --config configs/collect.all.example.json
 ```
 
-单元测试和配置检查不访问账号或购买资源；真实九家公开采样与未完成的认证验证边界见 [文档对照](DOCUMENT_COVERAGE.md)。
+真实采集的 source / method / URL / timestamp 和本次配置诊断比历史样本条数更重要。历史 examples 仅作审计，不作现价或运行时回退。

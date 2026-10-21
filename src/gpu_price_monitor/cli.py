@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
-from .csv_export import prices_to_csv, publishable_quote
+from .csv_export import market_eligible_quote, prices_to_csv, publishable_quote
 from .filters import normalize_filters
 from .settings import ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
 
@@ -85,7 +85,7 @@ def _print_json(result: dict, pretty: bool = False) -> None:
 
 
 def _print_collection(result: dict, output_format: str, pretty: bool = False, *, csv_headers: str = "bilingual",
-                      csv_profile: str = "compact") -> None:
+                      csv_profile: str = "market") -> None:
     if output_format == "csv":
         # Keep the promised encoding and CRLF bytes when redirected on Windows.
         if hasattr(sys.stdout, "reconfigure"):
@@ -112,11 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
-                         help="stdout format (default: json); csv is UTF-8 with a BOM; compact includes eligible quotes only")
+                         help="stdout format (default: json); csv is UTF-8 with a BOM")
     collect.add_argument("--csv-headers", choices=("bilingual", "english"), default="bilingual",
                          help="CSV header labels: English identifiers with Chinese translations (default), or English only")
-    collect.add_argument("--csv-profile", choices=("compact", "full"), default="compact",
-                         help="compact: 10 columns, verified regional GPU-hour quotes only (default); full: all collected records for audit")
+    collect.add_argument("--csv-profile", choices=("market", "compact", "full"), default="market",
+                         help="market: numeric GPU-hour catalog and regional quotes (default); compact: verified regional quotes only; full: all records for audit")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
@@ -194,6 +194,13 @@ def main(argv: list[str] | None = None) -> int:
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
         _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers, csv_profile=args.csv_profile)
+        if args.format == "csv" and args.csv_profile == "market":
+            kept = sum(market_eligible_quote(q) for q in result["prices"])
+            regional = sum(publishable_quote(q) for q in result["prices"] if market_eligible_quote(q))
+            print(f"CSV market: {kept} numeric GPU-hour quotes ({regional} verified regional, "
+                  f"{kept - regional} catalog); {len(result['prices']) - kept} records excluded. "
+                  "Catalog prices do not establish regional or globally uniform pricing. "
+                  "Use --csv-profile compact for regional quotes, full for audit.", file=sys.stderr)
         if args.format == "csv" and args.csv_profile == "compact":
             kept = sum(publishable_quote(q) for q in result["prices"])
             print(f"CSV comparison: {kept} verified regional GPU-hour quotes; "

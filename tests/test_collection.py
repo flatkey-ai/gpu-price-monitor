@@ -66,6 +66,13 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(nebius["coverage_regions"], ["eu-north1"])
         self.assertEqual(nebius["coverage_countries"], ["FI"])
         self.assertEqual(result["comparison"]["eligible_quote_count"], 0)
+        self.assertEqual(result["market_comparison"], {
+            "scope": "catalog_and_regional_gpu_hour", "eligible_quote_count": 2,
+            "regional_quote_count": 0, "catalog_quote_count": 2, "excluded_quote_count": 0,
+            "providers_with_quotes": ["nebius", "crusoe"],
+        })
+        self.assertEqual([p["market_quote_count"] for p in result["provider_results"]], [1, 1])
+        self.assertEqual([p["regional_hourly_quote_count"] for p in result["provider_results"]], [0, 0])
 
     def test_partial_failure_keeps_other_provider_prices_and_hides_error_body(self):
         def fetch(url, settings):

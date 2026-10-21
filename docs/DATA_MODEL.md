@@ -1,109 +1,84 @@
 # 返回数据和价格口径
 
-0.11.0 采集 Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure 九家。Python `collect_prices` 返回标准 dict；CLI stdout 默认是相同的 JSON。`prices_to_csv(result)` / `collect --format csv` 默认返回严格的 10 列地区每 GPU 小时比较表，`profile="full"` / `--csv-profile full` 保留原 51 列来源审计表。两种表头均默认英中双语，可选纯英文。库不存储、上传、换汇、补造库存或使用历史样本回退。
+0.13.0 推荐原文档五家：**Nebius、Lambda、Crusoe、AutoDL、UCloud**。Python `collect_prices` 返回标准 dict，CLI 默认输出同样的 JSON。默认 CSV 为 10 列 `market` 小时报价表；`compact` 保留严格地区表，`full` 保留原 51 列全部审计记录。库不存储、上传、换汇或使用历史样本回退。另四家适配器仍可显式选择。
 
-## 批次结果
+## 批次与来源状态
 
-- `schema_version=1`；`collected_at` 为当前批次的 UTC 时间。
-- `status=success|partial|failed`；单个平台失败不抹掉其余平台成功结果。
-- `prices` 是本次通过筛选的来源记录。
-- `comparison.scope=verified_regional_gpu_hour`，`eligible_quote_count` / `excluded_quote_count` 说明其中符合 / 不符合默认比较条件的条数；来源采集成功不等于存在可比较报价。
-- `provider_results` 记录来源 URL/类型、观察时间、抓取与返回数量、逐维度筛选反馈、结构化错误。
-- `geographic_coverage` 只统计本次返回中的国家绑定、地区绑定、位置未知和平台覆盖条数，不表示整个市场覆盖率。
-- `include_coverage=True` 或 `--coverage` 添加 GPU 型号族 `coverage`，仅索引返回记录，不合并硬件、币种或价格条件。
+| 字段 | 含义 |
+| --- | --- |
+| `schema_version` / `collected_at` | 返回结构版本与本次批次 UTC 时间 |
+| `status` | `success`、`partial`、`failed`；单个平台失败不抹掉其余成功结果 |
+| `execution` | `runtime=python`、`parsing=deterministic_rules`、`uses_llm=false`、所选 `source_policy` |
+| `prices` | 本次经过筛选的原始来源记录；不等同于所有记录都符合比较资格 |
+| `market_comparison` | 有效每 GPU 小时目录 / 地区报价数量，及其中地区价、目录价、排除记录和有有效报价的平台 |
+| `comparison` | 兼容保留严格地区口径 `scope=verified_regional_gpu_hour`；`eligible_quote_count` / `excluded_quote_count` |
+| `provider_results` | 来源、方法、选择理由、观察时间、请求 / 返回数量、筛选状态及错误；`market_quote_count` 为有效小时目录 / 地区价，`regional_hourly_quote_count` 为严格地区价 |
+| `geographic_coverage` | 本批报价的位置证据摘要，不是全市场覆盖率或库存报告 |
+| `coverage` | `include_coverage=True` / `--coverage` 生成的型号族索引；不合并硬件、币种或价格条件 |
 
-认证字段、签名、Cookie、账号项目 ID、原始账号响应、已有实例的 SSH 数据均不得进入结果。网络和解析错误不打印上游错误响应正文或凭据。
+`market_comparison.eligible_quote_count` 是默认 CSV 行数依据；`regional_quote_count` / `catalog_quote_count` 区分严格地区记录与其余有效小时记录。`comparison` 保持原有地区统计，不能继续把它当默认 market 总条数。
 
-## CSV 投影
+`source_type` 保留实际接口、公开网页、文档、授权市场或 `official_website_json` 来源。`collection_method` 可为 `http_json`、`http_html`、`http_document`、`browser_dom`，兼容混合源为 `hybrid_http`；`selection_reason` 和适用时的 `fallback_reason` 解释请求前的选择。网页或网站 JSON 不冒充正式价格 API，已选中接口失败不触发另一来源。
 
-`prices_to_csv(result, profile="compact")` 接受 `collect_prices` 的批次结果，返回已包含 UTF-8 BOM 的字符串，行结束符为 CRLF；使用 Python 标准库，无额外表格依赖。它不更改原 dict，不执行抓取、文件写入、换汇或上传。
+认证字段、签名、Cookie、账号项目 ID、原始账号响应、SSH 数据不得进入结果。网络与解析错误不回显上游响应正文或凭据。
 
-默认比较表的稳定英文列为 `gpu_model, provider, location, amount, currency, unit, pricing_conditions, availability, source_url, observed_at`，对应公开常量 `COMPACT_CSV_COLUMNS` / `COMPACT_CSV_HEADERS`。型号列合并明确硬件变体、显存、卡数及关键 CPU / RAM 配置；位置列只显示已核实国家和价格地区；条件列保留普通 / 会员、云档位、Spot、税费、账号适用范围、来源明确的整实例总 / 原价及生效时间。
+## CSV 三种投影
 
-`publishable_quote(quote)` 检查默认比较条件：`quote_status=quoted`、合法数值金额、`unit=gpu_hour`、`region_price_verified=true`，且 `price_scope` 为 `regional_quote` / `zone_quote` / `requested_region_quote` / `requested_zone_quote`，同时有非空有效 ISO 国家列表及 region。地区不完整、未知目录、仅平台覆盖、起步价、`gpu_component`、月包和 Contact sales 被排除；明确 `offline` / `ended` / `upcoming` / `unavailable` 也不进入比较表。来源明确的零值仍保留，未知金额不变成零。`availability=unknown` 只表示库存未知，不把有效地区挂牌说成现货。
+| Profile | 行资格 | 列与用途 |
+| --- | --- | --- |
+| `market`（默认） | 实际 GPU / 容器小时租价；允许目录或账号目录未标明价格地区 | 10 列，日常五家报价；适用范围如实标注 |
+| `compact` | 在 market 合格记录基础上，国家与实际价格 region 均已核实 | 10 列，严格地区比较；兼容 0.11 / 0.12 的默认规则 |
+| `full` | 不执行比较资格筛选，保留所有本次来源记录 | 原 51 列，审计起价、组件、询价、月包和下线记录 |
 
-`prices_to_csv(result, profile="full")` / CLI `--csv-profile full` 不执行上述比较筛选，保持原 51 列、全部来源记录及元数据。`CSV_COLUMNS` / `CSV_HEADERS` 继续定义完整审计表。国家 / 地区 / zone 数组及 `_json` 列使用紧凑 JSON，`collected_at` 与 `collection_status` 保留批次时间和状态；未知目录、覆盖、月价、组件、起价及下线记录均可审计。旧日期 examples 是当时的宽表来源证据，不能当作当前小时比较表。
+稳定英文列为 `gpu_model, provider, location, amount, currency, unit, pricing_conditions, availability, source_url, observed_at`。`MARKET_CSV_COLUMNS` / `MARKET_CSV_HEADERS` 定义默认表，`COMPACT_CSV_*` 定义严格地区表，`CSV_*` 定义完整审计表。表头默认英中双语；`bilingual_headers=False` / `--csv-headers english` 仅改变列名，不改变值。
 
-`prices_to_csv(result, bilingual_headers=False)` 或 CLI `--csv-headers english` 使用所选 profile 的英文 ID；显式 `--csv-headers bilingual` 与默认一致。该选择只改变表头，JSON 与报价值不变。金额始终保留精确原币十进制字符串，时间保留原 ISO 表达，不按主机时区改写。可能被表格软件识别成公式的文本会加前导单引号，数值金额保持原样；不换汇，也不除以 720 将月价变成小时价。
+`market_eligible_quote(quote)` 要求有效型号、GPU VM / 容器产品、`quote_status=quoted`、合法原币数值、`unit=gpu_hour`、实际每卡或明确整机分摊的租用价口径。起步价、单独 GPU 组件、月包、Contact sales、特殊优惠资格未核实及明确 `offline` / `ended` / `upcoming` / `unavailable` 不进入 market。`availability=unknown` 表示库存未核实，不把挂牌当现货。
 
-`provider_results`、`geographic_coverage` 与型号 `coverage` 不作为 CSV 附表输出。默认比较 CSV 在 stderr 输出保留及排除条数；错误诊断也写 stderr。退出码由来源采集状态决定：成功 `0`、部分失败 `2`、失败 / 配置错误 `1`。来源成功但没有合格比较行时仅有表头且仍退出 `0`，不以错误行或零价伪造报价。需要完整来源状态与排除记录时保留 JSON 或 full 审计表。
+`publishable_quote(quote)` 保持严格地区检查：还需 `region_price_verified=true`、非空有效国家和 region，以及 `regional_quote` / `zone_quote` / `requested_region_quote` / `requested_zone_quote` 范围。位置缺失只影响严格地区资格，不应掩盖来源明确的有效目录价。`market` 的位置列清楚标为“公开目录报价；适用地区未标明”等范围，不填全球，也不从平台覆盖推断价格地区。
+
+型号列保留明确变体、显存、卡数及关键 CPU / RAM；条件列保留普通 / 会员、Spot、税、账号资格、生效时间、来源实例总价和产品线。UCloud CompShare 与 UHost 必须分开标明，不能合并成相同规格。资格未核实的 `PriceDetails` 不覆盖普通原价。
+
+所有 profile 返回文本而不写文件，采用 UTF-8 BOM / CRLF；调用方用 `encoding="utf-8", newline=""` 保存即可。full 的数组与 `_json` 列为紧凑 JSON，保留批次时间 / 状态；CSV 不附来源状态或 coverage 表。可能被表格识别成公式的文本加前导单引号，真实金额保持数值字符串。月价不除以 720，CNY / ILS / EUR 不换成 USD，时间不按主机时区改写。
+
+CLI stdout 只含所选 JSON / CSV，计数与诊断写 stderr。成功 `0`、部分失败 `2`、失败 / 配置错误 `1`；来源成功但 profile 没有合格行时只输出表头且仍返回 `0`。调用方需同时检查来源状态与行资格，再决定发布。
 
 ## 单条价格
 
 | 字段 | 含义 |
 | --- | --- |
-| `provider`、`product_type` | 九家平台标识及 GPU VM/容器等产品范围 |
-| `gpu_model`、`gpu_variant`、`vram_gb` | 来源型号、硬件版本、显存；未知为空，不跨版本合并 |
-| `raw_name`、`raw_sku` | 来源名称或规格标识 |
-| `gpu_count` | 明确的实例 GPU 数量；目录单卡费率不代表实际整机卡数 |
-| `amount`、`currency`、`unit` | 十进制字符串、原始币种、`gpu_hour`/`gpu_month`；未知金额为 null |
-| `instance_price` | 完整实例/套餐总价及原始周期；不与每 GPU 金额混用 |
-| `billing_mode` | `on_demand`/`spot`/`monthly` 等真实计费方式 |
-| `price_basis` | `advertised_per_gpu`、`instance_total_allocated`、组件费率或起价等来源口径 |
-| `quote_status` | `quoted`、`starting_at`、`contact_sales`；询价不得写为 0 |
-| `pricing_tier`、`membership_required` | 普通/会员/账号市场等身份条件，不能覆盖彼此 |
-| `cloud_tier` | RunPod 的 Secure / Community 云档位；不是会员身份，比较时必须保留 |
-| `account_scope` | 公开目录、促销、认证目录、账号报价或合同报价，不假定账户价格对所有人适用 |
-| `resources`、`requested_configuration` | CPU、RAM、磁盘、网络等可确认配置；保留 GB/GiB/TiB 等原单位 |
-| `availability` | 来源明确的下线/结束/即将开始/可租状态，或 unknown；挂牌不保证可购 |
-| `source_url`、`source_type`、`observed_at` | 可追溯来源及本次观察 UTC 时间 |
-| `effective_from`、`effective_until` | 来源明确的价格生效/截止时间，不拿页面更新时间替代 |
-| `source_snapshot_at` | Nebius 当前 Spot API 的源快照时间；与本次观察和单项生效时间分别保留 |
-| `conditions`、`notes` | 资格、合同、组件范围、价格和库存限制 |
+| `provider` / `product_type` | 平台及 GPU VM / 容器产品范围；产品线另保留在条件中 |
+| `gpu_model` / `gpu_variant` / `vram_gb` | 来源型号、硬件版本、单卡显存；未知为空 |
+| `raw_name` / `raw_sku` | 官方原名与实际存在的规格标识；不为网站行猜造云 API SKU |
+| `gpu_count` | 明确实例卡数；每 GPU 费率本身不证明整机有几张卡 |
+| `amount` / `currency` / `unit` | 原币十进制字符串、币种、`gpu_hour` / `gpu_month`；未知金额 null |
+| `instance_price` | 来源完整实例 / 套餐总价及单位，与每卡价分开 |
+| `billing_mode` / `price_basis` / `quote_status` | 计费方式、每卡 / 分摊 / 组件 / 起价口径、数值 / 起价 / 联系销售 |
+| `pricing_tier` / `membership_required` / `account_scope` | 普通 / 会员及账号适用条件，不假定所有人都有折扣 |
+| `resources` / `requested_configuration` | 可确认 CPU、RAM、磁盘与单位；GB 不改称 GiB，范围不选成某个具体预设 |
+| `availability` | 来源明确的下线 / 结束 / 可租标记，或 unknown；不保证购买资格 |
+| `source_url` / `source_type` / `api_endpoint` | 来源页面 / 接口类型及实际网站 JSON 路由；不包含签名请求或凭据 |
+| `observed_at` / `effective_from` / `effective_until` | 本次观察和来源明确生效范围；缺失生效日期不伪造 |
+| `source_snapshot_at` | Nebius 当前 Spot 源快照，与本次观察及单项生效时间分别记录 |
+| `conditions` / `notes` / `normalization` | 资格、产品线、费用范围、分摊与舍入公式及未核实事项 |
 
-`normalization` 记录分摊公式和舍入。正金额不允许因舍入变为伪免费价。若分项不能组成整套实例总价，不能假装得到整机每卡价。小时和月份是不同单位，不假定一个月等于 720 小时。
+若分项无法组成完整实例，不能假装得到整机每卡价。明确整机小时总价只按来源卡数分摊；正价不能舍入成伪免费价。
 
-## 地理证据
+## 地理证据和筛选
 
-`regions`、`zones` 保留原始来源代码，`location` 保留可核对的名称及 `country_code`；`compute_countries` 仅为当前价格实际绑定的部署国家 ISO 两字母代码。供应商的官方国家归类按来源保留，不由代码前缀或总部改写。
+`regions` / `zones` 是价格绑定代码，`location` 保留可核对名称及国家，`compute_countries` 为部署国家 ISO 两字母代码。`unlocated_catalog` 表示已取到价格但无价格地区；`platform_coverage` 只有平台供给范围；`regional_quote` / `zone_quote` 为来源实际地区价；`requested_*_quote` 为完整请求配置在指定位置的询价，不表示响应独立回显全部部署条件。
 
-`price_scope` 的含义：
+Nebius 当前 Spot API 的 region 是价格位置；官网 JSON 目录没有价格地区，不拼接文档覆盖。Lambda `capacity_regions` 仅为容量；AutoDL 首页无位置，授权市场保留原始 region，不猜国家。UCloud CompShare 的配置位置和已核验国家映射随请求 / 来源保留，UHost 认证询价核对官方位置目录；不同产品的地区与配置不能互相套用。未知国家不按前缀、总部、币种或 IP 补齐，也不宣称全球统一。
 
-| 值 | 含义 |
-| --- | --- |
-| `unlocated_catalog` | 价格已取到，但没有可关联的价格地区 |
-| `platform_coverage` | 只有硬件平台机房覆盖，不证明逐地区价格 |
-| `regional_quote` / `zone_quote` | 来源具体市场记录或套餐绑定地区/可用区 |
-| `requested_region_quote` / `requested_zone_quote` | 官方估价/询价对明确位置及完整资源配置返回的账号金额；来源是否独立回显位置见验证字段和 notes |
+筛选字段包括数组 `gpu_models`、`gpu_counts`、`currencies`、`billing_modes`、`regions`、`zones`、`compute_countries`、`coverage_regions`、`coverage_countries`。国家 / region / zone 必须在同一条报价内成立；全局筛选逐字段覆盖每来源筛选。销售国家 `sales_countries` 当前不支持。
 
-`region_price_verified=false` 的记录不支持据此建立地区价格；不生成 `compute_countries`。Nebius 公开文档中的供给限制单独保存为 `coverage_regions` / `coverage_countries`，`coverage_location_source` 记录文档与官方国家映射依据；价格 `regions` / `compute_countries` 保持空。即使平台仅在单一 region 供给，也不据此变成一次独立地区询价。Nebius 匿名当前 Spot API 的 `region` 才是该条实际价格位置。Lambda API 的 `capacity_regions` 独立记录容量，不转换为价格地区。来源没有位置不证明全球统一价。
+`--country` / `--region` / `--zone` 仅筛实际价格位置，文档供给另用 `--coverage-country` / `--coverage-region`。来源整体不支持维度报 `unsupported_filter`；相关记录本应支持却缺证据报 `unverifiable_filter`；证据完整且无匹配为 `no_matches`。开启地区筛选后，未知地区目录不能被强行当成该地区价格。
 
-UCloud 的公开位置来自官方 `ListAllRegions`/`ListAllZones`，每套餐×可用区独立。认证 API 先核对目标 Region+Zone 与官方目录，再询价；响应不独立回显位置，范围明确标为请求上下文。Nebius API 先只读确认项目地区，再核对官方国家及 GPU 平台可用地区，不能仅相信调用者填写的国家。AutoDL 登录市场保留挂牌原始地区代码/名称；没有可核实国家或可用区时保持未知。Azure 的价格地区来自 Retail Prices 响应，国家来自官方地区目录的已核验代码映射，`location_source` 记录依据；未知国家保持空，不把地区代码前缀当证据。
+## 五家金额来源
 
-## 筛选
+- **Nebius**：Spot API 读取实际 `GPU hour`、币种、region 和生效时间；网站 Next.js JSON 补普通 on-demand 目录，CPU / RAM 按表中 GB 保留，未公布卡数和显存不猜。From 和 Contact us 留审计。兼容文档的 L40S GPU 组件不当整机。账号估价必须核对整套资源和聚合单位。
+- **Lambda**：网页每卡价原样读取；API `price_cents_per_hour / 100 / specs.gpus` 分摊，整实例原值保留，容量不补成地区价。
+- **Crusoe**：仅 GPU instances 区块；数值普通报价与 Contact sales 分开，不混入账单 / 模型部署。
+- **AutoDL**：首页普通 / 会员各自读取；授权市场按显示金额和小时单位解析，保留资格与地区，不取已有实例或 SSH 数据。
+- **UCloud**：CompShare 实际 `GetCompShareInstancePrice` 询价的 `OriginalPriceDetails` 提供普通原价；优惠 `PriceDetails` 资格未核实，仅审计。按实际 GPU 数分摊完整配置小时费，产品线及配置保留。显式签名 UHost 需业务成功与单位核对；旧匿名 UHost 月包仅在兼容来源中保留月单位，不换算小时。
 
-`filters` 和每来源 `provider_filters` 均支持数组字段 `gpu_models`、`gpu_counts`、`currencies`、`billing_modes`、`regions`、`zones`、`compute_countries`、`coverage_regions`、`coverage_countries`、`sales_countries`。全局筛选逐字段覆盖每来源筛选。`sales_countries` 目前不支持。CLI `--country` / `--region` 只匹配实际价格位置；Nebius 文档的供给范围另用 `--coverage-country` / `--coverage-region`，不会与价格位置混合。
-
-| 来源 | 地区 | 国家 | 可用区 | 卡数 |
-| --- | --- | --- | --- | --- |
-| Nebius public 当前 Spot | 当前 API 返回的价格地区 | 官方地区目录映射；未知为空 | 不支持 | 未公布 |
-| Nebius public 文档 | 仅 `coverage_regions`，不当价格地区 | 仅 `coverage_countries`，不当价格国家 | 不支持 | 不支持 |
-| Nebius api | 已验证项目地区的配置估价 | 官方映射 | 不支持 | 显式已核对预设 |
-| Lambda public/api | 不支持地区差价筛选 | 不支持 | 不支持 | 来源明确的卡数 |
-| Crusoe public | 不支持 | 不支持 | 不支持 | 不支持 |
-| AutoDL public | 不支持 | 不支持 | 不支持 | 不支持 |
-| AutoDL market | 具体市场地区 | 不支持 | 不支持 | 未选定实例卡数 |
-| UCloud public/api | 来源套餐/目标配置 | 官方位置目录 | 来源套餐/目标配置 | 来源配置 |
-| RunPod | 不支持 | 不支持 | 不支持 | 目录无完整实例卡数 |
-| DigitalOcean | 不支持 | 不支持 | 不支持 | 来源明确的 1 / 8 卡 |
-| Verda | 不支持 | 不支持 | 不支持 | 来源明确的 1 / 2 / 4 / 8 卡 |
-| Azure | 价格返回的 ARM region | 官方地区目录已核验映射；未知为空 | 不支持 | 已核验固定 SKU 卡数 |
-
-本应可支持但缺少元数据时返回 `unverifiable_filter`；整个来源不支持的维度返回 `unsupported_filter`；证据完整且无匹配为 `no_matches`。国家、地区、可用区要在同一报价记录上同时匹配，不能跨记录拼接。
-
-## 各平台原始金额转换
-
-- Lambda public：官网直接显示 USD/GPU/hour；乘明确卡数得到派生实例价。API：`price_cents_per_hour / 100` 得整实例美元小时价，再除以 `specs.gpus`。容量不是独立地区价格。
-- Nebius public：文档的 GPU/CPU/RAM 组件、USD/ILS、生效列和起价原样保留，位置仅为供给覆盖；免费匿名 `GET /billing/v1alpha1/spot-price` 的当前实际费率按平台、region、原币、`GPU hour` 及 `effectiveTime` 核对，返回 `regional_quote`。采样时间、生效时间与 `snapshotTime` 分开，历史图表聚合点不作现价。可选账号 API：精确 `resourceCosts` 与 `totalCosts` 按响应聚合单位核对，固定整套资源费用分摊，合同价独立标记；缺完整 GPU 费用的月份不得当 GPU 月价。
-- Crusoe：仅 GPU instances，排除模型 API/微调/托管推理；Contact sales 金额为 null。
-- AutoDL public：普通和会员各自读取。market：按官网已选按量口径读取每 GPU 页面金额，保留每卡 CPU/RAM、区域、账号/会员条件和观察到的可租状态，不包含已有实例或 SSH 信息。
-- UCloud public：`CurPrice`/`OriginalPrice` 分值除 100，整月套餐再按卡数分摊为 `gpu_month`。API：`RetCode=0` 且响应 ChargeType 与目标 Dynamic 一致才接受 CNY 实例小时价；HTTP 200 不等于业务成功。
-
-- RunPod：`securePrice` / `communityPrice` 分别为对应已启用云档位的公开每 GPU 小时价，保留 `cloud_tier`；目录不是完整实例配置，价格为零 / 空不代表免费。
-- DigitalOcean：文档金额为完整 GPU Droplet 实例小时价，按明确 1 / 8 卡数分摊；按需与 Spot、风冷 / 液冷变体分开；保留 `source_last_verified` 文档日期，不当生效日。
-- Verda：USD / EUR 分别抓取且核验选中币种；表格与 JSON-LD 核对完整实例小时总价，按明确卡数分摊，原实例资源和金额保留；不混入 Reserved 等其他产品。
-- Azure：固定四个 GPU SKU 的公开基础 VM `Consumption` 主计量地区 USD 费率；按明确 GPU 数分摊，保留 `azure_meter` 和 `effective_from`。分页完整后才解析，按需 / Spot 分开；国家仅由官方地区目录的明确映射关联，未知为空；不推断 zone。
-
-有效账号询价及登录市场的成功联调情况以 [文档对照](DOCUMENT_COVERAGE.md) 为准，合成测试不代表实时取价成功。
-
-Azure 国家映射并非完整：当相关记录仍有未知国家，单独请求国家会返回 `unverifiable_filter`；可联合已核验地区限定相关集合，例如 `--country US --region eastus`。未知位置不能静默当作无匹配。
+其他四家和具体请求 / 认证边界见 [PROVIDERS.md](PROVIDERS.md)。合成测试不能证明有效账号成功联调，历史样本不能作为现价。

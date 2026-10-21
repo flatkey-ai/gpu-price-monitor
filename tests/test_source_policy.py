@@ -15,12 +15,12 @@ from unittest.mock import patch
 from bs4 import BeautifulSoup
 
 from gpu_price_monitor import Settings, collect_prices
-from gpu_price_monitor.cli import main
+from gpu_price_monitor.cli import main, validate_config
 from gpu_price_monitor.collector import provider_source
 from gpu_price_monitor.csv_export import prices_to_csv, publishable_quote
 from gpu_price_monitor.providers import (
     autodl, crusoe, lambda_cloud, lambda_public, nebius, nebius_quote,
-    nebius_spot, ucloud, ucloud_public,
+    nebius_spot, ucloud, ucloud_compshare, ucloud_public,
 )
 from gpu_price_monitor.transport import FetchError
 
@@ -49,6 +49,17 @@ def public_ucloud_quotes():
     return ucloud_public.parse_catalog(**payload, observed_at=OBSERVED)
 
 
+def hourly_ucloud_outcome():
+    # Synthetic routing fixture; the adapter's numeric/unit/schema contracts
+    # are exercised separately in test_ucloud_compshare.py.
+    quote = {**public_ucloud_quotes()[0], "unit": "gpu_hour", "billing_mode": "on_demand",
+             "availability": "unknown", "geographic_scope": "requested_zone",
+             "source_url": ucloud_compshare.SOURCE_URL,
+             "product_line": ucloud_compshare.PRODUCT_LINE}
+    quote["instance_price"] = {**quote["instance_price"], "unit": "instance_hour"}
+    return {"prices": [quote], "errors": [], "status": "ok", "discovery": {"requested_target_count": 1}}
+
+
 def autodl_pages():
     soup = BeautifulSoup(text_fixture("autodl-public-pricing.html"), "html.parser")
     return [str(section) for section in soup.select(".display-module")]
@@ -73,6 +84,9 @@ class SourcePolicyTests(unittest.TestCase):
         self.spot_api = self.block("gpu_price_monitor.providers.nebius_spot.request_json")
         self.lambda_api = self.block("gpu_price_monitor.providers.lambda_cloud.request_json")
         self.ucloud_api = self.block("gpu_price_monitor.providers.ucloud.request_json")
+        self.compshare = self.block("gpu_price_monitor.providers.ucloud_compshare.collect_result")
+        self.catalog = self.stack.enter_context(patch(
+            "gpu_price_monitor.providers.nebius_catalog.collect_quotes", return_value=[]))
 
     def block(self, target):
         return self.stack.enter_context(patch(
@@ -95,20 +109,71 @@ class SourcePolicyTests(unittest.TestCase):
         self.transport.assert_not_called()
         return result, result["provider_results"][0]
 
-    def test_nebius_api_policies_only_request_current_spot_api(self):
+    def test_preferred_nebius_returns_on_demand_catalog_beside_regional_spot(self):
+        self.allow(self.spot_api, json_fixture("nebius-current-spot.json"))
+        catalog_quote = {**spot_quotes()[0], "amount": "9.50", "billing_mode": "on_demand",
+                         "regions": [], "compute_countries": [], "geographic_scope": "unspecified",
+                         "source_url": "https://nebius.com/prices", "source_type": "official_website_json",
+                         "account_scope": "public_catalog"}
+        self.catalog.return_value = [catalog_quote]
+        result, source = self.collect_one("nebius", source_policy="api_preferred")
+        self.assertEqual(result["market_comparison"]["eligible_quote_count"], len(spot_quotes()) + 1)
+        self.assertEqual(result["comparison"]["eligible_quote_count"], len(spot_quotes()))
+        self.assertEqual(result["prices"][-1]["price_scope"], "unlocated_catalog")
+        self.assertFalse(result["prices"][-1]["region_price_verified"])
+        self.assertEqual(source["source_types"], ["official_public_api", "official_website_json"])
+        self.catalog.assert_called_once()
+
+    def test_nebius_api_failure_does_not_return_catalog_as_replacement(self):
+        self.spot_api.side_effect = FetchError("network_error", "The pricing source could not be reached.", True)
+        result, source = self.collect_one("nebius", source_policy="api_preferred")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["prices"], [])
+        self.assertEqual(source["error"]["code"], "network_error")
+        self.catalog.assert_not_called()
+
+    def test_nebius_api_only_never_calls_website_json(self):
+        self.allow(self.spot_api, json_fixture("nebius-current-spot.json"))
+        self.catalog.side_effect = AssertionError("API-only must not call website bootstrap or catalog")
+        result, _ = self.collect_one("nebius", source_policy="api_only")
+        self.assertEqual(result["status"], "success")
+        self.catalog.assert_not_called()
+
+    def test_nebius_catalog_failure_retains_successful_spot_with_partial_status(self):
+        self.allow(self.spot_api, json_fixture("nebius-current-spot.json"))
+        self.catalog.side_effect = FetchError("parse_failed", "Website data changed.")
+        result, source = self.collect_one("nebius", source_policy="api_preferred")
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(source["status"], "partial")
+        self.assertEqual(source["error"]["code"], "partial_collection")
+        self.assertEqual(source["source_errors"][0]["code"], "parse_failed")
+        self.assertEqual(len(result["prices"]), len(spot_quotes()))
+        self.assertEqual({q["source_type"] for q in result["prices"]}, {"official_public_api"})
+
+    def test_config_accepts_the_selected_mixed_public_nebius_source(self):
+        settings = Settings(source_policy="api_preferred")
+        config = {"schema_version": 1, "request": {"timeout_seconds": 30, "max_retries": 2},
+                  "providers": [{"id": "nebius", "enabled": True,
+                                 "planned_source": "official_public_sources", "filters": {}}]}
+        self.assertEqual(validate_config(config, settings=settings), [])
+        self.spot_api.assert_not_called()
+        self.catalog.assert_not_called()
+
+    def test_nebius_api_only_stays_pure_and_preferred_adds_website_json_catalog(self):
         self.allow(self.spot_api, json_fixture("nebius-current-spot.json"))
         for policy in ("api_preferred", "api_only"):
             with self.subTest(policy=policy):
                 self.spot_api.reset_mock()
                 result, source = self.collect_one("nebius", source_policy=policy)
                 self.assertEqual(result["status"], "success")
-                self.assertEqual(source["source_type"], "official_public_api")
+                self.assertEqual(source["source_type"], "official_public_sources" if policy == "api_preferred" else "official_public_api")
                 self.assertEqual(source["source_url"], nebius_spot.SOURCE_URL)
                 self.assertEqual(source["api_endpoint"], nebius_spot.SOURCE_URL)
-                self.assertEqual(source["collection_method"], "http_json")
-                self.assertEqual(source["selection_reason"], "anonymous_regional_spot_api")
+                self.assertEqual(source["collection_method"], "http_json_with_website_bootstrap" if policy == "api_preferred" else "http_json")
+                self.assertEqual(source["selection_reason"], "regional_spot_api_and_on_demand_website_json" if policy == "api_preferred" else "anonymous_regional_spot_api")
                 self.assertIsNone(source["fallback_reason"])
-                self.assertNotIn("additional_source_urls", source)
+                if policy == "api_only":
+                    self.assertNotIn("additional_source_urls", source)
                 self.assertEqual(result["comparison"]["eligible_quote_count"], len(spot_quotes()))
                 self.assertEqual({q["source_type"] for q in result["prices"]}, {"official_public_api"})
                 self.spot_api.assert_called_once_with(
@@ -235,7 +300,8 @@ class SourcePolicyTests(unittest.TestCase):
         self.ucloud_api.assert_called_once()
         self.html.assert_not_called()
 
-    def test_ucloud_without_keys_keeps_anonymous_monthly_prices_out_of_compact_csv(self):
+    def test_ucloud_without_keys_uses_anonymous_hourly_compshare_api(self):
+        self.allow(self.compshare, hourly_ucloud_outcome())
         for policy in ("api_preferred", "api_only"):
             with self.subTest(policy=policy), patch.object(
                 ucloud_public, "collect_quotes", return_value=public_ucloud_quotes(),
@@ -243,17 +309,39 @@ class SourcePolicyTests(unittest.TestCase):
                 result, source = self.collect_one("ucloud", source_policy=policy)
                 self.assertEqual(result["status"], "success")
                 self.assertEqual(source["source_type"], "official_public_api")
-                self.assertEqual(source["source_url"], ucloud_public.SOURCE_URL)
-                self.assertEqual(source["api_endpoint"], ucloud_public.API_URL)
+                self.assertEqual(source["source_url"], ucloud_compshare.SOURCE_URL)
+                self.assertEqual(source["api_endpoint"], ucloud_compshare.API_URL)
                 self.assertNotEqual(source["source_url"], source["api_endpoint"])
-                self.assertEqual(source["selection_reason"], "anonymous_monthly_promotion_api")
-                self.assertEqual({q["unit"] for q in result["prices"]}, {"gpu_month"})
-                self.assertEqual(result["comparison"]["eligible_quote_count"], 0)
-                self.assertEqual(list(csv.DictReader(io.StringIO(
+                self.assertEqual(source["selection_reason"], "anonymous_compshare_hourly_quote_api")
+                self.assertEqual({q["unit"] for q in result["prices"]}, {"gpu_hour"})
+                self.assertEqual(result["comparison"]["eligible_quote_count"], 1)
+                self.assertEqual(len(list(csv.DictReader(io.StringIO(
                     prices_to_csv(result, bilingual_headers=False).lstrip("\ufeff"),
-                ))), [])
-                promotion.assert_called_once()
+                )))), 1)
+                promotion.assert_not_called()
         self.ucloud_api.assert_not_called()
+
+    def test_compshare_partial_failure_retains_successes_and_exposes_target_errors(self):
+        outcome = hourly_ucloud_outcome()
+        outcome["status"] = "partial"
+        outcome["errors"] = [{"code": "quote_rejected", "message": "Synthetic rejection.",
+                              "retryable": False, "target": {"Region": "cn-sh2", "Zone": "cn-sh2-02"}}]
+        self.allow(self.compshare, outcome)
+        result, source = self.collect_one("ucloud", source_policy="api_preferred")
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(source["status"], "partial")
+        self.assertEqual(source["error"]["code"], "partial_collection")
+        self.assertEqual(source["target_errors"], outcome["errors"])
+        self.assertEqual(len(result["prices"]), 1)
+        self.assertEqual(source["market_quote_count"], 1)
+
+    def test_compshare_region_and_zone_are_passed_to_target_selection(self):
+        self.allow(self.compshare, hourly_ucloud_outcome())
+        result = collect_prices(["ucloud"], {"regions": ["cn-sh2"], "zones": ["cn-sh2-02"]},
+                                settings=Settings(source_policy="api_preferred"))
+        self.compshare.assert_called_once_with(settings=Settings(source_policy="api_preferred"),
+                                              observed_at=OBSERVED, regions=["cn-sh2"], zones=["cn-sh2-02"])
+        self.assertNotEqual(result["status"], "failed")
 
     def test_configured_policy_preserves_public_adapters_even_with_unused_keys(self):
         self.allow(self.html, text_fixture("lambda-public-pricing.html"))
@@ -326,7 +414,7 @@ class SourcePolicyTests(unittest.TestCase):
         expected = {
             "nebius": spot_quotes(),
             "lambda": lambda_cloud.parse_prices(json_fixture("lambda-instance-types.json"), observed_at=OBSERVED),
-            "ucloud": public_ucloud_quotes(),
+            "ucloud": hourly_ucloud_outcome()["prices"],
             "crusoe": crusoe.parse_prices(text_fixture("crusoe-pricing.html"), observed_at=OBSERVED,
                                            as_of=date(2026, 10, 21)),
             "autodl": [quote for page in autodl_pages()
@@ -336,16 +424,16 @@ class SourcePolicyTests(unittest.TestCase):
         self.allow(self.lambda_api, json_fixture("lambda-instance-types.json"))
         self.allow(self.html, text_fixture("crusoe-pricing.html"))
         self.allow(self.browser, autodl_pages())
-        with patch.object(ucloud_public, "collect_quotes", return_value=deepcopy(expected["ucloud"])):
-            result = collect_prices(settings=settings)
+        self.allow(self.compshare, hourly_ucloud_outcome())
+        result = collect_prices(settings=settings)
         self.assertEqual(result["status"], "success")
         self.assertEqual(len(result["prices"]), sum(len(group) for group in expected.values()))
         self.assertEqual({r["provider"]: r["returned_count"] for r in result["provider_results"]},
                          {provider: len(group) for provider, group in expected.items()})
         self.assertEqual({r["status"] for r in result["provider_results"]}, {"success"})
         eligible = [q for q in result["prices"] if publishable_quote(q)]
-        self.assertEqual(len(eligible), len(expected["nebius"]))
-        self.assertEqual({q["provider"] for q in eligible}, {"nebius"})
+        self.assertEqual(len(eligible), len(expected["nebius"]) + len(expected["ucloud"]))
+        self.assertEqual({q["provider"] for q in eligible}, {"nebius", "ucloud"})
         self.assertEqual(result["comparison"]["eligible_quote_count"], len(eligible))
         self.assertEqual(result["execution"], {"runtime": "python", "parsing": "deterministic_rules",
                                                "uses_llm": False, "source_policy": "api_preferred"})

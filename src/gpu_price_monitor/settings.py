@@ -14,6 +14,7 @@ from dotenv.parser import parse_stream
 PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl",
                        "runpod", "digitalocean", "verda", "azure"})
 SOURCES = frozenset({
+    "official_public_sources",
     "official_api", "public_documentation", "public_page",
     "official_quote_api", "official_public_api", "authorized_browser",
 })
