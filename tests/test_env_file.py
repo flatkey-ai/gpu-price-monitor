@@ -51,6 +51,25 @@ class TemporaryEnvironmentCase(unittest.TestCase):
 
 
 class EnvFileTests(TemporaryEnvironmentCase):
+    def test_source_policy_uses_file_then_process_layer_without_changing_source_flags(self):
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred\nLAMBDA_SOURCE=public\n")
+        file_settings = Settings.from_env({}, env_file=self.env_file)
+        self.assertEqual(file_settings.source_policy, "api_preferred")
+        process_settings = Settings.from_env({"GPU_PRICE_MONITOR_SOURCE_POLICY": "api_only"},
+                                             env_file=self.env_file)
+        self.assertEqual(process_settings.source_policy, "api_only")
+        self.assertEqual(process_settings.lambda_source, "public")
+        self.transport.assert_not_called()
+
+    def test_empty_or_invalid_source_policy_override_does_not_fall_back_to_file(self):
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred\n")
+        for policy in ("", "synthetic-secret-policy", "API_ONLY"):
+            with self.subTest(policy=policy):
+                self.assert_safe_configuration_error({"GPU_PRICE_MONITOR_SOURCE_POLICY": policy},
+                                                     env_file=self.env_file)
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=synthetic-secret-policy\n")
+        self.assert_safe_configuration_error({}, env_file=self.env_file)
+
     def test_loading_is_explicit_and_empty_mapping_isolates_host(self):
         self.write_env("LAMBDA_API_KEY=from-local-file\n")
         with patch.dict(os.environ, {"LAMBDA_API_KEY": "from-host-process"}, clear=True):
@@ -321,6 +340,55 @@ class EnvFileCliTests(TemporaryEnvironmentCase):
         self.assertEqual(collector.call_args.kwargs["settings"].lambda_api_key, "synthetic-secret")
         self.assertEqual(collector.call_args.kwargs["settings"].providers, ("lambda",))
         self.assertNotIn("synthetic-secret", stdout + stderr)
+
+    def test_collect_source_policy_inherits_env_file_unless_cli_explicitly_overrides_it(self):
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred\nLAMBDA_SOURCE=public\n"
+                       "LAMBDA_API_KEY=synthetic-secret\n")
+        response = {"schema_version": 1, "status": "success", "prices": [], "provider_results": []}
+        for extra, expected in (([], "api_preferred"), (["--source-policy", "configured"], "configured"),
+                                (["--source-policy", "api_only"], "api_only")):
+            with self.subTest(expected=expected), patch(
+                "gpu_price_monitor.cli.collect_prices", return_value=response
+            ) as collector:
+                code, stdout, stderr = self.run_cli(["collect", "--env-file", str(self.env_file), *extra])
+            self.assertEqual(code, 0)
+            settings = collector.call_args.kwargs["settings"]
+            self.assertEqual(settings.source_policy, expected)
+            self.assertEqual(settings.lambda_source, "public")
+            self.assertNotIn("synthetic-secret", stdout + stderr)
+        self.transport.assert_not_called()
+
+    def test_status_source_policy_cli_override_reaches_source_selection_without_network(self):
+        self.write_env("GPU_PRICE_MONITOR_PROVIDERS=lambda\nGPU_PRICE_MONITOR_SOURCE_POLICY=configured\n"
+                       "LAMBDA_API_KEY=synthetic-secret\n")
+        with patch("gpu_price_monitor.cli.provider_source", return_value="official_api") as selected:
+            code, stdout, stderr = self.run_cli(["status", "--env-file", str(self.env_file),
+                                                "--source-policy", "api_preferred"])
+        self.assertEqual(code, 0)
+        self.assertEqual(selected.call_args.args[1].source_policy, "api_preferred")
+        self.assertIn("Source policy: api_preferred", stdout)
+        self.assertIn("lambda source type: official_api", stdout)
+        self.assertNotIn("synthetic-secret", stdout + stderr)
+        self.transport.assert_not_called()
+
+    def test_validate_config_source_policy_cli_override_is_applied_before_validation(self):
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=api_only\nLAMBDA_API_KEY=synthetic-secret\n")
+        config = Path(__file__).resolve().parents[1] / "configs/collect.example.json"
+        code, stdout, stderr = self.run_cli(["validate-config", "--config", str(config),
+                                            "--env-file", str(self.env_file), "--source-policy", "configured"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("synthetic-secret", stdout + stderr)
+        self.transport.assert_not_called()
+
+    def test_collect_invalid_source_policy_environment_is_safe_json_before_collection(self):
+        self.write_env("GPU_PRICE_MONITOR_SOURCE_POLICY=synthetic-secret-policy\n")
+        with patch("gpu_price_monitor.cli.collect_prices") as collector:
+            code, stdout, stderr = self.run_cli(["collect", "--env-file", str(self.env_file)])
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(stdout)["error"]["code"], "configuration_error")
+        self.assertNotIn("synthetic-secret", stdout + stderr)
+        collector.assert_not_called()
+        self.transport.assert_not_called()
 
     def test_collect_invalid_env_file_returns_safe_json_instead_of_collecting(self):
         self.write_env("LAMBDA_API_KEY='synthetic-secret\n")

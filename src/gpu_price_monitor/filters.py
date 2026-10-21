@@ -46,7 +46,9 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
         if settings is not None and settings.nebius_source == "api":
             supported.update({"regions", "compute_countries", "gpu_counts"})
         else:
-            supported.update({"regions", "compute_countries", "coverage_regions", "coverage_countries"})
+            supported.update({"regions", "compute_countries"})
+            if settings is None or settings.source_policy == "configured":
+                supported.update({"coverage_regions", "coverage_countries"})
     if provider in {"lambda", "digitalocean", "verda", "azure"}:
         supported.add("gpu_counts")
     if provider == "azure":

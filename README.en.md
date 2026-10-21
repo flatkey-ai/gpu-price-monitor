@@ -4,25 +4,29 @@ A Python library and JSON / CSV CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud
 
 [中文](README.md) · [Document requirements and implementation](docs/DOCUMENT_COVERAGE.md) · [Provider details](docs/PROVIDERS.md) · [Environment template](.env.example)
 
-The current **0.11.0** release defaults to a strict **10-column regional GPU-hour comparison CSV**. Only actual numeric hourly quotes with verified countries and regions are included. Use `--csv-profile full` for the original 51-column source audit table. Nebius public mode now includes its free, anonymous current regional Spot API; documented platform coverage is stored separately. Both profiles retain bilingual headers by default, with an English-only option. `--providers all` selects the nine providers above. Install from source and check `gpu-price-monitor --version`; this version has not been published to PyPI.
+The current **0.12.0** release adds source policies. For the five providers in the supplied document, use `--providers nebius,lambda,crusoe,autodl,ucloud --source-policy api_preferred`: use suitable APIs when available, select public pages under explicit rules when an API or credentials are missing, and report the actual source. Collection runs in standalone Python, without Codex, an LLM, a model API key, or manual page interpretation. Crusoe and AutoDL public prices still require deterministic page rules; this is not an API-only implementation for all five providers.
+
+CSV still defaults to a strict **10-column regional GPU-hour comparison table**. Only actual numeric hourly quotes with verified countries and regions are included. Use `--csv-profile full` for the original 51-column source audit table. Both profiles retain bilingual headers by default, with an English-only option. `--providers all` selects all nine providers above. Install from source and check `gpu-price-monitor --version`; this version has not been published to PyPI.
 
 ## What the locations mean
 
 A public catalog does not necessarily publish a separate price for each country. The library does not infer a price location from headquarters, currency, IP address, capacity, or a platform's list of data centers, and does not copy one catalog price to every country. Missing region fields do not establish globally uniform pricing; no such claim is made without explicit official evidence.
 
-| Provider | Free default | Geographic evidence |
+| Provider | Source under `api_preferred` | Geographic evidence |
 | --- | --- | --- |
-| Nebius | Official Compute document plus the anonymous current Spot API | Actual Spot entries bind a platform, region, currency and effective time; countries use the official region directory. Document coverage stays separate. Optional configuration estimates require a token |
-| Lambda | Public instance page, retaining 1 / 2 / 4 / 8 GPU configurations | Public prices are not region-bound; API capacity locations are retained separately from price locations |
-| Crusoe | The public GPU instances section | No region-specific prices in this table; Contact sales remains a nonnumeric quote |
-| AutoDL | Public ordinary / member price cards | Homepage prices have no location. Optional authorized market collection preserves the market's region codes |
-| UCloud | Anonymous official promotional packages and location catalogs | Packages are associated with their official country, region, and zone; optional configuration quotes require account keys and targets |
+| Nebius | Public mode calls only the anonymous current Spot API; explicit `api` retains authenticated configuration estimates | Spot entries bind a platform, region, currency and effective time; countries use the official region directory; no Compute-document fetch is needed |
+| Lambda | Instance API with `LAMBDA_API_KEY`; deterministic public-page parsing without a key | Public prices are not region-bound; API capacity locations remain separate; 1 / 2 / 4 / 8 GPU configurations are retained |
+| Crusoe | Deterministic parsing of the official GPU instances section; no verified public VM price API found | No region-specific prices in this table; Contact sales stays nonnumeric; billing and managed inference are excluded |
+| AutoDL | Playwright with fixed DOM rules for ordinary/member cards; explicit `market` retains the authorized market mode | Homepage prices have no location; market region codes are retained; existing-resource Pro APIs are not market catalogs |
+| UCloud | Account quote API when either account key is configured; anonymous promotional API otherwise | Account quotes require both keys and targets; anonymous regional monthly packages do not become hourly rates |
 | RunPod | Anonymous official GraphQL GPU Pods catalog | Secure / Community tiers are separate; no price-bound regions are published in this catalog |
 | DigitalOcean | Official GPU Droplet pricing document | Separate on-demand / Spot plans; full instance totals allocated across explicit 1 / 8 GPU counts; no price regions |
 | Verda | Official USD / EUR GPU instances tables | Fetch each currency separately; retain on-demand / Spot and instance totals; no inferred compute countries |
 | Azure | Anonymous official Retail Prices API | Already-effective regional rates for four verified SKUs only (T4, GB200, H100 NVL, and A100 PCIe); official region-directory country mappings; not all SKUs, countries, or capacity |
 
-**Public capture at 2026-10-21T08:45:38.349457Z: 845 source records, with 224 eligible regional GPU-hour quotes**: 12 Nebius current Spot entries and 212 Azure entries. See the [224-row, native-currency comparison CSV](examples/regional-hourly-2026-10-21.csv). The other seven free sources lack complete price locations or provide offline monthly packages, so they contribute no eligible comparison rows. This does not establish that those providers have no purchasable products.
+The five-provider 0.12.0 run completed at **2026-10-21 17:18:56 Asia/Shanghai**, with all sources successful: Nebius 12, Lambda 22, Crusoe 24, AutoDL 24 and UCloud 374 source records. The [actual source report](examples/five-api-preferred-sources-2026-10-21.json) preserves execution policy and adapter diagnostics. Without account keys, Lambda used its public page and UCloud returned monthly promotional packages; only the 12 Nebius regional Spot quotes qualified for the strict hourly CSV. This does not establish five-provider regional hourly coverage.
+
+**The 0.11.0 public capture at 2026-10-21T08:45:38.349457Z contained 845 source records and 224 eligible regional GPU-hour quotes**: 12 Nebius current Spot entries and 212 Azure entries. See the [224-row, native-currency comparison CSV](examples/regional-hourly-2026-10-21.csv). The other seven sources in that capture lacked complete price locations or provided offline monthly packages, so they contributed no eligible comparison rows. This does not establish that those providers have no purchasable products or verify successful authenticated collection in 0.12.0.
 
 The [833-record nine-provider JSON](examples/nine-providers-2026-10-21.json) and [five-provider JSON](examples/five-providers-2026-10-21.json) are historical audit captures. They include unlocated catalogs, platform coverage, contact-sales entries and offline monthly packages; they are not the current comparison table. Use `comparison.eligible_quote_count` for the current eligible count.
 
@@ -41,7 +45,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install '.[browser]'
 python -m playwright install chromium
-python -m gpu_price_monitor collect --providers all --coverage --pretty
+python -m gpu_price_monitor collect --providers nebius,lambda,crusoe,autodl,ucloud --source-policy api_preferred --pretty
 ```
 
 On Windows PowerShell use `py -3 -m venv .venv` and `.\.venv\Scripts\Activate.ps1`. On Linux, missing browser libraries may require `python -m playwright install --with-deps chromium`. For HTTP-only collection install `python -m pip install .` and select `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`.
@@ -51,12 +55,30 @@ Stdout contains JSON by default, or CSV with `collect --format csv`; diagnostics
 ```python
 from gpu_price_monitor import Settings, collect_prices
 
-result = collect_prices("all", settings=Settings(), include_coverage=True)
+result = collect_prices(
+    ["nebius", "lambda", "crusoe", "autodl", "ucloud"],
+    settings=Settings(source_policy="api_preferred"),
+    include_coverage=True,
+)
 for quote in result["prices"]:
     print(quote["provider"], quote["gpu_model"], quote["amount"],
           quote["currency"], quote["unit"], quote["price_scope"],
           quote["compute_countries"], quote["regions"], quote["zones"])
 ```
+
+## Source policies and execution evidence
+
+| Policy | Behavior |
+| --- | --- |
+| `configured` | Backward-compatible default: honor each `*_SOURCE` setting; the presence of a key alone does not enable an account API |
+| `api_preferred` | Recommended for the original five: public Nebius uses only Spot API; Lambda uses its API with a key or the public page without one; any UCloud key requires complete account-quote configuration, otherwise use anonymous promotional APIs; Crusoe and AutoDL use clearly labeled page rules |
+| `api_only` | Permit price APIs only; page sources such as Crusoe and AutoDL fail with `api_price_source_unavailable`, without page fallback; missing Lambda keys or incomplete account configuration also fail |
+
+Use `Settings(source_policy="api_preferred")`, CLI `--source-policy api_preferred`, or `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred` loaded through `Settings.from_env()` or explicit `--env-file`. An explicitly selected account API fails on authentication errors, request errors, or changed response formats; it does not fall back to a public page or an archived sample.
+
+JSON `execution` declares `runtime=python`, `parsing=deterministic_rules`, `uses_llm=false`, and the selected `source_policy`. Each `provider_results` entry reports its actual `source_type`, `collection_method`, `selection_reason`, and applicable `fallback_reason`. Methods are `http_json`, `http_html`, `http_document`, or `browser_dom`; the compatible Nebius document/API combination is labeled `hybrid_http`. API preference does not relabel a page parser as an API.
+
+Collecting source records from five providers does **not** establish complete regional hourly comparison prices from all five. Lambda capacity locations are not price regions. Anonymous UCloud monthly packages are not converted to hourly rates. Unlocated Crusoe and AutoDL homepage records remain excluded from the default comparison CSV.
 
 ## Export a CSV table
 
@@ -133,6 +155,15 @@ result = collect_prices(
 
 ## Optional account configuration
 
+Use the dedicated five-provider profile to keep an existing `.env` separate:
+
+```bash
+cp .env.five.example .env.five.local
+gpu-price-monitor collect --env-file .env.five.local --providers nebius,lambda,crusoe,autodl,ucloud --pretty
+```
+
+It sets `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`. Empty keys use public paths; completed Lambda/UCloud credentials select account APIs under the policy. A lone UCloud key or missing targets is a configuration error, not a successful hourly quote. The general template below retains `configured` for compatibility:
+
 ```bash
 cp .env.example .env
 cp configs/nebius-targets.example.json configs/nebius-targets.local.json
@@ -144,10 +175,10 @@ Load `.env` explicitly with `--env-file .env` or `Settings.from_env(env_file=".e
 
 | Mode | Required configuration |
 | --- | --- |
-| All nine public sources | No mandatory environment variables; switchable sources retain `*_SOURCE=public`; the four added adapters use anonymous public sources only |
+| All nine public sources | No mandatory environment variables; `configured` retains `*_SOURCE=public`; use `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred` for the recommended five-provider run |
 | Nebius configuration estimate | `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and `NEBIUS_PRICE_TARGETS_FILE` or `NEBIUS_PRICE_TARGETS_JSON` |
-| Lambda authenticated catalog | `LAMBDA_SOURCE=api`, `LAMBDA_API_KEY`; capacity regions do not become regional rates |
-| UCloud configuration quote | `UCLOUD_SOURCE=api`, `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY`, and `UCLOUD_PRICE_TARGETS_FILE` or `UCLOUD_PRICE_TARGETS_JSON`; optional `UCLOUD_PROJECT_ID` |
+| Lambda authenticated catalog | `LAMBDA_API_KEY`, with `api_preferred` or explicit `LAMBDA_SOURCE=api`; capacity regions do not become regional rates |
+| UCloud configuration quote | `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY`, and `UCLOUD_PRICE_TARGETS_FILE` or `UCLOUD_PRICE_TARGETS_JSON`, with `api_preferred` or explicit `UCLOUD_SOURCE=api`; optional `UCLOUD_PROJECT_ID` |
 | AutoDL regional market | `AUTODL_SOURCE=market`, `AUTODL_STORAGE_STATE_PATH`; invalid sessions fail without falling back to homepage prices |
 
 Targets are configuration templates, not verified sellable offers. Nebius estimates require a real project, a supported platform / preset and GPU count, and complete storage specifications. The adapter verifies the project's region using a read-only request and checks the official country mapping. Hour and month estimates retain their returned aggregation unit; month aggregation does not mean a monthly rental commitment. Contract estimates remain account-specific.

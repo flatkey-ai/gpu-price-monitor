@@ -1,0 +1,163 @@
+{
+  "description": "Actual independent Python five-provider run; source report only, not the complete price collection.",
+  "collected_at": "2026-10-21T09:18:56.196744+00:00",
+  "status": "success",
+  "execution": {
+    "runtime": "python",
+    "parsing": "deterministic_rules",
+    "uses_llm": false,
+    "source_policy": "api_preferred"
+  },
+  "source_records": 456,
+  "comparison": {
+    "scope": "verified_regional_gpu_hour",
+    "eligible_quote_count": 12,
+    "excluded_quote_count": 444
+  },
+  "provider_results": [
+    {
+      "provider": "nebius",
+      "source_url": "https://api.nebius.cloud/billing/v1alpha1/spot-price",
+      "source_type": "official_public_api",
+      "status": "success",
+      "observed_at": "2026-10-21T09:18:37.875121+00:00",
+      "fetched_count": 12,
+      "returned_count": 12,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_json",
+      "selection_reason": "anonymous_regional_spot_api",
+      "fallback_reason": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "regional_quote": 12
+        },
+        "country_codes": [
+          "ES",
+          "FI",
+          "FR",
+          "GB",
+          "IL",
+          "US"
+        ],
+        "country_bound_quote_count": 12,
+        "region_bound_quote_count": 12,
+        "unlocated_quote_count": 0,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    },
+    {
+      "provider": "lambda",
+      "source_url": "https://lambda.ai/instances",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:18:39.885428+00:00",
+      "fetched_count": 22,
+      "returned_count": 22,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_html",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "api_credentials_not_configured",
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 22
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 22,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    },
+    {
+      "provider": "crusoe",
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:18:41.121703+00:00",
+      "fetched_count": 24,
+      "returned_count": 24,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_html",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "no_verified_gpu_rental_price_api",
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 24
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 24,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    },
+    {
+      "provider": "autodl",
+      "source_url": "https://www.autodl.com/home",
+      "source_type": "public_page",
+      "status": "success",
+      "observed_at": "2026-10-21T09:18:41.146384+00:00",
+      "fetched_count": 24,
+      "returned_count": 24,
+      "filters": {},
+      "error": null,
+      "collection_method": "browser_dom",
+      "selection_reason": "programmatic_page_fallback",
+      "fallback_reason": "no_verified_market_price_api",
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 24
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 24,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    },
+    {
+      "provider": "ucloud",
+      "source_url": "https://www.ucloud.cn/site/product/gpu.html",
+      "source_type": "official_public_api",
+      "status": "success",
+      "observed_at": "2026-10-21T09:18:43.923397+00:00",
+      "fetched_count": 374,
+      "returned_count": 374,
+      "filters": {},
+      "error": null,
+      "collection_method": "http_json",
+      "selection_reason": "anonymous_monthly_promotion_api",
+      "fallback_reason": null,
+      "geography": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "zone_quote": 374
+        },
+        "country_codes": [
+          "CN"
+        ],
+        "country_bound_quote_count": 374,
+        "region_bound_quote_count": 374,
+        "unlocated_quote_count": 0,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    }
+  ]
+}

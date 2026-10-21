@@ -1,8 +1,22 @@
 # 平台能力与官方依据
 
-核查与实现口径：2026-10-21，版本 0.11.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。默认公开模式不需要账号、密钥、充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。认证分支与授权市场另行显式选择，不因已有密钥而自动启用。
+核查与实现口径：2026-10-21，版本 0.12.0。当前支持 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure** 九家，`all` 选择这九家。无凭据公开采集不需要充值、绑卡或购买 GPU；AutoDL 需本地 Playwright / Chromium。采集和解析均为独立 Python 程序及固定规则，不调用 Codex、LLM 或模型 API。
 
-本页说明来源、单位和地理证据，实际条数随来源变化。**2026-10-21T08:45:38.349457Z** 匿名实采得到 **845 条来源记录、224 条符合默认比较条件的地区 GPU 小时报价**：Nebius 当前 Spot 12 条、Azure 212 条。其他七家当前免费来源因缺少价格国家 / 地区，或仅有下线月包，未进入比较表；这不等于服务商没有可购产品。见 [224 行原币比较 CSV](../examples/regional-hourly-2026-10-21.csv)。
+## 接口优先的五家采集
+
+推荐命令为 `gpu-price-monitor collect --providers nebius,lambda,crusoe,autodl,ucloud --source-policy api_preferred --pretty`。Python 使用 `Settings(source_policy="api_preferred")`；环境变量为 `GPU_PRICE_MONITOR_SOURCE_POLICY`。
+
+| 策略 | 来源选择及失败边界 |
+| --- | --- |
+| `configured` | 默认兼容行为，按 `*_SOURCE` 选择；仅存在密钥不自动启用认证分支。Nebius public 保持文档与当前 Spot 合并 |
+| `api_preferred` | Nebius public 只取匿名 Spot API；Lambda 有 key 时用 API，无 key 选公开页；UCloud 配有任一 key 就要求完整账号询价配置，否则匿名活动 API；Crusoe / AutoDL 没有合适公共市场价 API，按固定页面规则采集；显式 AutoDL market 仍使用授权浏览器 |
+| `api_only` | 只允许价格接口；页面来源明确报 `api_price_source_unavailable`；认证资料或 targets 不完整、鉴权失败、源结构变化直接失败，不回退页面或历史数据 |
+
+`api_preferred` 的网页选择发生在请求前，原因随来源返回；账号 API 请求失败不会触发第二条网页采集路径。JSON 顶层 `execution` 声明 Python 运行、固定规则解析、不使用 LLM 和来源策略；`provider_results` 中的 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 说明实际选择。方法分别为 `http_json`、`http_html`、`http_document`、`browser_dom`，兼容 Nebius 文档 / API 混合来源标 `hybrid_http`。因此五家原始来源采集不等于五家纯 API，也不等于五家都有国家与地区完整的小时比较价。
+
+独立五家环境模板见 [.env.five.example](../.env.five.example)：复制为 `.env.five.local` 后使用 `--env-file .env.five.local`，即可按接口优先策略运行；无需覆盖已有 `.env`。账号 key 与 targets 留空的成功公开采集，不证明认证 API 已联调成功。
+
+本页说明来源、单位和地理证据，实际条数随来源变化。**0.11.0 于 2026-10-21T08:45:38.349457Z** 匿名实采得到 **845 条来源记录、224 条符合默认比较条件的地区 GPU 小时报价**：Nebius 当前 Spot 12 条、Azure 212 条。其他七家该批免费来源因缺少价格国家 / 地区，或仅有下线月包，未进入比较表；这不等于服务商没有可购产品，也不是 0.12.0 认证分支成功联调的证据。见 [224 行原币比较 CSV](../examples/regional-hourly-2026-10-21.csv)。
 
 [九家历史采样](../examples/nine-providers-2026-10-21.json) 是 0.10.0 的 833 条来源记录，含未知位置、Nebius 文档覆盖和 374 条已下线 UCloud 月包；[五家历史采样](../examples/five-providers-2026-10-21.json) 保留更早的 480 条原 Word 范围证据。它们是历史宽表，不代表当前比较条数或现货。
 
@@ -17,11 +31,13 @@
 
 ## Nebius：公开目录、免费地区 Spot 与可选配置估价
 
-默认 `NEBIUS_SOURCE=public` 同时读取 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing) 的 [官方 Markdown](https://docs.nebius.com/compute/resources/pricing.md) 和免费匿名的 [当前 Spot API](https://api.nebius.cloud/billing/v1alpha1/spot-price)。文档保留 GPU / CPU / RAM 分项、USD / ILS、按需 / Spot 和明确生效日期，多日期区间按采样日期选择。GPU 组件不当整机费用，Spot 的 From 保留为起价。
+`NEBIUS_SOURCE=public` 在 `api_preferred` / `api_only` 下仅调用免费匿名的 [当前 Spot API](https://api.nebius.cloud/billing/v1alpha1/spot-price)，不请求计算价目文档。此模式只有动态抢占式价格，不能当普通按需价，也不声称枚举全部 GPU 产品。显式 `NEBIUS_SOURCE=api` 仍选择下述完整配置估价，不因存在 token 自动启用。
+
+兼容策略 `configured` 下，public 同时读取 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing) 的 [官方 Markdown](https://docs.nebius.com/compute/resources/pricing.md) 和当前 Spot API。文档保留 GPU / CPU / RAM 分项、USD / ILS、按需 / Spot 和明确生效日期，多日期区间按采样日期选择。GPU 组件不当整机费用，Spot 的 From 保留为起价。
 
 文档地区只表示平台供给范围，返回 `price_scope=platform_coverage`，另存 `coverage_regions` / `coverage_countries` 及官方国家映射依据，不填价格 `regions` / `compute_countries`。单 region 的平台限制也不变成独立地区询价。`--coverage-region` / `--coverage-country` 可筛该范围，它不进入默认比较 CSV；`--region` / `--country` 只匹配实际价格位置。缺少地区字段不证明全球统一价。
 
-新增只读 `GET /billing/v1alpha1/spot-price`，官方明确 [无需认证](https://docs.nebius.com/signup-billing/spot-prices)。核对平台、`skuId`、`region`、原币金额、`GPU hour`、`effectiveTime` 和 `snapshotTime`，完成分页及快照新鲜度检查后，返回 `source_type=official_public_api`、`billing_mode=spot`、`quote_status=quoted`、`price_scope=regional_quote`。国家来自 [官方地区目录](https://docs.nebius.com/overview/regions)，未知映射不进入默认比较 CSV。本次观察、源快照与单项生效时间分开保存；未公布的卡数、显存和整机配置保持未知，不编造实例总价。文档或 Spot API 失败会报来源错误，不用历史点、起价或截图数字兜底。
+只读 `GET /billing/v1alpha1/spot-price` 官方明确 [无需认证](https://docs.nebius.com/signup-billing/spot-prices)。核对平台、`skuId`、`region`、原币金额、`GPU hour`、`effectiveTime` 和 `snapshotTime`，完成分页及快照新鲜度检查后，返回 `source_type=official_public_api`、`billing_mode=spot`、`quote_status=quoted`、`price_scope=regional_quote`。国家来自 [官方地区目录](https://docs.nebius.com/overview/regions)，未知映射不进入默认比较 CSV。本次观察、源快照与单项生效时间分开保存；未公布的卡数、显存和整机配置保持未知，不编造实例总价。所选来源失败会报错误，不用历史点、起价或截图数字兜底。
 
 **2026-10-21 08:00 UTC** 截图中 B200 `me-west1` **4.10**、`us-central1` **1.90 USD/GPU/hour** 是历史 Spot 图表的最后价，不是普通按需价或固定现价。08:45:03 UTC 的当前 API 采样已变为 **3.8 / 1.6**，分别对应这两个地区；这些数值仅属于该次观察。历史 ListSeries 的第一价、最后价和平均价是不同聚合口径，当前采集使用当前价格接口，不将历史点写成现价。Spot 在使用前及使用中均可动态变化，比较 CSV 保留生效时间和中断条件。
 
@@ -41,9 +57,9 @@ USD / ILS 描述客户计费辖区，ILS 适用于以色列公司，不表示 GP
 
 ## Lambda：公开实例页与可选认证目录
 
-默认 `LAMBDA_SOURCE=public`，读取 [官方实例页](https://lambda.ai/instances)。本次 22 条保留 1 / 2 / 4 / 8 卡配置。网页单位是 USD / GPU / 小时，`price_basis=advertised_per_gpu`；`instance_price` 是该金额乘卡数的推导值，保留推导标记。CPU、内存 GiB、磁盘 GiB / TiB 按表中配置保存，不混用十进制 GB。
+兼容策略默认 `LAMBDA_SOURCE=public`，使用 HTTP 请求与固定结构规则读取 [官方实例页](https://lambda.ai/instances)。`api_preferred` 下若有 `LAMBDA_API_KEY`，即选择认证目录；没有 key 时才在请求前选择网页并说明原因。显式 `LAMBDA_SOURCE=api` 或 `api_only` 下缺少 key 会报配置错误，不悄悄抓网页。历史网页样本 22 条保留 1 / 2 / 4 / 8 卡配置。网页单位是 USD / GPU / 小时，`price_basis=advertised_per_gpu`；`instance_price` 是该金额乘卡数的推导值，保留推导标记。CPU、内存 GiB、磁盘 GiB / TiB 按表中配置保存，不混用十进制 GB。
 
-`LAMBDA_SOURCE=api` 与 `LAMBDA_API_KEY` 显式选择 `GET https://cloud.lambda.ai/api/v1/instance-types`。`price_cents_per_hour / 100` 是**整实例**美元小时价，再除 `specs.gpus` 得每 GPU 分摊价；不能直接与网页单卡价比较。认证结果标 `account_scope=authenticated_catalog`。
+认证目录调用 `GET https://cloud.lambda.ai/api/v1/instance-types`，使用 `LAMBDA_API_KEY`。`price_cents_per_hour / 100` 是**整实例**美元小时价，再除 `specs.gpus` 得每 GPU 分摊价；不能直接与网页单卡价比较。认证结果标 `account_scope=authenticated_catalog`。鉴权失败或结构变化直接失败，不回退公开目录。
 
 API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填入价格 `regions`。公开表和该 API 均未给独立逐地区价格，国家 / 地区 / zone 筛选不支持；没有容量不是零元或永久下架。可选 API 已有离线解析测试，尚未完成真实有效账号成功联调。
 
@@ -51,17 +67,19 @@ API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填�
 
 ## Crusoe：只读取 GPU instances
 
-来源为 [官网 GPU instances pricing](https://www.crusoe.ai/cloud/pricing#gpu-instances)。仅解析这一独立区块，保留 On-demand 与 Current Spot；相邻模型 API、托管推理和微调费用不混入。本次共 24 条，其中 Contact sales 数值为空；显存未公布的询价项保持未知。From / Starting at 保留起价语义，GPU 型号和硬件变体不合并。
+来源为 [官网 GPU instances pricing](https://www.crusoe.ai/cloud/pricing#gpu-instances)。Python 直接发 HTTP 请求，用固定 HTML 结构规则只解析这一独立区块，保留 On-demand 与 Current Spot；不依赖 Codex / LLM 解读。相邻模型 API、托管推理和微调费用不混入。历史样本共 24 条，其中 Contact sales 数值为空；显存未公布的询价项保持未知。From / Starting at 保留起价语义，GPU 型号和硬件变体不合并。
 
 数值单位为公开 USD / GPU / 小时。当前表没有实例卡数、CPU / RAM / 磁盘和具体价格地区，保持未知；不由平台机房目录推断国家。公开挂牌、Spot 及询价项均不保证实时容量或购买资格。
 
-按原 Word 核查结论，尚未确认枚举当前公共 GPU VM 租价的官方 API。`/projects/{project_id}/compute/vms/types` 是规格目录；Billing 的 cost / unit_price 是账号费用；`SelfServeFlavor.price_per_hour` 属于托管模型部署，都不能替代公共 VM 报价。当前没有将这些接口包装成免费价格接口。
+2026-10-21 重新请求官方 [OpenAPI](https://api.crusoecloud.com/v1/openapi.json) 得到 HTTP 200，检查其 170 个路径：`/projects/{project_id}/compute/vms/types` 的 `Type` 只有 CPU、GPU、内存、磁盘、卡数、产品名等规格，无价格字段。Billing 的 `unit_price` 是账号费用，Reservations 的 `price` 是客户预留合同，Foundry 的 `SelfServeFlavor.price_per_hour` 属于托管模型部署，都不能替代公共 VM 当前租价。匿名容量请求返回 401，并非价格成功。
+
+同日官网价目存在 Webflow HTML 中，内嵌 JSON-LD 是 FAQ，没有可核实的 GPU 价目 JSON 接口或地区价证据。因此 `api_preferred` 明确选择 `http_html` 页面规则，`api_only` 返回 `api_price_source_unavailable`。签名凭据不会让无价格字段的规格接口变成价目接口；当前不提供虚构的 Crusoe 价格 API 配置。
 
 官方依据：[API 文档](https://docs.crusoecloud.com/api/) · [OpenAPI](https://api.crusoecloud.com/v1/openapi.json) · [Quota / Capacity 与购买条件](https://support.crusoecloud.com/hc/en-us/articles/51755978765467-GPU-Quota-vs-Capacity-Understanding-On-Demand-and-Reserved-Instances-RIPA)。
 
 ## AutoDL：免费首页与授权地区市场分开
 
-默认 `AUTODL_SOURCE=public`，以新的未登录浏览器上下文读取 [公开首页](https://www.autodl.com/home)。本次普通用户 / 炼丹会员各 12 条，共 24 条 CNY / GPU / 小时挂牌。普通、会员分别设置 `pricing_tier`，会员要求和页面折扣另存，不假设调用者有会员资格。首页没有报价地区、国家、zone、实例卡数或 CPU / 内存 / 磁盘，均保持未知；不等于逐机器市场或实时库存。公开路径忽略 token 与保存会话。
+默认 `AUTODL_SOURCE=public`，以新的未登录 Playwright 浏览器上下文及固定 DOM 规则读取 [公开首页](https://www.autodl.com/home)，`collection_method=browser_dom`，不是 Codex / LLM 解析。历史普通用户 / 炼丹会员各 12 条，共 24 条 CNY / GPU / 小时挂牌。普通、会员分别设置 `pricing_tier`，会员要求和页面折扣另存，不假设调用者有会员资格。首页没有报价地区、国家、zone、实例卡数或 CPU / 内存 / 磁盘，均保持未知；不等于逐机器市场或实时库存。公开路径忽略 token 与保存会话。`api_preferred` 明确保留此页面来源，`api_only` 报 `api_price_source_unavailable`。
 
 可选 `AUTODL_SOURCE=market` 已实现读取用户授权登录态的 [算力市场](https://www.autodl.com/market/list)，需 `AUTODL_STORAGE_STATE_PATH`：
 
@@ -76,7 +94,9 @@ API 的 `regions_with_capacity_available` 保存为 `capacity_regions`，不填�
 
 ## UCloud：匿名月包与账号配置小时询价分开
 
-默认 `UCLOUD_SOURCE=public`，匿名读取 [GPU 官网](https://www.ucloud.cn/site/product/gpu.html) 引用的 [官方前端 API](https://api.ucloud.cn/)：`ListPackage`、`ListActivity`、`GetActivityFlags`、`ListAllRegions`、`ListAllZones`，均为只读。采集活动 10204 / 10216 / 10248 的具体套餐，不用套餐组最低价代替完整配置。
+兼容策略默认 `UCLOUD_SOURCE=public`，匿名读取 [GPU 官网](https://www.ucloud.cn/site/product/gpu.html) 引用的 [官方前端 API](https://api.ucloud.cn/)：`ListPackage`、`ListActivity`、`GetActivityFlags`、`ListAllRegions`、`ListAllZones`，均为只读。采集活动 10204 / 10216 / 10248 的具体套餐，不用套餐组最低价代替完整配置。
+
+`api_preferred` / `api_only` 下，只要配置了 `UCLOUD_PUBLIC_KEY` 或 `UCLOUD_PRIVATE_KEY` 任一个，就选择账号询价并要求完整公私钥及 targets；不完整配置报错，不降级匿名月包。完全没有账号密钥且未显式选 `api` 时，可使用上述匿名活动接口，它仍只返回原始套餐单位。显式 `UCLOUD_SOURCE=api` 以及认证请求失败都不会退回活动价。
 
 本次 374 条均为中国月卡且 `availability=offline`。`DurationUnit=month`、`Durations=[1]`，`CurPrice` / `OriginalPrice` 的分值除 100 为 CNY 整套餐月价，再按卡数分摊 `gpu_month`，整套餐保留 `instance_month`；不除 720。CPU、内存、磁盘、带宽与 CPU 平台保留。
 

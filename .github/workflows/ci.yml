@@ -28,5 +28,7 @@ jobs:
         run: |
           PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.free.example.json
           PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.all.example.json
+      - name: Validate standalone five-provider API-preferred profile
+        run: PYTHONPATH=src python -m gpu_price_monitor status --env-file .env.five.example
       - name: Check environment configuration and collection boundary
         run: PYTHONPATH=src python -m unittest discover -s tests -v

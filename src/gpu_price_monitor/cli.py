@@ -13,7 +13,7 @@ from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
 from .csv_export import prices_to_csv, publishable_quote
 from .filters import normalize_filters
-from .settings import ConfigurationError, PROVIDERS, SOURCES, Settings
+from .settings import ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
 
 
 def validate_config(config: object, *, settings: Settings | None = None) -> list[str]:
@@ -107,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
     for command in (status, validate, collect):
         command.add_argument("--env-file", type=Path, default=argparse.SUPPRESS,
                              help="explicit dotenv file; process environment overrides its values")
+        command.add_argument("--source-policy", choices=SOURCE_POLICIES, default=None,
+                             help="configured sources (default), prefer available APIs, or require APIs only")
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
@@ -138,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         settings = Settings.from_env(env_file=args.env_file)
+        if args.source_policy is not None:
+            settings = replace(settings, source_policy=args.source_policy)
         if getattr(args, "lambda_source", None) is not None:
             settings = replace(settings, lambda_source=args.lambda_source)
         if getattr(args, "ucloud_source", None) is not None:
@@ -151,6 +155,9 @@ def main(argv: list[str] | None = None) -> int:
             print("Available collectors: " + ", ".join(IMPLEMENTED_PROVIDERS))
             print("Providers not implemented: " + (", ".join(sorted(PROVIDERS - IMPLEMENTED_PROVIDERS.keys())) or "none"))
             print("Configured providers: " + ", ".join(settings.providers))
+            print("Source policy: " + settings.source_policy)
+            for provider in settings.providers:
+                print(f"{provider} source type: {provider_source(provider, settings)}")
             print("Lambda source: " + settings.lambda_source)
             print("UCloud source: " + settings.ucloud_source)
             print("Nebius source: " + settings.nebius_source)

@@ -9,6 +9,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.five.example
 configs/*.local.json
 data/
 evidence/
