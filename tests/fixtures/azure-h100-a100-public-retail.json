@@ -1,0 +1,135 @@
+{
+  "source": "https://prices.azure.com/api/retail/prices",
+  "observed_at": "2026-10-21",
+  "scope": "Two sampled westus3 base VM Consumption meters per explicitly named SKU, official API response fields preserved.",
+  "skus": {
+    "Standard_NC40ads_H100_v5": {
+      "BillingCurrency": "USD",
+      "CustomerEntityType": "Retail",
+      "Count": 2,
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 3.954868,
+          "unitPrice": 3.954868,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2026-10-01T00:00:00Z",
+          "meterId": "61aca225-7d3b-5625-b80d-b7bfe3377983",
+          "meterName": "NC40adsH100v5 Spot",
+          "productId": "DZH318Z0F8W2",
+          "skuId": "DZH318Z0F8W2/000X",
+          "productName": "Virtual Machines NCadsH100v5 Series",
+          "skuName": "NC40adsH100v5 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC40ads_H100_v5"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 6.98,
+          "unitPrice": 6.98,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2024-03-01T00:00:00Z",
+          "meterId": "8a40bb0e-b5a6-512e-b57c-b3cb7e4e0db4",
+          "meterName": "NC40adsH100v5",
+          "productId": "DZH318Z0F8W2",
+          "skuId": "DZH318Z0F8W2/000C",
+          "productName": "Virtual Machines NCadsH100v5 Series",
+          "skuName": "NC40adsH100v5",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC40ads_H100_v5",
+          "savingsPlan": [
+            {
+              "unitPrice": 4.305962,
+              "retailPrice": 4.305962,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 5.806662,
+              "retailPrice": 5.806662,
+              "term": "1 Year"
+            }
+          ]
+        }
+      ],
+      "NextPageLink": null
+    },
+    "Standard_NC24ads_A100_v4": {
+      "BillingCurrency": "USD",
+      "CustomerEntityType": "Retail",
+      "Count": 2,
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 3.673,
+          "unitPrice": 3.673,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2022-09-01T00:00:00Z",
+          "meterId": "02e920ad-0b32-5221-84d0-99b6e54c215d",
+          "meterName": "NC24ads_A100_v4",
+          "productId": "DZH318Z09TGJ",
+          "skuId": "DZH318Z09TGJ/001K",
+          "productName": "NCads A100 v4 Series Linux",
+          "skuName": "Standard_NC24ads_A100_v4",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC24ads_A100_v4",
+          "savingsPlan": [
+            {
+              "unitPrice": 2.2658737,
+              "retailPrice": 2.2658737,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 3.0574052,
+              "retailPrice": 3.0574052,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.67877,
+          "unitPrice": 0.67877,
+          "armRegionName": "westus3",
+          "location": "US West 3",
+          "effectiveStartDate": "2026-09-01T00:00:00Z",
+          "meterId": "2d3c78f3-21e1-51d0-8f81-bce5e3d0cf58",
+          "meterName": "NC24ads_A100_v4 Spot",
+          "productId": "DZH318Z09TGJ",
+          "skuId": "DZH318Z09TGJ/001Q",
+          "productName": "NCads A100 v4 Series Linux",
+          "skuName": "Standard_NC24ads_A100_v4 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC24ads_A100_v4"
+        }
+      ],
+      "NextPageLink": null
+    }
+  }
+}

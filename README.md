@@ -1,10 +1,10 @@
 # GPU Price Monitor
 
-根据五家 GPU 云平台的官方价格入口构建的采集库：**Nebius、Lambda、Crusoe、AutoDL、UCloud**。提供 Python 调用和 CLI JSON，只负责抓取、解析、筛选及返回报价。定时、存储、换汇、上传和比价由调用方处理。
+根据九家 GPU 云平台的官方价格入口构建的采集库：**Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod、DigitalOcean、Verda、Azure**。提供 Python 调用和 CLI JSON，只负责抓取、解析、筛选及返回报价。定时、存储、换汇、上传和比价由调用方处理。
 
 [English](README.en.md) · [文档需求与实现对照](docs/DOCUMENT_COVERAGE.md) · [数据口径](docs/DATA_MODEL.md) · [环境配置](.env.example)
 
-从 **0.7.0** 起仅支持上述五家，`--providers all` 也只运行这五家。其他平台适配器已移除；旧日期示例仅作为历史采样，不代表当前采集范围。本版本从源码安装，未发布至 PyPI。
+**0.8.0** 在原 Word 五家基础上增加 RunPod、DigitalOcean、Verda、Azure，`--providers all` 运行这九家。旧日期示例保留当时范围，不代表当前支持全市场。本版本从源码安装，未发布至 PyPI。
 
 ## 先看地区能力
 
@@ -17,8 +17,12 @@
 | Crusoe | 官网 GPU instances 区块 | 当前公开表未给逐地区价格；保留未知地区及 Contact sales，不混入托管推理报价 |
 | AutoDL | 官网普通用户 / 炼丹会员价 | 公开首页不绑定地区。可选 `market` 读取用户授权登录态的市场挂牌，保留市场地区；需有效会话 |
 | UCloud | 官方匿名促销套餐及位置目录 | 每条套餐绑定原始国家 / 地区 / 可用区。可选 `api` 按完整配置询价；需公私钥及 targets |
+| RunPod | 官方匿名 GraphQL GPU Pods 目录 | Secure / Community 云档位分开；目录未绑定价格地区，不把机房覆盖当地区价 |
+| DigitalOcean | 官方 GPU Droplet 定价文档 | 按需 / Spot 分开，整实例按明确 1 / 8 卡数分摊；文档未给价格地区 |
+| Verda | 官方 USD / EUR GPU instances 表 | 每种币种分别抓取，按需 / Spot 和完整实例总价保留；不推断芬兰等部署国家 |
+| Azure | 官方匿名 Retail Prices API | 当前只采四个已核验 SKU（T4、GB200、H100 NVL、A100 PCIe）的已生效地区零售价及官方目录已核验国家映射；不表示全 SKU、国家或库存覆盖 |
 
-**2026-10-21 14:35（北京时间）实抓：五家成功，共 480 条记录。** 其中 374 条 UCloud 月包绑定中国地区，但全部标为下线；36 条 Nebius 记录只有平台机房覆盖；其余 70 条目录价未绑定地区。详见 [真实返回 JSON](examples/five-providers-2026-10-21.json)。不能据此声称已获得五家在所有国家的可购价格。
+**2026-10-21 15:12:56（北京时间）九家公开实抓成功，共 833 条**：Nebius 36、Crusoe 24、Lambda 22、UCloud 374、AutoDL 24、RunPod 68、DigitalOcean 19、Verda 52、Azure 214。574 条有已核验国家关联，588 条有价格地区 / 可用区，其中 UCloud 374 条全部下线；36 条仅平台覆盖，209 条未定位目录。Azure 214 条覆盖 45 个价格地区，其中 14 条国家未知。以上不是全地域可购库存。 见 [真实返回 JSON](examples/nine-providers-2026-10-21.json)；原 Word 范围的 [五家历史样本](examples/five-providers-2026-10-21.json) 另行保留。
 
 认证询价和登录市场仅发送只读请求，不创建、启动或购买资源。账号是否允许取价由供应商决定；新增认证分支有合成样本测试，尚未完成有效账号的成功联调，不把文档示例当实抓。
 
@@ -36,7 +40,7 @@ python -m playwright install chromium
 python -m gpu_price_monitor collect --providers all --coverage --pretty
 ```
 
-Windows PowerShell 使用 `py -3 -m venv .venv` 与 `.\.venv\Scripts\Activate.ps1`。Linux 若缺少浏览器系统库，使用 `python -m playwright install --with-deps chromium`。仅 HTTP 采集可安装基础包 `python -m pip install .` 并指定 `--providers nebius,lambda,crusoe,ucloud`。
+Windows PowerShell 使用 `py -3 -m venv .venv` 与 `.\.venv\Scripts\Activate.ps1`。Linux 若缺少浏览器系统库，使用 `python -m playwright install --with-deps chromium`。仅 HTTP 采集可安装基础包 `python -m pip install .` 并指定 `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`。
 
 CLI 的 stdout 只包含 JSON，诊断写入 stderr。退出码 `0` 表示全部成功（含筛选无匹配），`2` 为部分失败，`1` 为失败或配置无效。失败不会返回零元或上次价格。
 
@@ -58,6 +62,9 @@ for quote in result["prices"]:
 # 真实公开地区月包：保留下线状态，不能当现货或小时价。
 gpu-price-monitor collect --providers ucloud --country CN --region cn-bj2 --zone cn-bj2-02 --pretty
 
+# Azure 的价格响应绑定 ARM region；国家由官方目录已核验映射关联。
+gpu-price-monitor collect --providers azure --gpu T4 --country US --region eastus --pretty
+
 # Nebius 的公开地区仅表示平台覆盖，JSON 会标 platform_coverage。
 gpu-price-monitor collect --providers nebius --region eu-north1 --currency USD --pretty
 
@@ -71,7 +78,7 @@ gpu-price-monitor collect --env-file .env --providers autodl --autodl-source mar
 
 Python 筛选字段为 `compute_countries`、`regions`、`zones`、`gpu_models`、`gpu_counts`、`currencies`、`billing_modes`，值均为数组。例如 `collect_prices(["ucloud"], {"compute_countries": ["CN"], "regions": ["cn-bj2"]}, settings=Settings())`。销售国家与部署国家不同，当前 `sales_countries` 不支持。
 
-`geographic_coverage` 汇总本次返回报价中有国家绑定、地区绑定、仅平台覆盖、位置未知的数量。`price_scope` 明确区别 `unlocated_catalog`、`platform_coverage`、`regional_quote`、`zone_quote`、`requested_region_quote`、`requested_zone_quote`。它不表示库存或购买资格。
+`geographic_coverage` 汇总本次返回报价中有国家绑定、地区绑定、仅平台覆盖、位置未知的数量。`price_scope` 明确区别 `unlocated_catalog`、`platform_coverage`、`regional_quote`、`zone_quote`、`requested_region_quote`、`requested_zone_quote`。它不表示库存或购买资格。Azure 部分地区没有已核验国家映射；仅指定国家可能返回 `unverifiable_filter`，可同时指定已核验 region，如上例 US + eastus，不能把未知国家静默当作不匹配。
 
 ## 可选账号配置
 
@@ -86,7 +93,7 @@ gpu-price-monitor status --env-file .env
 
 | 来源 | 必要配置 |
 | --- | --- |
-| 五家公开模式 | 无必填 env；所有 `*_SOURCE=public` |
+| 九家公开模式 | 无必填 env；可切换模式的来源保持 `*_SOURCE=public`，新增四家仅使用匿名公开来源 |
 | Nebius 配置估价 | `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`、`NEBIUS_PRICE_TARGETS_FILE` 或 `NEBIUS_PRICE_TARGETS_JSON` |
 | Lambda 认证目录 | `LAMBDA_SOURCE=api`、`LAMBDA_API_KEY`；返回容量位置但不生成地区差价 |
 | UCloud 配置询价 | `UCLOUD_SOURCE=api`、`UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`、`UCLOUD_PRICE_TARGETS_FILE` 或 `UCLOUD_PRICE_TARGETS_JSON`，可选 `UCLOUD_PROJECT_ID` |
@@ -96,7 +103,7 @@ targets 模板是待填写配置示例，不是已验证可售规格。Nebius �
 
 授权会话可由调用者在自己的浏览器环境准备，例如 `python -m playwright codegen --save-storage=playwright/.auth/autodl.storage-state.json https://www.autodl.com/market/list`，手动登录后关闭窗口，并将该路径填入 env。会话文件、`.env` 与 `*.local.json` 已被 Git 忽略，不要公开分享。
 
-普通价、会员价、合同价、组件价、套餐价、起价、询价及下线状态分别保留。按月金额保持按月；库不换成美元，不用假定 720 小时将月租转成小时价。RackRate 是使用本库的应用，其美元换算、发布和定时逻辑不包含在库内。
+RunPod 的 Secure Cloud 与 Community Cloud 是不同云档位，不是普通 / 会员身份；两档金额通过 `cloud_tier` 与 `conditions.cloud_type` 保留。DigitalOcean 和 Verda 的整实例价按明确卡数分摊，同时保留 `instance_price`。Verda USD / EUR 是两张原币挂牌，不是库内换汇；Azure 仅限四个固定已核验 SKU。普通价、会员价、合同价、组件价、套餐价、起价、询价及下线状态分别保留。按月金额保持按月；库不换成美元，不用假定 720 小时将月租转成小时价。RackRate 是使用本库的应用，其美元换算、发布和定时逻辑不包含在库内。
 
 ## 验证
 

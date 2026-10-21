@@ -1,10 +1,10 @@
 # GPU Price Monitor
 
-A Python library and JSON CLI for **Nebius, Lambda, Crusoe, AutoDL, and UCloud** GPU cloud prices. It collects, parses, filters, and returns quotes. Scheduling, persistence, currency conversion, uploads, comparisons, alerts, and dashboards belong to the calling application.
+A Python library and JSON CLI for **Nebius, Lambda, Crusoe, AutoDL, UCloud, RunPod, DigitalOcean, Verda, and Azure** GPU cloud prices. It collects, parses, filters, and returns quotes. Scheduling, persistence, currency conversion, uploads, comparisons, alerts, and dashboards belong to the calling application.
 
 [中文](README.md) · [Document requirements and implementation](docs/DOCUMENT_COVERAGE.md) · [Provider details](docs/PROVIDERS.md) · [Environment template](.env.example)
 
-Starting with **0.7.0**, these five providers are the entire supported scope; `--providers all` selects exactly these five. Other adapters have been removed. Dated examples from older versions retain their historical scope. This version is installed from source and has not been published to PyPI.
+**0.8.0** adds RunPod, DigitalOcean, Verda, and Azure to the original five-provider Word scope. `--providers all` selects these nine providers. Dated examples retain their historical scope and do not establish complete market coverage. This version is installed from source and has not been published to PyPI.
 
 ## What the locations mean
 
@@ -17,8 +17,12 @@ A public catalog does not necessarily publish a separate price for each country.
 | Crusoe | The public GPU instances section | No region-specific prices in this table; Contact sales remains a nonnumeric quote |
 | AutoDL | Public ordinary / member price cards | Homepage prices have no location. Optional authorized market collection preserves the market's region codes |
 | UCloud | Anonymous official promotional packages and location catalogs | Packages are associated with their official country, region, and zone; optional configuration quotes require account keys and targets |
+| RunPod | Anonymous official GraphQL GPU Pods catalog | Secure / Community tiers are separate; no price-bound regions are published in this catalog |
+| DigitalOcean | Official GPU Droplet pricing document | Separate on-demand / Spot plans; full instance totals allocated across explicit 1 / 8 GPU counts; no price regions |
+| Verda | Official USD / EUR GPU instances tables | Fetch each currency separately; retain on-demand / Spot and instance totals; no inferred compute countries |
+| Azure | Anonymous official Retail Prices API | Already-effective regional rates for four verified SKUs only (T4, GB200, H100 NVL, and A100 PCIe); official region-directory country mappings; not all SKUs, countries, or capacity |
 
-**Live public capture: October 21, 2026, 14:35 China time, 480 records.** Nebius returned 36, Crusoe 24, Lambda 22, AutoDL 24, and UCloud 374. All 374 UCloud monthly packages were marked offline in China. The 36 Nebius entries indicate platform coverage; the remaining 70 catalog entries have no price location. This is not evidence of currently purchasable prices in every country. See the [actual JSON](examples/five-providers-2026-10-21.json).
+**Live public capture: October 21, 2026, 15:12:56 China time, 833 records across all nine sources.** Counts: Nebius 36, Crusoe 24, Lambda 22, UCloud 374, AutoDL 24, RunPod 68, DigitalOcean 19, Verda 52, and Azure 214. There are 574 country-bound records and 588 region/zone-bound records, including 374 offline UCloud packages; 36 have platform coverage only and 209 are unlocated catalogs. Azure covers 45 price regions, with 14 records retaining unknown countries. These counts do not establish currently purchasable capacity everywhere. See the [actual JSON](examples/nine-providers-2026-10-21.json); the original Word-scope [five-provider capture](examples/five-providers-2026-10-21.json) is retained separately.
 
 The collectors use read-only public requests, authenticated estimates, or an authorized market session; they do not create, launch, or purchase resources. Optional authenticated paths have offline tests but have not been successfully verified with a valid live account. Documentation examples and synthetic fixtures are not live API results.
 
@@ -36,7 +40,7 @@ python -m playwright install chromium
 python -m gpu_price_monitor collect --providers all --coverage --pretty
 ```
 
-On Windows PowerShell use `py -3 -m venv .venv` and `.\.venv\Scripts\Activate.ps1`. On Linux, missing browser libraries may require `python -m playwright install --with-deps chromium`. For HTTP-only collection install `python -m pip install .` and select `--providers nebius,lambda,crusoe,ucloud`.
+On Windows PowerShell use `py -3 -m venv .venv` and `.\.venv\Scripts\Activate.ps1`. On Linux, missing browser libraries may require `python -m playwright install --with-deps chromium`. For HTTP-only collection install `python -m pip install .` and select `--providers nebius,lambda,crusoe,ucloud,runpod,digitalocean,verda,azure`.
 
 Stdout contains JSON; diagnostics go to stderr. Exit codes: `0` for success, including valid filters with no matches; `2` for partial failure; `1` for failure or invalid configuration. A failed source does not return zero prices or an archived snapshot.
 
@@ -57,6 +61,9 @@ Countries use ISO two-letter codes. A combined country / region / zone selection
 ```bash
 # Public monthly packages: retain offline status and the original monthly unit.
 gpu-price-monitor collect --providers ucloud --country CN --region cn-bj2 --zone cn-bj2-02 --pretty
+
+# Azure meters bind ARM regions; countries use verified official-directory mappings.
+gpu-price-monitor collect --providers azure --gpu T4 --country US --region eastus --pretty
 
 # Public Nebius region labels indicate platform coverage, not a regional quote.
 gpu-price-monitor collect --providers nebius --region eu-north1 --currency USD --pretty
@@ -79,7 +86,7 @@ result = collect_prices(
 )
 ```
 
-Deployment countries and sales jurisdictions differ; `sales_countries` is unsupported. `geographic_coverage` summarizes location evidence for the returned quotes. `price_scope` distinguishes `unlocated_catalog`, `platform_coverage`, `regional_quote`, `zone_quote`, `requested_region_quote`, and `requested_zone_quote`. Neither field guarantees capacity or purchase eligibility.
+Deployment countries and sales jurisdictions differ; `sales_countries` is unsupported. `geographic_coverage` summarizes location evidence for the returned quotes. `price_scope` distinguishes `unlocated_catalog`, `platform_coverage`, `regional_quote`, `zone_quote`, `requested_region_quote`, and `requested_zone_quote`. Neither field guarantees capacity or purchase eligibility. Azure has some regions without verified country mappings. A country-only request can therefore return `unverifiable_filter`; combine it with an evidenced region, such as US + eastus above, rather than silently excluding records with unknown countries.
 
 ## Optional account configuration
 
@@ -94,7 +101,7 @@ Load `.env` explicitly with `--env-file .env` or `Settings.from_env(env_file=".e
 
 | Mode | Required configuration |
 | --- | --- |
-| All five public sources | No mandatory environment variables; `*_SOURCE=public` |
+| All nine public sources | No mandatory environment variables; switchable sources retain `*_SOURCE=public`; the four added adapters use anonymous public sources only |
 | Nebius configuration estimate | `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and `NEBIUS_PRICE_TARGETS_FILE` or `NEBIUS_PRICE_TARGETS_JSON` |
 | Lambda authenticated catalog | `LAMBDA_SOURCE=api`, `LAMBDA_API_KEY`; capacity regions do not become regional rates |
 | UCloud configuration quote | `UCLOUD_SOURCE=api`, `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY`, and `UCLOUD_PRICE_TARGETS_FILE` or `UCLOUD_PRICE_TARGETS_JSON`; optional `UCLOUD_PROJECT_ID` |
@@ -106,7 +113,7 @@ UCloud targets specify a whole hourly GPU host, including region, zone, GPU, CPU
 
 To prepare your own authorized AutoDL session, run `python -m playwright codegen --save-storage=playwright/.auth/autodl.storage-state.json https://www.autodl.com/market/list`, log in manually, close the window, and set that path in the environment file. Session files, `.env`, and `*.local.json` are Git-ignored and must not be shared. `AUTODL_TOKEN` is reserved and is not used by either current AutoDL mode.
 
-Keep ordinary, member, contract, component, promotional, starting, contact-sales, and offline quotes distinct. The library preserves source currency, units, resources, discounts, effective dates when published, and observation time. It does not convert to USD or divide monthly prices by an assumed 720 hours. RackRate is a separate consumer with its own conversion, scheduling, and publishing logic.
+RunPod Secure Cloud and Community Cloud are distinct cloud tiers, not ordinary/member identities; `cloud_tier` and `conditions.cloud_type` preserve them. DigitalOcean and Verda retain complete `instance_price` totals and allocate them over explicit GPU counts. Verda USD / EUR prices are separately fetched original-currency lists, not currency conversions. Azure currently covers only four fixed, verified SKUs. Keep ordinary, member, contract, component, promotional, starting, contact-sales, and offline quotes distinct. The library preserves source currency, units, resources, discounts, effective dates when published, and observation time. It does not convert to USD or divide monthly prices by an assumed 720 hours. RackRate is a separate consumer with its own conversion, scheduling, and publishing logic.
 
 ## Verification
 

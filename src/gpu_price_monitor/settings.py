@@ -11,7 +11,8 @@ from pathlib import Path
 
 from dotenv.parser import parse_stream
 
-PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl"})
+PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl",
+                       "runpod", "digitalocean", "verda", "azure"})
 SOURCES = frozenset({
     "official_api", "public_documentation", "public_page",
     "official_quote_api", "official_public_api", "authorized_browser",

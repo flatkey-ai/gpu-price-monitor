@@ -16,7 +16,8 @@ from gpu_price_monitor.transport import FetchError
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl"}
+PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl",
+             "runpod", "digitalocean", "verda", "azure"}
 
 
 def quote(provider):
