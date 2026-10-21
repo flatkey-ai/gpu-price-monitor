@@ -1,0 +1,2 @@
+# Preserve the library's UTF-8 BOM / CRLF CSV bytes across checkouts.
+*.csv -text whitespace=cr-at-eol
