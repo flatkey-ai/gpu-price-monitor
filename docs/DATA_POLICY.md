@@ -10,9 +10,9 @@
 
 ## 运行时不依赖 Codex 或大模型
 
-采集由普通 Python 程序直接请求供应商 HTTP 接口；没有合适价格接口时，由固定规则解析官方 HTML 或通过本地 Playwright / Chromium 读取 DOM。运行时无需 Codex、ChatGPT、大模型 API 或人工阅读页面，也不会让模型推测价格。API 与网页来源分别标明；网页解析不能标成 API 报价，结构变化或校验失败返回错误。
+原文档五家 Nebius、Lambda、Crusoe、AutoDL、UCloud 的采集由普通 Python 程序直接请求供应商 HTTP 接口；没有合适价格接口时，由固定规则解析官方 HTML、网站 JSON 或通过本地 Playwright / Chromium 读取 DOM。运行时无需 Codex、ChatGPT、大模型 API 或人工阅读页面，也不会让模型推测价格。API、网站数据及网页来源分别标明；网站 Next.js JSON 不能标成正式稳定的云价格 API，结构变化或校验失败返回错误。
 
-`GPU_PRICE_MONITOR_SOURCE_POLICY=configured` 保留显式来源配置；`api_preferred` 优先使用可用接口，未选中合适接口时才使用程序化网页来源；`api_only` 拒绝 HTML / DOM 来源。已经选中的 API 如认证、请求或解析失败，不静默回退网页。接口返回已有资源价格、月套餐或地区库存，也不能据此宣称取得全市场各地区的每 GPU 小时报价。
+`GPU_PRICE_MONITOR_SOURCE_POLICY=configured` 保留兼容来源配置；五家推荐 `api_preferred`，允许明确标记的官网程序解析与网站 JSON 补充普通目录；`api_only` 拒绝 HTML / DOM 价格来源和 Nebius 网站目录补充，只保留合适价格 API。已经选中的 API 如认证、请求或解析失败，不静默回退网页。接口返回已有资源价格、月套餐或地区库存，也不能据此宣称取得全市场各地区的每 GPU 小时报价。
 
 ## 最小必要数据
 
@@ -31,6 +31,10 @@
 
 ## 比较表与审计记录
 
-0.11.0 默认 10 列 CSV 只纳入国家与 region 已核实的实际每 GPU 小时数值报价。位置不完整、仅覆盖、起步价、GPU 组件、月包、询价及明确不可用项保留在 JSON / `profile="full"` 审计记录中，不混入比较表；月价不按 720 小时折成小时价。缺少位置不证明全球统一价。普通 / 会员、Spot、云档位、税费与账号适用条件仍须保留，比较资格不代表库存或所有账号均可购买。
+0.13.0 默认 10 列 `market` CSV 纳入真实每 GPU 小时目录报价及地区报价；有效目录价不会仅因官网未给地区就被隐藏，其适用范围必须清楚标记，不宣称全球统一，也不复制成多个国家价格。`compact` 继续只保留国家与 region 已核实的严格地区价；`full` 为全部来源审计表。`market_comparison` 与原严格 `comparison` 分开计数，逐来源 `market_quote_count` 不等于地区覆盖数。
+
+起步价、GPU 单独组件、月包、询价、资格未核实的特殊优惠及明确不可用项保留在 JSON / full，不混入有效小时报价表；月价不按 720 小时折成小时价。普通 / 会员、Spot、税费、产品线与账号适用条件仍须保留，比较资格不代表库存或所有账号均可购买。
+
+UCloud 旗下 CompShare（优云智算）匿名询价与原 UHost 签名询价是不同产品线，返回中须清楚标明。前端目录只用于构造询价配置，不能将目录配置或硬编码数字当价格；普通 `OriginalPriceDetails` 与资格未核实的优惠 `PriceDetails` 不得互相覆盖。后者保留审计信息，不能伪装成所有用户均能购买的普通价。
 
 Nebius 当前地区 Spot 价来自官方无需认证的只读 API，价格生效时间与本次观察时间分别记录；截图和历史图表仅说明当时情况，不替代当前报价或作为硬编码回退。

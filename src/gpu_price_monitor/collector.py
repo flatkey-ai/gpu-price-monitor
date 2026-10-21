@@ -8,9 +8,9 @@ from decimal import Decimal, DecimalException
 
 from .filters import apply_filters, filter_support, normalize_filters
 from .geography import describe_geography, geography_summary
-from .csv_export import publishable_quote
+from .csv_export import market_eligible_quote, publishable_quote
 from .providers import (autodl, azure, crusoe, digitalocean, lambda_cloud, lambda_public,
-                        nebius, runpod, ucloud, ucloud_public, verda)
+                        nebius, runpod, ucloud, ucloud_compshare, ucloud_public, verda)
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
@@ -40,6 +40,8 @@ def _selected_module(provider: str, settings: Settings | None = None):
         # Partial account configuration must fail visibly, rather than returning
         # unrelated monthly promotions when the caller intended hourly quotes.
         return ucloud
+    if provider == "ucloud" and prefer_api:
+        return ucloud_compshare
     if provider == "nebius":
         if settings.nebius_source == "api":
             from .providers import nebius_quote
@@ -62,6 +64,8 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
         return "official_quote_api"
     if provider == "nebius" and settings is not None and settings.nebius_source == "api":
         return "official_quote_api"
+    if provider == "nebius" and settings is not None and settings.source_policy == "api_preferred":
+        return "official_public_sources"
     if provider == "nebius" and settings is not None and settings.source_policy != "configured":
         return "official_public_api"
     if provider == "autodl" and settings is not None and settings.autodl_source == "market":
@@ -71,6 +75,13 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
 
 def _source_selection(provider: str, settings: Settings, module) -> dict:
     source = provider_source(provider, settings)
+    if source == "official_public_sources":
+        from .providers import nebius_catalog, nebius_spot
+        return {"collection_method": "http_json_with_website_bootstrap",
+                "selection_reason": "regional_spot_api_and_on_demand_website_json",
+                "fallback_reason": None, "api_endpoint": nebius_spot.SOURCE_URL,
+                "source_types": ["official_public_api", nebius_catalog.SOURCE_TYPE],
+                "additional_source_urls": [nebius_catalog.SOURCE_URL]}
     method = ("http_json" if source in API_SOURCE_TYPES else
               "browser_dom" if provider == "autodl" else
               "hybrid_http" if module is nebius else
@@ -83,6 +94,8 @@ def _source_selection(provider: str, settings: Settings, module) -> dict:
                 reason = "anonymous_regional_spot_api"
             elif module is ucloud_public:
                 reason = "anonymous_monthly_promotion_api"
+            elif module is ucloud_compshare:
+                reason = "anonymous_compshare_hourly_quote_api"
         else:
             if settings.source_policy == "api_only":
                 reason = "api_required_but_unavailable"
@@ -187,10 +200,35 @@ def collect_prices(
         else:
             try:
                 is_authenticated = provider_source(provider, settings) in {"official_api", "official_quote_api", "authorized_browser"}
-                if hasattr(module, "collect_quotes"):
+                target_errors = []
+                source_errors = []
+                if module is ucloud_compshare:
+                    observed_at = _now()
+                    outcome = module.collect_result(settings=settings, observed_at=observed_at,
+                                                    regions=conditions[provider].get("regions"),
+                                                    zones=conditions[provider].get("zones"))
+                    quotes = outcome["prices"]
+                    target_errors = outcome["errors"]
+                    result["discovery"] = outcome["discovery"]
+                    result["target_errors"] = target_errors
+                    result["product_line"] = module.PRODUCT_LINE
+                elif hasattr(module, "collect_quotes"):
                     observed_at = _now()
                     extra = {"include_geography": True} if module is ucloud else {}
                     quotes = module.collect_quotes(settings=settings, observed_at=observed_at, **extra)
+                    if (provider == "nebius" and settings.nebius_source == "public"
+                            and settings.source_policy == "api_preferred"):
+                        from .providers import nebius_catalog
+                        # The regional API must succeed first. The independent
+                        # website JSON supplies on-demand catalog rows, never
+                        # replacement prices after a failed API request.
+                        try:
+                            quotes.extend(nebius_catalog.collect_quotes(settings=settings, observed_at=_now()))
+                        except FetchError as exc:
+                            source_errors.append({"source_url": nebius_catalog.SOURCE_URL,
+                                                  "code": exc.code, "message": str(exc),
+                                                  "retryable": exc.retryable})
+                        result["source_errors"] = source_errors
                 else:
                     content = fetch_text(module.SOURCE_URL, settings)
                     observed_at = _now()
@@ -201,7 +239,7 @@ def collect_prices(
                         # rates, including their separate effective times.
                         quotes.extend(nebius_spot.collect_quotes(settings=settings, observed_at=_now()))
                 result["observed_at"] = observed_at
-                _check_prices(quotes, provider, allow_empty=is_authenticated,
+                _check_prices(quotes, provider, allow_empty=is_authenticated or module is ucloud_compshare,
                               expected_units=("gpu_month",) if module is ucloud_public else
                               ("gpu_hour", "gpu_month") if provider == "nebius" and settings.nebius_source == "api" else ("gpu_hour",))
                 for quote in quotes:
@@ -231,6 +269,16 @@ def collect_prices(
                     result["geography"] = geography_summary(matched)
                     result["returned_count"] = len(matched)
                     result["status"] = "success" if matched else "no_matches"
+                    if target_errors:
+                        result["status"] = "partial" if matched else "failed"
+                        result["error"] = {"code": "partial_collection" if matched else "quote_failed",
+                                           "message": "One or more CompShare hourly quotation targets failed; inspect target_errors.",
+                                           "retryable": any(error.get("retryable") for error in target_errors)}
+                    elif source_errors:
+                        result["status"] = "partial" if matched else "failed"
+                        result["error"] = {"code": "partial_collection",
+                                           "message": "The independent on-demand website catalog failed; successful regional Spot quotes are retained. Inspect source_errors.",
+                                           "retryable": any(error.get("retryable") for error in source_errors)}
             except FetchError as exc:
                 result["error"] = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
             except (ValueError, KeyError, TypeError, DecimalException):
@@ -242,10 +290,16 @@ def collect_prices(
                     item["status"] = "not_applied"
         results.append(result)
     successful = sum(result["status"] in {"success", "no_matches"} for result in results)
+    for source_result in results:
+        source_quotes = [quote for quote in prices if quote["provider"] == source_result["provider"]]
+        source_result["market_quote_count"] = sum(market_eligible_quote(q) for q in source_quotes)
+        source_result["regional_hourly_quote_count"] = sum(publishable_quote(q) for q in source_quotes)
+    market_quotes = [quote for quote in prices if market_eligible_quote(quote)]
     result = {
         "schema_version": 1,
         "collected_at": _now(),
-        "status": "success" if successful == len(results) else "partial" if successful else "failed",
+        "status": "success" if successful == len(results) else "partial" if successful or any(
+            source["status"] == "partial" for source in results) else "failed",
         "execution": {"runtime": "python", "parsing": "deterministic_rules", "uses_llm": False,
                       "source_policy": settings.source_policy},
         "prices": prices,
@@ -255,6 +309,14 @@ def collect_prices(
             "scope": "verified_regional_gpu_hour",
             "eligible_quote_count": sum(publishable_quote(q) for q in prices),
             "excluded_quote_count": sum(not publishable_quote(q) for q in prices),
+        },
+        "market_comparison": {
+            "scope": "catalog_and_regional_gpu_hour",
+            "eligible_quote_count": len(market_quotes),
+            "regional_quote_count": sum(publishable_quote(q) for q in market_quotes),
+            "catalog_quote_count": sum(not publishable_quote(q) for q in market_quotes),
+            "excluded_quote_count": len(prices) - len(market_quotes),
+            "providers_with_quotes": [source["provider"] for source in results if source["market_quote_count"]],
         },
     }
     if include_coverage:

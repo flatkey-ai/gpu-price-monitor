@@ -8,7 +8,8 @@ from pathlib import Path
 import unittest
 
 from gpu_price_monitor.csv_export import (
-    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS, prices_to_csv, publishable_quote,
+    COMPACT_CSV_COLUMNS, COMPACT_CSV_HEADERS, CSV_COLUMNS, CSV_HEADERS,
+    MARKET_CSV_COLUMNS, MARKET_CSV_HEADERS, market_eligible_quote, prices_to_csv, publishable_quote,
 )
 
 
@@ -233,11 +234,11 @@ def regional_quote(**overrides):
 
 class CompactCsvExportTests(unittest.TestCase):
     def compact_rows(self, source, **options):
-        return rows(prices_to_csv(source, bilingual_headers=False, **options))
+        return rows(prices_to_csv(source, bilingual_headers=False, profile="compact", **options))
 
-    def test_default_is_ten_bilingual_columns_and_full_remains_opt_in(self):
+    def test_compact_keeps_ten_bilingual_columns_and_full_remains_opt_in(self):
         source = result(regional_quote())
-        output = prices_to_csv(source)
+        output = prices_to_csv(source, profile="compact")
         self.assertEqual(tuple(next(csv.reader(io.StringIO(output[1:], newline="")))), COMPACT_CSV_HEADERS)
         self.assertEqual(COMPACT_CSV_COLUMNS, (
             "gpu_model", "provider", "location", "amount", "currency", "unit",
@@ -247,7 +248,7 @@ class CompactCsvExportTests(unittest.TestCase):
         self.assertEqual(len(CSV_COLUMNS), 51)
         self.assertEqual(tuple(self.compact_rows(source)[0]), COMPACT_CSV_COLUMNS)
         self.assertEqual(output, prices_to_csv(source, profile="compact"))
-        self.assertEqual(output.partition("\r\n")[2], prices_to_csv(source, bilingual_headers=False).partition("\r\n")[2])
+        self.assertEqual(output.partition("\r\n")[2], prices_to_csv(source, bilingual_headers=False, profile="compact").partition("\r\n")[2])
         self.assertTrue(output.startswith("\ufeffgpu_model（"))
         self.assertTrue(output.endswith("\r\n"))
 
@@ -373,7 +374,7 @@ class CompactCsvExportTests(unittest.TestCase):
 
     def test_invalid_profile_and_invalid_instance_amount_fail_safely(self):
         for profile in (None, "", "wide", 10, [], {}):
-            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "profile must be compact or full"):
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "profile must be market, compact or full"):
                 prices_to_csv(result(), profile=profile)
         for value in (1.5, "NaN", "-1", "=private_upstream_text"):
             with self.subTest(value=value), self.assertRaises(ValueError) as error:
@@ -405,6 +406,215 @@ class CompactCsvExportTests(unittest.TestCase):
         empty = prices_to_csv(result())
         self.assertEqual(rows(empty), [])
         self.assertEqual(empty.count("\r\n"), 1)
+
+
+class MarketCsvExportTests(unittest.TestCase):
+    def market_rows(self, source):
+        return rows(prices_to_csv(source, bilingual_headers=False, profile="market"))
+
+    def test_default_market_has_ten_columns_and_keeps_catalog_and_regional_quotes(self):
+        source = result(quote(provider="lambda"), regional_quote())
+        before = deepcopy(source)
+        output = prices_to_csv(source)
+        self.assertEqual(output, prices_to_csv(source, profile="market"))
+        self.assertEqual(tuple(next(csv.reader(io.StringIO(output[1:], newline="")))), MARKET_CSV_HEADERS)
+        self.assertEqual(MARKET_CSV_COLUMNS, COMPACT_CSV_COLUMNS)
+        self.assertEqual(len(MARKET_CSV_COLUMNS), 10)
+        self.assertIn("location（报价适用范围）", MARKET_CSV_HEADERS)
+        self.assertEqual(len(rows(output)), 2)
+        self.assertEqual(len(rows(prices_to_csv(source, profile="compact"))), 1)
+        self.assertEqual(len(rows(english_csv(source))), 2)
+        self.assertEqual(output.partition("\r\n")[2],
+                         prices_to_csv(source, bilingual_headers=False).partition("\r\n")[2])
+        self.assertTrue(output.startswith("\ufeff"))
+        self.assertTrue(output.endswith("\r\n"))
+        self.assertEqual(source, before)
+
+    def test_catalog_geography_is_unstated_despite_currency_coverage_capacity_or_country(self):
+        source = result(
+            quote(provider="autodl", currency="CNY"),
+            quote(provider="lambda", capacity_regions=["us-west-1"], account_scope="authenticated_catalog"),
+            quote(price_scope="platform_coverage", coverage_regions=["eu-north1"],
+                  coverage_countries=["FI"], regions=["eu-north1"], compute_countries=["FI"]),
+        )
+        actual = self.market_rows(source)
+        self.assertEqual(actual[0]["location"], "公开目录报价；适用地区未标明（不代表全球统一价）")
+        self.assertEqual(actual[1]["location"], "账号目录报价；适用地区未标明（不代表全球统一价）")
+        self.assertEqual(actual[2]["location"], "公开目录报价；适用地区未标明（不代表全球统一价）")
+        for row in actual:
+            for unproven in ("国家=", "地区="):
+                self.assertNotIn(unproven, row["location"])
+            self.assertIn("不代表全球统一价", row["location"])
+        self.assertNotIn("CN", actual[0]["location"])
+        self.assertNotIn("US", actual[1]["location"])
+        self.assertNotIn("FI", actual[2]["location"])
+        self.assertIn("可用容量地区（非地区报价）", actual[1]["pricing_conditions"])
+        self.assertIn("平台覆盖（非地区报价）", actual[2]["pricing_conditions"])
+        for row in actual:
+            for evidence in ("原始地域证据", "price_scope", "region_price_verified", "coverage_regions",
+                             "capacity_regions", "eu-north1", "us-west-1"):
+                self.assertNotIn(evidence, row["pricing_conditions"])
+        full = rows(english_csv(source))
+        self.assertEqual(json.loads(full[1]["extra_metadata_json"])["capacity_regions"], ["us-west-1"])
+        self.assertEqual(json.loads(full[2]["extra_metadata_json"])["coverage_regions"], ["eu-north1"])
+
+    def test_verified_regions_and_unknown_country_remain_distinct_from_catalog(self):
+        source = result(
+            regional_quote(),
+            regional_quote(provider="ucloud", regions=["cn-bj2"], zones=["cn-bj2-02"],
+                           compute_countries=["CN"], price_scope="requested_zone_quote"),
+            regional_quote(regions=["sgxsingapore1"], compute_countries=[]),
+            regional_quote(regions=["us-future1"], compute_countries=["USA"]),
+            regional_quote(regions=["us-future1"], compute_countries=["US"], region_price_verified=False),
+        )
+        actual = self.market_rows(source)
+        self.assertIn("价格地区：国家=US / 地区=westus3", actual[0]["location"])
+        self.assertIn("请求配置询价地区：国家=CN", actual[1]["location"])
+        self.assertIn("可用区=cn-bj2-02", actual[1]["location"])
+        self.assertEqual(actual[2]["location"], "价格地区：国家未核实 / 地区=sgxsingapore1")
+        self.assertEqual(actual[3]["location"], "价格地区：国家未核实 / 地区=us-future1")
+        self.assertEqual(actual[4]["location"], "公开目录报价；适用地区未标明（不代表全球统一价）")
+        for row in actual[2:]:
+            self.assertNotIn("国家=", row["location"])
+        self.assertEqual(len(rows(prices_to_csv(source, profile="compact"))), 2)
+
+    def test_ordinary_member_spot_and_instance_allocation_are_separate_market_rows(self):
+        source = result(
+            quote(provider="autodl", currency="CNY", amount="10.50", pricing_tier="ordinary", membership_required=False),
+            quote(provider="autodl", currency="CNY", amount="9.98", pricing_tier="member", membership_required=True,
+                  membership_discount="0.95", ordinary_price_amount="10.50"),
+            regional_quote(provider="nebius", amount="1.60", billing_mode="spot", source_type="official_public_api",
+                           effective_from="2026-10-21T08:16:00+00:00", source_snapshot_at="2026-10-21T08:32:12+00:00",
+                           source_snapshot_basis="earliest_per_sku_snapshot"),
+            quote(provider="lambda", amount="2.000", price_basis="instance_total_allocated", gpu_count=8,
+                  instance_price={"amount": "16.000", "currency": "USD", "unit": "instance_hour"}),
+        )
+        actual = self.market_rows(source)
+        self.assertEqual([row["amount"] for row in actual], ["10.50", "9.98", "1.60", "2.000"])
+        self.assertIn("普通用户", actual[0]["pricing_conditions"])
+        self.assertIn("无需会员", actual[0]["pricing_conditions"])
+        for text in ("会员", "需会员", "会员折扣=0.95", "普通用户每GPU原币金额=10.50"):
+            self.assertIn(text, actual[1]["pricing_conditions"])
+        for text in ("Spot（可中断）", "2026-10-21T08:16:00+00:00", "来源=官方公开接口"):
+            self.assertIn(text, actual[2]["pricing_conditions"])
+        for text in ("2026-10-21T08:32:12+00:00", "earliest_per_sku_snapshot", "official_public_api"):
+            self.assertNotIn(text, actual[2]["pricing_conditions"])
+        self.assertIn("整机价按卡分摊", actual[3]["pricing_conditions"])
+        self.assertIn("整实例总价=16.000 USD instance_hour", actual[3]["pricing_conditions"])
+        self.assertIn("8卡", actual[3]["gpu_model"])
+
+    def test_market_eligibility_excludes_inapplicable_periods_statuses_and_non_prices(self):
+        self.assertTrue(market_eligible_quote(quote()))
+        self.assertTrue(market_eligible_quote(regional_quote()))
+        self.assertTrue(market_eligible_quote(quote(provider="autodl", product_type="gpu_container")))
+        self.assertTrue(market_eligible_quote(quote(amount="0.0000")))
+        self.assertTrue(market_eligible_quote(quote(billing_mode="reserved", minimum_commitment={"months": 12})))
+        for overrides in (
+            {"unit": "gpu_month"}, {"unit": "instance_hour"}, {"billing_mode": "monthly"},
+            {"billing_mode": "yearly"}, {"quote_status": "contact_sales"}, {"quote_status": "starting_at"},
+            {"price_basis": "starting_price"}, {"price_basis": "gpu_component"}, {"price_basis": "unrecognized"},
+            {"amount": None}, {"amount": ""}, {"amount": "NaN"}, {"amount": "Infinity"},
+            {"amount": "-1"}, {"amount": 2.5}, {"amount": True},
+            {"availability": "offline"}, {"availability": "ended"}, {"availability": "upcoming"},
+            {"availability": "unavailable"}, {"product_type": "cpu_instance"}, {"gpu_model": ""},
+            {"currency": "usd"}, {"currency": "US"}, {"currency": None},
+        ):
+            with self.subTest(overrides=overrides):
+                item = quote(**overrides)
+                self.assertFalse(market_eligible_quote(item))
+                self.assertEqual(self.market_rows(result(item)), [])
+        for item in (None, [], "quoted"):
+            self.assertFalse(market_eligible_quote(item))
+
+    def test_market_preserves_native_decimals_formula_safety_status_and_source(self):
+        source = result(quote(gpu_model="=1+1", currency="EUR", amount="+1.234567890123456789E-12",
+                              source_url="\t=HYPERLINK(bad)", notes=["Quoted tax and account terms."]), status="partial")
+        before = deepcopy(source)
+        row = self.market_rows(source)[0]
+        self.assertTrue(row["gpu_model"].startswith("'=1+1"))
+        self.assertEqual(row["source_url"], "'\t=HYPERLINK(bad)")
+        self.assertEqual((row["amount"], row["currency"]), (source["prices"][0]["amount"], "EUR"))
+        self.assertEqual(row["observed_at"], source["prices"][0]["observed_at"])
+        self.assertIn("采集状态=partial", row["pricing_conditions"])
+        self.assertNotIn("Quoted tax and account terms.", row["pricing_conditions"])
+        self.assertEqual(source, before)
+
+    def test_market_keeps_only_material_billing_notes_and_leaves_full_evidence_intact(self):
+        source = result(regional_quote(
+            provider="nebius", billing_mode="spot", tax_scope="excluded",
+            source_type="official_public_api", product_line="Public Cloud",
+            conditions={"capacity_type": "preemptible", "pricing_policy_url": "https://example.com/policy"},
+            location_source={"url": "https://example.com/regions", "verified_on": "2026-10-21"},
+            source_snapshot_at="2026-10-21T08:32:12+00:00", source_snapshot_basis="earliest_per_sku_snapshot",
+            notes=[
+                "Current anonymous API spot price for one GPU hour on this exact platform in this region; this is not the published minimum or an averaged history point.",
+                "Preemptible prices can change as often as every 15 minutes before and during use; interruption conditions apply and capacity is not verified.",
+                "The API supplies the currency. USD billing applies except to companies from Israel, where ILS billing applies; customer billing jurisdiction is separate from compute location.",
+                "Public catalog; availability, orderability and account-specific discounts were not verified.",
+            ],
+        ))
+        before = deepcopy(source)
+        condition = self.market_rows(source)[0]["pricing_conditions"]
+        for text in ("Spot（可中断）", "未含税", "产品线=Public Cloud", "以色列公司按ILS计费",
+                     "其余客户按USD计费", "每15分钟变动", "来源=官方公开接口"):
+            self.assertIn(text, condition)
+        for text in ("原始地域证据", "location_source", "快照", "https://example.com", "not verified",
+                     "Current anonymous", "capacity_type", "earliest_per_sku_snapshot"):
+            self.assertNotIn(text, condition)
+        self.assertLess(len(condition), 200)
+        full = rows(english_csv(source))[0]
+        self.assertEqual(json.loads(full["notes_json"]), source["prices"][0]["notes"])
+        self.assertEqual(json.loads(full["location_source_json"]), source["prices"][0]["location_source"])
+        self.assertEqual(json.loads(full["extra_metadata_json"])["source_snapshot_at"], source["prices"][0]["source_snapshot_at"])
+        self.assertEqual(source, before)
+
+    def test_market_retains_contract_configuration_dates_and_unstructured_additional_charges(self):
+        source = result(quote(
+            account_scope="account_contract_quote", price_basis="instance_total_allocated",
+            source_type="official_quote_api", source_conditions={"offer_types": ["contract"], "aggregation_unit": "hour"},
+            minimum_commitment={"months": 12}, selected_configuration={"gpu_count": 8, "boot_disk_gib": 100},
+            effective_from="2026-10-21T00:00:00+00:00", effective_until="2026-11-21T00:00:00+00:00",
+            notes=["Additional egress traffic incurs a per-GB fee.", "A minimum rental commitment of one hour applies.",
+                   "Public catalog; default collection; availability was not verified."],
+        ))
+        condition = self.market_rows(source)[0]["pricing_conditions"]
+        for text in ("账号合同价", "整机价按卡分摊", "价格方案=contract", '最低承诺={"months":12}',
+                     '选定配置={"boot_disk_gib":100,"gpu_count":8}', "2026-10-21T00:00:00+00:00",
+                     "2026-11-21T00:00:00+00:00", "Additional egress traffic incurs a per-GB fee.",
+                     "A minimum rental commitment of one hour applies.", "来源=官方询价接口"):
+            self.assertIn(text, condition)
+        self.assertNotIn("default collection", condition)
+        self.assertNotIn("aggregation_unit", condition)
+
+    def test_market_preserves_unstructured_tax_or_eligibility_limits_without_repeating_known_tax(self):
+        note = "VAT applies to this quote."
+        actual = self.market_rows(result(
+            quote(notes=[note, "Only educational customers qualify for this rate."]),
+            quote(tax_scope="excluded", notes=["Prices exclude applicable VAT."]),
+            quote(currency="ILS", notes=["ILS prices apply to companies from Israel; this is not a compute-region restriction."]),
+        ))
+        self.assertIn(note, actual[0]["pricing_conditions"])
+        self.assertIn("Only educational customers qualify for this rate.", actual[0]["pricing_conditions"])
+        self.assertIn("税费=未含税", actual[1]["pricing_conditions"])
+        self.assertNotIn("Prices exclude applicable VAT.", actual[1]["pricing_conditions"])
+        self.assertIn("ILS价适用于以色列公司", actual[2]["pricing_conditions"])
+
+    def test_real_five_provider_batch_retains_hourly_catalogs_without_promoting_monthly_ucloud(self):
+        path = Path(__file__).resolve().parents[1] / "examples" / "five-providers-2026-10-21.json"
+        source = json.loads(path.read_text())
+        before = deepcopy(source)
+        expected = [price for price in source["prices"] if market_eligible_quote(price)]
+        actual = self.market_rows(source)
+        self.assertEqual(len(actual), len(expected))
+        self.assertGreater(len(actual), 0)
+        self.assertEqual({row["provider"] for row in actual}, {"nebius", "lambda", "crusoe", "autodl"})
+        self.assertTrue(all(not market_eligible_quote(q) for q in source["prices"] if q["provider"] == "ucloud"))
+        for price, row in zip(expected, actual):
+            for field in ("provider", "amount", "currency", "unit", "source_url", "observed_at"):
+                self.assertEqual(row[field], price[field])
+            if not price.get("region_price_verified"):
+                self.assertIn("适用地区未标明", row["location"])
+        self.assertEqual(source, before)
 
 
 if __name__ == "__main__":

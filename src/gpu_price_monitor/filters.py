@@ -58,7 +58,7 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
     if provider == "ucloud":
         supported.update({"compute_countries", "regions", "zones", "gpu_counts"})
         reason = ("Matched against the configured quotation request context; availability was not verified."
-                  if settings is not None and settings.ucloud_source == "api" else
+                  if settings is not None and (settings.ucloud_source == "api" or settings.source_policy != "configured") else
                   "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
     else:
         reason = "Matched against explicit quote fields; capacity regions do not establish regional prices."
