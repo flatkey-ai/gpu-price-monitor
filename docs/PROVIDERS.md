@@ -6,8 +6,8 @@
 
 | 策略 | 行为 |
 | --- | --- |
-| `api_preferred` | 五家推荐；Nebius 默认 Spot API 加官网 JSON，也可显式选账号 `catalog_api`；Lambda 显式 `console` 用保存会话读内部 JSON，否则有 key 用 API、无 key 用公开页；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe / AutoDL 用已说明的固定页面规则 |
-| `api_only` | 仅允许价格 API，包含显式选择的 Lambda `official_internal_api`；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不加网站目录；Crusoe / AutoDL 页面来源明确报 `api_price_source_unavailable` |
+| `api_preferred` | 五家推荐；Nebius 默认 Spot API 加官网 JSON，也可显式选账号 `catalog_api`；Lambda 显式 `console` 用保存会话读内部 JSON，否则有 key 用 API、无 key 用公开页；AutoDL 显式 `market` 直接读市场 JSON；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe及 AutoDL 首页用已说明的固定页面规则 |
+| `api_only` | 仅允许价格 API，包含显式选择的 Lambda console 与 AutoDL market `official_internal_api`；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不加网站目录；Crusoe / AutoDL 首页页面来源明确报 `api_price_source_unavailable` |
 | `configured` | 默认兼容行为，遵循各 `*_SOURCE`；Nebius public 保持旧文档 + Spot，UCloud public 保持旧 UHost 活动月包 |
 
 有任一 UCloud 账号 key 时，接口优先策略要求完整签名 UHost 询价配置，不能悄悄改成 CompShare；显式 API 认证失败、请求失败、结构变化都直接报错。选择页面 / 网站 JSON 是请求前的规则，不是接口报错后的兜底。实际 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 随结果返回；混合源不冒充单一 API。
@@ -57,13 +57,13 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 因此接口优先明确选择页面规则，api_only 返回 `api_price_source_unavailable`。公开表没有价格国家 / 地区和整实例卡数，保持未知；确定数值可进 market，不可伪造成多个国家价。没有数值的 Current Spot 栏不等于已抓到实时 Spot 报价；库存和可购资格未核实。
 
-## AutoDL：固定 DOM 普通 / 会员价与授权市场
+## AutoDL：授权市场 JSON 与兼容首页
 
 公开路径用新的未登录 Playwright / Chromium 上下文，以固定 DOM 规则读取[官网首页](https://www.autodl.com/home)普通用户和炼丹会员价格。`pricing_tier`、会员要求及来源折扣分别保留，CNY / GPU / 小时不混币种。公开路径不使用 token 或保存登录态。首页缺价格位置，可进入 market；缺国家 / region 不进入 compact。
 
-`AUTODL_SOURCE=market` 与 `AUTODL_STORAGE_STATE_PATH` 可选用户授权[市场](https://www.autodl.com/market/list)。程序核验允许的只读请求、分页、重复项、页面金额 / 每小时单位，保留机器标识、来源地区和每卡资源。市场可用卡数不当实例选定卡数，国家 / zone 不猜。登录态过期报错，不回退首页，不租资源。
+`AUTODL_SOURCE=market` 与 `AUTODL_STORAGE_STATE_PATH` 选择用户授权[市场](https://www.autodl.com/market/list)的 `POST /api/v1/user/machine/list` JSON。普通浏览器人工登录后，用仓库内的本地导出页保存最小会话；采集时无需浏览器，支持 `api_only`，不会访问钱包、已有实例或订单接口。程序核验明确 `payg` SKU、普通 / 会员档位、总数和唯一 ID，保留每卡 CPU / 内存及价格地区。已于 2026-10-22 通过 Python / CLI 实测，完整批次 6,558 条双档小时价。[详细配置和金额精度](autodl-market.md)。
 
-原文档的 [Pro API](https://www.autodl.com/docs/instance_pro_api/)和[弹性部署 API](https://www.autodl.com/docs/esd_api_doc/)面向已有实例 / 部署，不是全市场价目；`gpu_stock` 无价格。已有资源价格字段不能仅凭名称猜倍率，`AUTODL_TOKEN` 当前不用于公开 / 市场模式。api_only 拒绝此页面来源。首页已实采；授权市场仍缺有效会话成功联调证据。
+原文档的 [Pro API](https://www.autodl.com/docs/instance_pro_api/)和[弹性部署 API](https://www.autodl.com/docs/esd_api_doc/)面向已有实例 / 部署，不是该市场接口；`gpu_stock` 无价格。`AUTODL_TOKEN` 当前不用于公开 / 市场模式。市场 JSON 的国家缺口单独保留：只有当前地区名称及数据中心与官方地名证据一致的地区身份才补国家，zone 不猜。官网“已租完”保留为 `out_of_stock`，不冒充下线；缺国家的原价留 JSON，正式完整国家地区表用 `compact`。
 
 ## UCloud：CompShare 匿名小时询价与 UHost 分开
 

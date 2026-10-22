@@ -49,6 +49,17 @@ class TransportTests(unittest.TestCase):
                     fetch_text("https://example.com", Settings(max_retries=0))
         self.assertEqual(raised.exception.code, "response_too_large")
 
+    def test_explicit_bulk_limit_remains_bounded_and_rejects_invalid_limits_before_io(self):
+        with patch("gpu_price_monitor.transport.urlopen", return_value=self.response(b'{"ok":1}')):
+            with self.assertRaises(FetchError) as raised:
+                request_json("https://example.com", Settings(max_retries=0), max_response_bytes=7)
+        self.assertEqual(raised.exception.code, "response_too_large")
+        for limit in (0, True, 32 * 1024 * 1024 + 1):
+            with self.subTest(limit=limit), patch("gpu_price_monitor.transport.urlopen") as opener:
+                with self.assertRaises(FetchError):
+                    request_json("https://example.com", Settings(max_retries=0), max_response_bytes=limit)
+                opener.assert_not_called()
+
     def test_declared_length_detects_truncation_and_retries(self):
         short = self.response(b"incomplete")
         short.headers["Content-Length"] = "100"

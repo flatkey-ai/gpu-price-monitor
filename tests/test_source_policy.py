@@ -376,9 +376,8 @@ class SourcePolicyTests(unittest.TestCase):
         self.html.assert_called_once()
         self.browser.assert_called_once()
 
-    def test_api_only_rejects_page_and_authorized_browser_before_io(self):
-        for provider, options in (("crusoe", {}), ("autodl", {}),
-                                  ("autodl", {"autodl_source": "market"})):
+    def test_api_only_rejects_page_sources_before_io(self):
+        for provider, options in (("crusoe", {}), ("autodl", {})):
             with self.subTest(provider=provider, options=options):
                 result, source = self.collect_one(provider, source_policy="api_only", **options)
                 self.assertEqual(result["status"], "failed")

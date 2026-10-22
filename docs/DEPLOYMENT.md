@@ -50,8 +50,8 @@ stdout 只含 JSON 或 CSV，stderr 为诊断和投影计数。退出码成功 `
 
 ## 策略与可选凭据
 
-- `api_preferred`：五家推荐。Nebius 当前 Spot 加官网 JSON 普通目录；Lambda 依 key 选择接口 / 公开页；UCloud 无 key 为 CompShare 匿名小时询价，有任一 key 则要求完整签名 UHost 目标；Crusoe / AutoDL 固定页面规则。
-- `api_only`：只允许价格 API；Nebius 只有 Spot，Crusoe / AutoDL 页面来源报不支持。不是换个标签把页面算作 API。
+- `api_preferred`：五家推荐。Nebius 当前 Spot 加官网 JSON 普通目录；Lambda 依配置选择接口 / 公开页；AutoDL market 直接取市场 JSON；UCloud 无 key 为 CompShare 匿名小时询价，有任一 key 则要求完整签名 UHost 目标；Crusoe及 AutoDL 首页使用固定页面规则。
+- `api_only`：只允许价格 API；显式 AutoDL `market` 与 Lambda `console` 可用；Crusoe / AutoDL 首页页面来源报不支持。不是换个标签把页面算作 API。
 - `configured`：兼容各 `*_SOURCE`；Nebius public 为旧文档 + Spot，UCloud public 为旧 UHost 月促销。通用 `.env.example` 保留此策略。
 
 `GPU_PRICE_MONITOR_SOURCE_POLICY` 或 `--source-policy` 选择策略。已经选中的 API 若配置 / 鉴权 / 解析失败就报错，不降级成其他产品线或网页目录。
@@ -65,7 +65,7 @@ stdout 只含 JSON 或 CSV，stderr 为诊断和投影计数。退出码成功 `
 
 无 key 的 CompShare 询价不需要这些账号配置，输出仍须标明 UCloud 旗下 CompShare 产品线、普通原价及请求地区 / 配置；优惠资格未知只审计。配置发现目录里的价格不作为返回值。
 
-账号估价、Lambda 认证、签名 UHost 与 AutoDL 登录市场尚需有效凭据成功联调，离线测试不证明账号取价成功。`.env`、`.env.*.local`、私有 `*.local.json`、浏览器状态和 Cookie 不提交、不打印、不放进结果。
+Nebius 账号估价、Lambda console 与 AutoDL market 已于 2026-10-22 通过独立 Python HTTP 实采；签名 UHost 等未实测认证方式仍需真实凭据验证，离线测试不证明账号取价成功。AutoDL market 采集无需 Chromium，配置见 [市场接口说明](autodl-market.md)。`.env`、`.env.*.local`、私有 `*.local.json`、浏览器状态和 Cookie 不提交、不打印、不放进结果。
 
 ## 调用方的云运行与发布
 

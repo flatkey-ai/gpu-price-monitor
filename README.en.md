@@ -65,6 +65,8 @@ whole-cluster GPU counts. The library does not convert currencies or publish dat
 
 A standalone GPU price collector for the five providers in the supplied document: **Nebius, Lambda, Crusoe, AutoDL, and UCloud**. Python and the CLI return JSON / CSV. Scheduling, storage, conversion, uploads, comparisons, and website publication belong to the calling application.
 
+**0.19.0 adds direct AutoDL market JSON collection**, live-verified on 2026-10-22 with both Python and CLI `api_only`. A caller-exported minimal session reads explicit hourly ordinary/member tariffs without a browser or LLM: 3,372 market records, 3,279 GPU resources, 6,558 two-tier quotes, 30 models and 17 region codes. The 3,358 country-verified quotes qualify for `compact`; remaining country evidence gaps stay explicit. [Session export and usage](docs/autodl-market.md).
+
 [中文](README.md) · [Provider evidence](docs/PROVIDERS.md) · [Data model](docs/DATA_MODEL.md) · [Document coverage](docs/DOCUMENT_COVERAGE.md)
 
 **0.13.0 defaults to a ten-column `market` hourly price CSV** containing verified regional quotes and valid catalog quotes whose applicable region is not published. Catalog scope stays explicit; missing locations do not imply globally uniform pricing. Choose `compact` for verified country/region quotes only, or `full` for all source audit records.
@@ -73,7 +75,7 @@ The successful five-provider capture at **2026-10-21 17:45 Asia/Shanghai** retur
 
 ## Clone and run the five providers
 
-Requires Python 3.11+. No Codex, LLM, or model API key is needed. Public paths run without provider credentials; AutoDL needs free local Chromium.
+Requires Python 3.11+. No Codex, LLM, or model API key is needed. Public paths run without provider credentials; AutoDL's homepage path needs free local Chromium, while its authorized market JSON path needs no browser.
 
 ```bash
 git clone https://github.com/flatkey-ai/gpu-price-monitor.git
@@ -110,7 +112,7 @@ Load a local profile explicitly with `Settings.from_env(env_file=".env.five.loca
 | Nebius | Default anonymous Spot API + website Next.js JSON; explicit `catalog_api` discovers account projects/presets and calls the official estimate API | Spot is region-bound; account compute rates include VM GPU/CPU/RAM, with SSD charged separately. Public starting prices and Contact us remain audit records |
 | Lambda | Public page, keyed API, or explicit `console` mode with your own saved session | Instance cents are allocated over explicit GPU counts; the reviewed current frontend establishes one SKU catalog rate across its listed selectable standard regions, not independent regional quotes |
 | Crusoe | Deterministic Python HTML parser for the GPU instances section | No verified public VM price API; billing, reservations, and managed model deployment prices are excluded |
-| AutoDL | Playwright with fixed DOM rules for ordinary/member prices | No suitable public market-price API; homepage locations are unknown; authorized market mode is optional |
+| AutoDL | Direct authenticated market JSON in `market` mode; legacy homepage DOM in `public` mode | Market mode includes exact resource regions and ordinary/member hourly SKUs, with no browser dependency; homepage locations remain unknown |
 | UCloud | Anonymous configuration-price API for its CompShare product line without keys; signed UHost configuration quotes with keys | Product lines remain distinct; ordinary list prices qualify, while discounts with unverified eligibility remain audit-only |
 
 All amounts come from programmatic requests and fixed structures. No model interprets prices. Nebius website JSON is a website data endpoint, **not a documented stable cloud price API**: HTML supplies only the dynamic route, and the subsequent JSON supplies prices. UCloud frontend catalogs discover request configurations; actual quote responses supply amounts.
@@ -146,7 +148,7 @@ Amounts retain exact native decimal strings; **the library does not convert to U
 | Policy | Behavior |
 | --- | --- |
 | `api_preferred` | Recommended five-provider policy; permits clearly labeled deterministic official-page and website-JSON sources where appropriate; selected API failures never trigger another source |
-| `api_only` | Price APIs only; public Nebius returns Spot, while explicit `catalog_api` / `api` allow account estimates, without website catalogs; Crusoe/AutoDL page sources fail with `api_price_source_unavailable` |
+| `api_only` | Price APIs only; explicit AutoDL `market` is supported; public Nebius returns Spot, while explicit `catalog_api` / `api` allow account estimates, without website catalogs; Crusoe/AutoDL homepage sources fail with `api_price_source_unavailable` |
 | `configured` | Backward-compatible default honoring `*_SOURCE`; public Nebius retains document + Spot, and public UCloud retains the older UHost monthly promotion adapter |
 
 The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe,autodl,ucloud` and `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`. CLI `--providers` and `--source-policy` override them. The general `.env.example` retains `configured`.
@@ -159,7 +161,7 @@ The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe
 | Nebius explicit configuration estimates | Explicit `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and one of `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON`; the main amount totals all requested resources |
 | Authorized AutoDL market | `AUTODL_SOURCE=market` and valid `AUTODL_STORAGE_STATE_PATH`; public homepage collection does not use a token |
 
-A partial UCloud key pair or missing UCloud targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Nebius `catalog_api` and Lambda's console-session mode passed standalone Python HTTP collection on 2026-10-22. Signed UCloud estimates, Lambda's API-key mode, Crusoe contract authentication and authorized AutoDL market still lack successful live credential verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
+A partial UCloud key pair or missing UCloud targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Nebius `catalog_api`, Lambda's console-session mode and AutoDL market JSON passed standalone Python HTTP collection on 2026-10-22. Signed UCloud estimates, Lambda's API-key mode and Crusoe contract authentication still lack successful live credential verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
 
 JSON `execution` declares Python, deterministic rules, no LLM, and the policy. `provider_results` reports actual sources, collection methods, selection/fallback reasons, and per-provider `market_quote_count`. `market_comparison` counts eligible hourly catalog/regional quotes; the existing `comparison` retains strict regional counts. Successful collection, hourly-price eligibility, verified location, and current orderability are separate facts.
 

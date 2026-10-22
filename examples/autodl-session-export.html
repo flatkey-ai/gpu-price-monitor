@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>保存 AutoDL 登录状态</title>
+<style>body{max-width:760px;margin:52px auto;padding:0 24px;font:17px/1.75 system-ui,sans-serif;color:#202420;background:#fafbf8}h1{font-size:30px;line-height:1.25}a{color:#116242}#bookmarklet{display:inline-block;padding:12px 20px;border:2px solid #116242;background:#e8f4e9;text-decoration:none;font-weight:700}li{margin:14px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eef0eb;font:13px/1.6 monospace}small{color:#566056}details{margin-top:32px}</style></head>
+<body><h1>保存 AutoDL 登录状态</h1>
+<p>在你自己的 Chrome 中操作，把登录状态保存成一个本地 JSON 文件，供采集程序使用。无需再登录专用窗口。</p>
+<ol><li>将下面的链接<strong>拖到 Chrome 书签栏</strong>。书签栏未显示时，按 <kbd>⌘ Shift B</kbd>（Windows：<kbd>Ctrl Shift B</kbd>）。<p><a id="bookmarklet" href="javascript:(function () {&#x27;use strict&#x27;;try {if (window.top !== window.self || location.origin !== &#x27;https://www.autodl.com&#x27; || location.pathname !== &#x27;/market/list&#x27;) {alert(&#x27;请先在 https://www.autodl.com/market/list 登录并打开市场，再点击这个书签。&#x27;);return;}const token = localStorage.getItem(&#x27;token&#x27;);if (typeof token !== &#x27;string&#x27; || token.length === 0 || token.length &gt; 65536 || /[\s\u0000-\u001f\u007f]/.test(token)) {alert(&#x27;当前官网页面没有可用的登录状态，请先完成登录。&#x27;);return;}const state = {cookies: [], origins: [{origin: &#x27;https://www.autodl.com&#x27;, localStorage: [{name: &#x27;token&#x27;, value: token}]}]};const url = URL.createObjectURL(new Blob([JSON.stringify(state)], {type: &#x27;application/json;charset=utf-8&#x27;}));const link = document.createElement(&#x27;a&#x27;);link.href = url;link.download = &#x27;autodl.storage-state.json&#x27;;document.body.appendChild(link);link.click();link.remove();setTimeout(function () { URL.revokeObjectURL(url); }, 1000);} catch (_) {alert(&#x27;本地保存未完成。请确认已在 AutoDL 官网市场登录；不要粘贴或分享登录凭据。&#x27;);}})();">保存 AutoDL 会话到本地</a></p><small>这里用于拖成书签，不是在当前页面点击运行。</small></li>
+<li>切回你已登录的 <a href="https://www.autodl.com/market/list" target="_blank" rel="noopener noreferrer">AutoDL 官网市场</a>，点击刚添加的书签。</li>
+<li>浏览器将下载 <code>autodl.storage-state.json</code>。将这个文件留在本机，再交给本地导入脚本。</li></ol>
+<p><strong>这个文件含登录凭据，请勿上传、发给他人或提交 Git。</strong>工具只保存该官网的 token，不读取 Cookie 或个人资料，不发网络请求，不租用资源。完成后可删除书签。</p>
+<details><summary>查看全部书签代码</summary><pre>(function () {
+  &#x27;use strict&#x27;;
+  try {
+    if (window.top !== window.self || location.origin !== &#x27;https://www.autodl.com&#x27; || location.pathname !== &#x27;/market/list&#x27;) {
+      alert(&#x27;请先在 https://www.autodl.com/market/list 登录并打开市场，再点击这个书签。&#x27;);
+      return;
+    }
+    const token = localStorage.getItem(&#x27;token&#x27;);
+    if (typeof token !== &#x27;string&#x27; || token.length === 0 || token.length &gt; 65536 || /[\s\u0000-\u001f\u007f]/.test(token)) {
+      alert(&#x27;当前官网页面没有可用的登录状态，请先完成登录。&#x27;);
+      return;
+    }
+    const state = {cookies: [], origins: [{origin: &#x27;https://www.autodl.com&#x27;, localStorage: [{name: &#x27;token&#x27;, value: token}]}]};
+    const url = URL.createObjectURL(new Blob([JSON.stringify(state)], {type: &#x27;application/json;charset=utf-8&#x27;}));
+    const link = document.createElement(&#x27;a&#x27;);
+    link.href = url;
+    link.download = &#x27;autodl.storage-state.json&#x27;;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  } catch (_) {
+    alert(&#x27;本地保存未完成。请确认已在 AutoDL 官网市场登录；不要粘贴或分享登录凭据。&#x27;);
+  }
+})();</pre></details>
+</body></html>
