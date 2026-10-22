@@ -12,7 +12,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from gpu_price_monitor import ConfigurationError, Settings, collect_prices
+from gpu_price_monitor import ConfigurationError, Settings, collect_prices, prices_to_csv
+from gpu_price_monitor.filters import apply_filters
 from gpu_price_monitor.cli import main
 from gpu_price_monitor.collector import _selected_module, provider_source
 from gpu_price_monitor.providers import lambda_cloud, lambda_console, lambda_console_client, lambda_public
@@ -51,6 +52,10 @@ class LambdaConsoleIntegrationTests(unittest.TestCase):
         self.stack.enter_context(patch("gpu_price_monitor.collector._now", return_value=OBSERVED))
         self.request = self.stack.enter_context(patch(
             "gpu_price_monitor.lambda_session.request_json", side_effect=self.get_catalog))
+        self.version = self.stack.enter_context(patch(
+            "gpu_price_monitor.providers.lambda_console_client.verify_frontend_version",
+            return_value={"status": "verified", "source_url": lambda_console.FRONTEND_SOURCE_URL,
+                          "sha256": "synthetic-reviewed-source-digest"}))
 
     def block(self, target):
         return self.stack.enter_context(patch(
@@ -261,6 +266,55 @@ class LambdaConsoleIntegrationTests(unittest.TestCase):
         self.assert_private_result(result)
         self.assertNotIn(PRIVATE, errors.getvalue())
         self.assertNotIn(str(self.state), errors.getvalue())
+
+    def test_country_and_region_filter_match_shared_catalog_scope_without_regional_inflation(self):
+        result = collect_prices(settings=self.settings(), filters={"compute_countries": ["US"],
+                                                                  "regions": ["us-east-3"]})
+        self.assertEqual(result["status"], "success")
+        self.assertEqual([q["raw_sku"] for q in result["prices"]], ["gpu_1x_gh200"])
+        quote = result["prices"][0]
+        self.assertEqual(quote["amount"], "2.29")
+        self.assertEqual(quote["applicable_countries"], ["US"])
+        self.assertEqual(quote["applicable_regions"], ["us-east-3"])
+        self.assertFalse(quote["region_price_verified"])
+        self.assertEqual(quote["regions"], [])
+        self.assertEqual(result["comparison"]["eligible_quote_count"], 0)
+        self.assertIn("catalog", result["provider_results"][0]["filters"]["regions"]["reason"])
+
+    def test_combined_country_and_region_filter_must_match_one_location(self):
+        payload = deepcopy(self.payloads[lambda_console.INSTANCE_TYPES_URL])
+        row = payload["data"]["gpu_1x_gh200"]
+        row["regions_with_capacity_available"] = [
+            {"name": "us-east-3", "description": "Washington DC, USA"},
+            {"name": "asia-northeast-1", "description": "Osaka, Japan"},
+        ]
+        quote = lambda_console.parse_instance_prices(
+            {"data": {"gpu_1x_gh200": row}}, observed_at=OBSERVED)[0]
+        self.assertEqual(apply_filters([quote], {"compute_countries": ["US"],
+                                               "regions": ["asia-northeast-1"]}), [])
+        self.assertEqual(len(apply_filters([quote], {"compute_countries": ["JP"],
+                                                   "regions": ["asia-northeast-1"]})), 1)
+
+    def test_changed_frontend_keeps_raw_prices_but_withholds_shared_geography_and_market_csv(self):
+        self.version.return_value = {"status": "failed", "reason_code": "frontend_version_changed"}
+        result = self.collect()
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(len(result["prices"]), 36)
+        self.assertEqual(result["provider_results"][0]["price_applicability_verification"]["status"], "failed")
+        self.assertTrue(all(q["price_applicability"]["verification_status"] == "frontend_version_unverified"
+                            for q in result["prices"]))
+        self.assertEqual(len(list(csv.reader(io.StringIO(prices_to_csv(result))))), 1)
+        self.assertEqual(len(list(csv.reader(io.StringIO(prices_to_csv(result, profile="catalog"))))), 37)
+        self.assert_private_result(result)
+
+    def test_country_region_catalog_describes_all_regions_without_copying_prices_to_them(self):
+        result = self.collect()
+        catalog = result["provider_results"][0]["country_region_catalog"]
+        self.assertEqual(len(catalog), 18)
+        self.assertEqual({item["country_code"] for item in catalog}, {"US", "DE", "JP", "AU", "IN", "IL"})
+        self.assertTrue(all("amount" not in item for item in catalog))
+        international = [item for item in catalog if item["country_code"] != "US"]
+        self.assertTrue(all(not item["has_currently_selectable_gpu_catalog_quotes"] for item in international))
 
     def test_cli_csv_is_valid_and_does_not_expose_saved_session_details(self):
         output, errors = io.StringIO(), io.StringIO()

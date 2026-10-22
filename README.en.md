@@ -1,14 +1,22 @@
 # GPU Price Monitor
 
-Version 0.15 adds explicit `LAMBDA_SOURCE=console`: read-only Lambda internal JSON
-catalogs using your own saved login session. **Standalone Python CLI / HTTP collection
-passed all three GETs on 2026-10-22 and returned 36 GPU quotes: 22 on-demand instance
-configurations and 14 reserved-cluster configurations (six GPU/tariff tiers).** Two
-CPU configurations were excluded with audit records, and 18 region metadata entries
-were retained. No payment method or launched resources were needed. Capacity locations
-are not independently quoted regional prices; cluster duration and final purchase
-terms remain unverified. See [setup and limitations](docs/lambda-console.md) and
-[environment template](.env.lambda.example).
+Version 0.16 adds explicit country/region applicability to `LAMBDA_SOURCE=console`.
+For the same SKU, the listed selectable standard regions share one catalog rate;
+the main CSV names their countries and regions without duplicating the quote or
+claiming a nationwide rate. Every run checks the current official frontend version.
+Changed code or insufficient evidence preserves JSON amounts with `partial` status
+and excludes unverified applicability from the main CSV. Empty-capacity, dedicated
+and unknown-location records remain in `catalog`, `full` and JSON. Collection is free,
+requires no payment method or GPU launch, and uses no LLM. Cookies stay local. See
+[setup and limitations](docs/lambda-console.md) and [environment template](.env.lambda.example).
+
+The live capture at **2026-10-22 11:21:12 Asia/Shanghai** passed verification: 36 GPU
+catalog records produced 19 main-CSV rows (five currently selectable on-demand
+configurations and 14 cluster configurations). Seventeen records had no currently
+selectable standard region. All selectable quotes in this batch were in the US;
+the 18 platform-region metadata entries do not create quotes for other countries.
+Inventory and row counts can change. Cluster duration and final purchase terms
+remain unverified.
 
 Version 0.14 adds `--catalog-scope complete` for Nebius, Lambda and Crusoe.
 Copy `.env.three.example` to `.env.three.local` and pass `--env-file .env.three.local`.
@@ -71,7 +79,7 @@ Load a local profile explicitly with `Settings.from_env(env_file=".env.five.loca
 | Provider | `api_preferred` source | Limits |
 | --- | --- | --- |
 | Nebius | Anonymous current Spot API plus the official website Next.js JSON catalog | Spot is dynamic and region-bound; the catalog adds on-demand rates. L40S starting prices and Contact us remain audit records |
-| Lambda | Public page, keyed API, or explicit `console` mode with your own saved session | Instance cents are allocated over explicit GPU counts; capacity locations are not price regions |
+| Lambda | Public page, keyed API, or explicit `console` mode with your own saved session | Instance cents are allocated over explicit GPU counts; the reviewed current frontend establishes one SKU catalog rate across its listed selectable standard regions, not independent regional quotes |
 | Crusoe | Deterministic Python HTML parser for the GPU instances section | No verified public VM price API; billing, reservations, and managed model deployment prices are excluded |
 | AutoDL | Playwright with fixed DOM rules for ordinary/member prices | No suitable public market-price API; homepage locations are unknown; authorized market mode is optional |
 | UCloud | Anonymous configuration-price API for its CompShare product line without keys; signed UHost configuration quotes with keys | Product lines remain distinct; ordinary list prices qualify, while discounts with unverified eligibility remain audit-only |
@@ -93,7 +101,7 @@ gpu-price-monitor collect --env-file .env.five.local --format csv --csv-headers 
 
 The ten fields cover GPU/configuration, provider, quote applicability, native per-GPU amount, currency, unit, conditions, availability, source, and observation time. Headers are bilingual by default. Ordinary/member, Spot, tax, account conditions, source instance totals, and UCloud product line remain visible.
 
-`market` and `compact` require numeric `quoted` GPU-hour rental rates. Starting prices, GPU-only components, monthly packages, contact-sales entries, discounts with unverified eligibility, and explicitly unavailable listings are excluded. `market` keeps valid catalogs with honest applicability labels; `compact` additionally requires verified country and price region. Unknown regions are never filled with global scope.
+`market` and `compact` require numeric `quoted` GPU-hour rental rates. Starting prices, GPU-only components, monthly packages, contact-sales entries, discounts with unverified eligibility, and explicitly unavailable listings are excluded. `market` keeps valid catalogs with honest applicability labels; Lambda console shared-catalog records additionally need complete country/region details and currently selectable standard capacity. Other records remain in the full catalog. `compact` requires independently verified country/price-region evidence, so Lambda shared-catalog rates do not qualify. Unknown regions are never filled with global scope.
 
 Python equivalents are `prices_to_csv(result)`, `prices_to_csv(result, profile="compact")`, and `prices_to_csv(result, profile="full")`. `market_eligible_quote` checks hourly catalog/regional eligibility; `publishable_quote` retains strict regional eligibility. Column constants are `MARKET_CSV_*`, `COMPACT_CSV_*`, and `CSV_*`.
 
@@ -122,7 +130,7 @@ JSON `execution` declares Python, deterministic rules, no LLM, and the policy. `
 
 ## Geographic evidence and scope
 
-Country filters use ISO two-letter codes. Country/region/zone must match the same quote. Capacity, platform coverage, currency, headquarters, and IP location do not establish price geography. Missing locations do not prove globally uniform rates. Documented coverage uses separate `--coverage-country` / `--coverage-region` filters. Unsupported dimensions return `unsupported_filter`; missing evidence for a supported dimension returns `unverifiable_filter`.
+Country filters use ISO two-letter codes. Country/region/zone must match the same quote. For Lambda console, `--country` / `--region` match the reviewed shared-catalog applicability; combined conditions must match the same location entry, not an independently queried regional rate. JSON stores this scope separately in `price_applicability` / `applicable_*`. Capacity, platform coverage, currency, headquarters, and IP location alone do not establish price geography. Missing locations do not prove globally uniform rates. Documented coverage uses separate `--coverage-country` / `--coverage-region` filters. Unsupported dimensions return `unsupported_filter`; missing evidence for a supported dimension returns `unverifiable_filter`.
 
 RunPod, DigitalOcean, Verda, and Azure adapters remain available through `--providers all`; the dedicated profile runs only the original five. [Archived examples](examples/README.md) are dated evidence and never runtime fallbacks. See [document coverage](docs/DOCUMENT_COVERAGE.md) for request, unit, location, and authentication boundaries.
 

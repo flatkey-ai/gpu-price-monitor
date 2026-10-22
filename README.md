@@ -2,7 +2,9 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
-**0.15.0 新增 Lambda 免费登录态目录接口**：显式 `LAMBDA_SOURCE=console`，使用自己的登录会话只读实例、预留集群和地区 JSON。**2026-10-22 独立 Python CLI / HTTP 实采通过三个 GET，返回 36 条 GPU 报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）**；另审计排除 2 个 CPU 规格，保留 18 条地区元数据。无需绑定付款方式或创建资源；地区是容量信息，集群期限与最终购买条件仍未核实。会话过期会报错，不回退冒充成功。[配置和边界](docs/lambda-console.md) · [env 模板](.env.lambda.example)。
+**0.16.0 补全 Lambda 登录目录的国家与地区**：显式 `LAMBDA_SOURCE=console`，免费读取实例、预留集群和地区 JSON；同规格的所列可选标准地区共享目录价，主表展示具体中文国家、地区与 region code，不重复计数，也不宣称全国统一。每次核对当前官方前端代码版本；版本变更或证据不足会保留 JSON 原价、标记 `partial`，不进入主表。无库存、私有或未知地区的目录记录留在 `catalog` / `full` / JSON。无需绑卡、启动 GPU 或调用大模型，Cookie 仅存本地。[配置和边界](docs/lambda-console.md) · [env 模板](.env.lambda.example)。
+
+2026-10-22 **11:21:12（北京时间）本轮实采通过**：36 条 GPU 目录记录中，19 条进入主表（5 个当前可选按需规格、14 个预留集群配置），其余 17 条无当前可选标准地区。该批可选报价均在美国；18 条平台地区元数据不扩展为各国报价。库存和行数随时间变化，集群期限与最终购买条件仍未核实。
 
 [English](README.en.md) · [平台来源与限制](docs/PROVIDERS.md) · [数据口径](docs/DATA_MODEL.md) · [文档需求对照](docs/DOCUMENT_COVERAGE.md)
 
@@ -60,7 +62,7 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 | 平台 | `api_preferred` 来源 | 核对价格时的限制 |
 | --- | --- | --- |
 | Nebius | 官方匿名当前 Spot API，加官网 Next.js JSON 目录 | Spot 是地区动态价；JSON 目录补普通按需价。L40S 的 From 和 Contact us 保留审计，不当确定报价 |
-| Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 美分整实例价按明确卡数分摊；容量地区不是价格地区 |
+| Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 整实例价按卡分摊；经当前前端版本核实，所列可选标准地区共享 SKU 目录价，非逐地区独立询价 |
 | Crusoe | Python 固定 HTML 规则解析官网 GPU instances 区块 | 没有已核实的公共 VM 价目 API；不混入账单、预留合同或模型部署费用 |
 | AutoDL | Playwright 固定 DOM 规则读取普通 / 会员价 | 无合适公开市场价 API；会员条件保留，首页没有价格地区；可选授权 market 模式 |
 | UCloud | 无 key 用旗下优云智算 CompShare 匿名配置询价 API；有任一 key 则要求完整签名 UHost 询价配置 | CompShare 与 UHost 分开标记产品线；普通原价用于比较，资格未核实的优惠价留在审计数据 |
@@ -84,7 +86,7 @@ gpu-price-monitor collect --env-file .env.five.local --format csv --csv-headers 
 
 10 列为：**GPU 型号及配置、平台、报价适用范围、每 GPU 金额、币种、单位、价格条件、可用状态、官方来源、采集时间**。默认表头英中双语；普通 / 会员、Spot、税费、账号条件、来源明确的实例总价及 UCloud 产品线仍保留。
 
-`market` 与 `compact` 均要求实际数值 `quoted`、`gpu_hour` 和完整 GPU 租用费口径。起步价、GPU 单独组件、月包、Contact sales、资格未核实的特殊优惠及明确下线 / 不可用项不进入报价表。`market` 接受明确标注范围的目录价，缺少地区不再把真实目录报价藏掉；`compact` 额外要求已核实国家与价格地区。未知地区不补成 global。
+`market` 与 `compact` 均要求实际数值 `quoted`、`gpu_hour` 和完整 GPU 租用费口径。起步价、GPU 单独组件、月包、Contact sales、资格未核实的特殊优惠及明确下线 / 不可用项不进入报价表。`market` 接受明确标注范围的目录价；Lambda console 的新共享价记录另外要求完整国家地区及当前可选标准容量，其他记录保留完整目录。`compact` 额外要求独立核实的国家与价格地区，Lambda 的共享目录价不满足该条件。未知地区不补成 global。
 
 Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="compact")`、`prices_to_csv(result, profile="full")`。`market_eligible_quote` 检查小时目录 / 地区报价资格，`publishable_quote` 保持严格地区资格；对应列常量为 `MARKET_CSV_*`、`COMPACT_CSV_*` 与 `CSV_*`。
 
@@ -115,7 +117,7 @@ JSON 的 `execution` 声明 Python、固定规则、不使用 LLM 及所选策�
 
 ## 国家、地区与验证边界
 
-`--country` 使用 ISO 两字母代码；`--region` / `--zone` 匹配同一条价格的实际部署位置。平台覆盖、容量列表、公司总部、币种或访问 IP 不当价格地区；缺少地区也不证明统一价。文档供给范围另用 `--coverage-country` / `--coverage-region`。来源不支持筛选时返回 `unsupported_filter`，本应支持却缺证据时返回 `unverifiable_filter`。
+`--country` 使用 ISO 两字母代码；`--region` / `--zone` 匹配同一条价格的实际部署位置。Lambda console 的 `--country` / `--region` 则匹配经官方前端核实的共享目录价适用地区，联合条件须由同一个地区条目满足，不代表逐地区独立询价；JSON 的适用范围另存 `price_applicability` / `applicable_*`。平台覆盖、容量列表、公司总部、币种或访问 IP 本身不建立价格地区；缺少地区也不证明统一价。文档供给范围另用 `--coverage-country` / `--coverage-region`。来源不支持筛选时返回 `unsupported_filter`，本应支持却缺证据时返回 `unverifiable_filter`。
 
 本库还保留 RunPod、DigitalOcean、Verda、Azure 四家独立适配器，`--providers all` 会包含它们；五家模板只运行原文档范围。历史采样仅证明当时来源，见 [examples](examples/README.md)，不作为当前价格或运行时兜底。具体请求、单位、地区证据及认证边界见 [文档对照](docs/DOCUMENT_COVERAGE.md)。
 

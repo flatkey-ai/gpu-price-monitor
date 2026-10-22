@@ -10,7 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from decimal import Context, Decimal, localcontext
 
-from . import lambda_cloud
+from . import lambda_cloud, lambda_locations
 from ..transport import FetchError
 
 
@@ -20,8 +20,8 @@ AUTH_KIND = "session"
 INSTANCE_TYPES_URL = SOURCE_URL + "/instance-types"
 RESERVED_CLUSTER_TYPES_URL = SOURCE_URL + "/cluster-types/reserved"
 REGIONS_URL = SOURCE_URL + "/regions"
-FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-CEsRgDcv.js"
-FRONTEND_COMMON_URL = "https://cloud.lambda.ai/static/cloud-app/assets/common-CyOCoVtF.js"
+FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BYA5g9wz.js"
+FRONTEND_COMMON_URL = "https://cloud.lambda.ai/static/cloud-app/assets/common-G9MAKrEE.js"
 CLOUD_TERMS_URL = "https://lambda.ai/legal/terms-of-service"
 BILLING_URL = "https://docs.lambda.ai/public-cloud/billing/"
 AUTH_DOCUMENTATION_URL = "https://docs.lambda.ai/public-cloud/access-security/"
@@ -129,6 +129,7 @@ def _capacity_metadata(quote: dict, locations: list[dict]) -> None:
         "basis": "catalog_capacity_locations_not_independent_regional_prices",
         "locations": deepcopy(locations), "orderability_verified": False,
     }
+    quote.update(lambda_locations.enrich_price_applicability(quote))
 
 
 def parse_instance_catalog(payload: dict, *, observed_at: str) -> dict:
