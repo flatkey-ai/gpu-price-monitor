@@ -292,9 +292,14 @@ def _compact_location(quote: dict) -> str:
             parts.append(label + "=" + ",".join(values))
     location = quote.get("location")
     if isinstance(location, dict):
+        if (len(quote["compute_countries"]) == 1
+                and location.get("country_code") == quote["compute_countries"][0]
+                and location.get("country_name_zh")):
+            parts[0] += "（" + str(location["country_name_zh"]) + "）"
         for field in ("region_name", "zone_name"):
-            if location.get(field):
-                parts.append(str(location[field]))
+            value = location.get(field + "_zh") or location.get(field)
+            if value and value != location.get("country_name_zh"):
+                parts.append(str(value))
     prefix = "请求配置询价地区：" if quote["price_scope"].startswith("requested_") else "价格地区："
     return prefix + " / ".join(parts)
 

@@ -90,6 +90,8 @@ class Settings:
     nebius_price_targets_json: str | None = field(default=None, repr=False)
     nebius_price_targets_file: str | None = field(default=None, repr=False)
     nebius_source: str = "public"
+    nebius_catalog_boot_disk_gib: int = 40
+    nebius_catalog_currency: str = "usd"
     lambda_source: str = "public"
     ucloud_source: str = "public"
     autodl_source: str = "public"
@@ -120,8 +122,13 @@ class Settings:
             raise ConfigurationError("LAMBDA_SOURCE must be public, api or console")
         if self.ucloud_source not in ("public", "api"):
             raise ConfigurationError("UCLOUD_SOURCE must be public or api")
-        if self.nebius_source not in ("public", "api"):
-            raise ConfigurationError("NEBIUS_SOURCE must be public or api")
+        if self.nebius_source not in ("public", "api", "catalog_api", "spot_api"):
+            raise ConfigurationError("NEBIUS_SOURCE must be public, api, catalog_api or spot_api")
+        if (type(self.nebius_catalog_boot_disk_gib) is not int
+                or not 1 <= self.nebius_catalog_boot_disk_gib <= 32768):
+            raise ConfigurationError("NEBIUS_CATALOG_BOOT_DISK_GIB must be an integer in [1, 32768]")
+        if self.nebius_catalog_currency not in ("usd", "ils"):
+            raise ConfigurationError("NEBIUS_CATALOG_CURRENCY must be usd or ils")
         if self.autodl_source not in ("public", "market"):
             raise ConfigurationError("AUTODL_SOURCE must be public or market")
 
@@ -161,6 +168,10 @@ class Settings:
             retries = int(values.get("GPU_PRICE_MONITOR_MAX_RETRIES", "2"))
         except ValueError:
             raise ConfigurationError("GPU_PRICE_MONITOR_MAX_RETRIES must be an integer") from None
+        try:
+            nebius_boot_disk = int(values.get("NEBIUS_CATALOG_BOOT_DISK_GIB", "40"))
+        except ValueError:
+            raise ConfigurationError("NEBIUS_CATALOG_BOOT_DISK_GIB must be an integer") from None
 
         def credential(name: str) -> str | None:
             value = values.get(name)
@@ -196,6 +207,8 @@ class Settings:
             lambda_source=values.get("LAMBDA_SOURCE", "public"),
             ucloud_source=values.get("UCLOUD_SOURCE", "public"),
             nebius_source=values.get("NEBIUS_SOURCE", "public"),
+            nebius_catalog_boot_disk_gib=nebius_boot_disk,
+            nebius_catalog_currency=values.get("NEBIUS_CATALOG_CURRENCY", "usd"),
             autodl_source=values.get("AUTODL_SOURCE", "public"),
             crusoe_source=values.get("CRUSOE_SOURCE", "public"),
             source_policy=values.get("GPU_PRICE_MONITOR_SOURCE_POLICY", "configured"),

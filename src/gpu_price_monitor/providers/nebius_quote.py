@@ -106,7 +106,7 @@ def _attached_disk(value: object) -> None:
     _disk_spec(managed["spec"])
 
 
-def _resource(resource: object, target: dict) -> str:
+def _resource(resource: object, target: dict, identity_catalog: dict | None = None) -> str:
     if not _keys(resource, {"spec"}):
         raise _target_error()
     request = resource["spec"]
@@ -132,7 +132,7 @@ def _resource(resource: object, target: dict) -> str:
     preset = _PRESET.fullmatch(resources["preset"]) if isinstance(resources["preset"], str) else None
     if not preset or int(preset[1]) != target["gpu_count"]:
         raise _target_error()
-    platform = _PLATFORMS.get(resources["platform"])
+    platform = (_PLATFORMS if identity_catalog is None else identity_catalog).get(resources["platform"])
     if (platform is None or target["gpu_model"] != platform[0]
             or resources["preset"] not in platform[3] or target["region"] not in platform[4]
             or target.get("gpu_variant") not in (None, platform[1])
@@ -169,7 +169,8 @@ def _reject_constant(value: str):
     raise _target_error()
 
 
-def validate_targets(raw: str) -> list[dict]:
+def validate_targets(raw: str, *, identity_catalog: dict | None = None,
+                     region_countries: dict | None = None) -> list[dict]:
     """Validate every target before any HTTP call. Never interpolate its values
     into errors. Only pricing-relevant specs are accepted, without user data or
     arbitrary request URLs, headers, actions, identities or existing disk IDs.
@@ -190,7 +191,8 @@ def validate_targets(raw: str) -> list[dict]:
             raise _target_error()
         target = deepcopy(supplied)
         if (not _label(target["project_id"]) or not target["project_id"].startswith("project-")
-                or not isinstance(target["region"], str) or _COUNTRIES.get(target["region"]) != target["country_code"]
+                or not isinstance(target["region"], str)
+                or (_COUNTRIES if region_countries is None else region_countries).get(target["region"]) != target["country_code"]
                 or not isinstance(target["gpu_model"], str) or not re.fullmatch(r"[A-Z0-9][A-Za-z0-9 ]{0,63}", target["gpu_model"])
                 or not _positive_int(target["gpu_count"], 128)):
             raise _target_error()
@@ -213,7 +215,7 @@ def validate_targets(raw: str) -> list[dict]:
         resources = target["resource_specs"]
         if not isinstance(resources, list) or not 1 <= len(resources) <= 8:
             raise _target_error()
-        kinds = [_resource(resource, target) for resource in resources]
+        kinds = [_resource(resource, target, identity_catalog) for resource in resources]
         names = [resource["spec"]["metadata"]["name"] for resource in resources]
         for resource, kind in zip(resources, kinds):
             if kind == "CreateInstanceRequest":
@@ -320,13 +322,15 @@ def _configuration(target: dict) -> dict:
             "currency": target["currency"], "offer_types": list(target["offer_types"])}
 
 
-def parse_quote(payload: dict, target: dict, *, observed_at: str, project_region_verified: bool = False) -> list[dict]:
+def parse_quote(payload: dict, target: dict, *, observed_at: str, project_region_verified: bool = False,
+                identity_catalog: dict | None = None, region_countries: dict | None = None) -> list[dict]:
     """Normalize a verified target's estimate, preserving totals and itemization.
     The caller must verify the project's region before using this parser's output
     as a live, region-bound quote; collect_quotes always performs that read.
     """
     try:
-        target = validate_targets(json.dumps([target], allow_nan=False))[0]
+        target = validate_targets(json.dumps([target], allow_nan=False), identity_catalog=identity_catalog,
+                                  region_countries=region_countries)[0]
     except (ValueError, TypeError, RecursionError):
         raise _target_error() from None
     if type(project_region_verified) is not bool:

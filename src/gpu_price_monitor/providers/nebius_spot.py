@@ -25,15 +25,7 @@ MAX_PAGES = 5
 PAGE_SIZE = 100
 MAX_SNAPSHOT_AGE = timedelta(minutes=15)
 MAX_CLOCK_SKEW = timedelta(minutes=5)
-_PLATFORMS = {
-    "gpu-b300-sxm": ("B300", "NVLink"),
-    "gpu-b200-sxm": ("B200", "NVLink"),
-    "gpu-b200-sxm-a": ("B200", "NVLink"),
-    "gpu-h200-sxm": ("H200", "NVLink"),
-    "gpu-h100-sxm": ("H100", "NVLink"),
-    "gpu-rtx6000": ("RTX PRO 6000", None),
-    "gpu-rtx6000-a": ("RTX PRO 6000", None),
-}
+_TITLE = re.compile(r"Preemptible NVIDIA® (RTX PRO [1-9][0-9]{3}|[A-Z]{1,8}[1-9][0-9]{1,3}[A-Z]{0,3})(?: (NVLink))?\Z")
 
 
 def _invalid() -> ValueError:
@@ -77,9 +69,17 @@ def parse_prices(payload: dict, *, observed_at: str) -> list[dict]:
         if not isinstance(row, dict) or not isinstance(row.get("computeInstance"), dict):
             raise _invalid()
         platform = row["computeInstance"].get("platform")
-        if not isinstance(platform, str) or platform not in _PLATFORMS:
+        title = row.get("productTitle")
+        identity = _TITLE.fullmatch(title) if isinstance(title, str) else None
+        if not identity or not isinstance(platform, str):
             raise _invalid()
-        model, variant = _PLATFORMS[platform]
+        model, variant = identity.groups()
+        # The API supplies the model and platform. Validate their shared model
+        # identity without a finite list that silently loses new GPU SKUs.
+        platform_model = ("rtx" + model.removeprefix("RTX PRO ")
+                          if model.startswith("RTX PRO ") else model.lower())
+        if not re.fullmatch(r"gpu-" + re.escape(platform_model) + r"(?:-[a-z0-9]{1,16}){0,5}", platform):
+            raise _invalid()
         expected_title = "Preemptible NVIDIA® " + model + (" " + variant if variant else "")
         sku, region = row.get("skuId"), row.get("region")
         if (row.get("productTitle") != expected_title or not isinstance(sku, str)

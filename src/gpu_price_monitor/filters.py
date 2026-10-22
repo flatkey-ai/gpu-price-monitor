@@ -44,8 +44,10 @@ def normalize_filters(filters: Mapping | None) -> dict[str, list]:
 def filter_support(provider: str, filters: dict[str, list], *, settings: Settings | None = None) -> dict:
     supported = {"gpu_models", "currencies", "billing_modes"}
     if provider == "nebius":
-        if settings is not None and settings.nebius_source == "api":
+        if settings is not None and settings.nebius_source in {"api", "catalog_api"}:
             supported.update({"regions", "compute_countries", "gpu_counts"})
+        elif settings is not None and settings.nebius_source == "spot_api":
+            supported.update({"regions", "compute_countries"})
         else:
             supported.update({"regions", "compute_countries"})
             complete_public = (settings is not None and settings.catalog_scope == "complete"
@@ -69,6 +71,9 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
                   "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
     else:
         reason = "Matched against explicit quote fields; capacity regions do not establish regional prices."
+    if (provider == "crusoe" and settings is not None and settings.catalog_scope == "complete"
+            and settings.source_policy != "api_only" and settings.crusoe_source != "account"):
+        supported.update({"coverage_regions", "coverage_countries"})
     if provider == "lambda" and settings is not None and settings.lambda_source == "console":
         reason = ("Matched against the selectable countries/regions sharing this exact SKU's standard "
                   "console catalog price, after source-version verification; not an independent regional quotation.")
@@ -102,6 +107,17 @@ def apply_filters(prices: list[dict], filters: dict[str, list]) -> list[dict]:
     for quote in prices:
         match = True
         locations = validated_applicability_locations(quote)
+        if (quote.get("provider") == "crusoe" and filters.get("coverage_countries")
+                and filters.get("coverage_regions") and "coverage_locations" in quote):
+            # A multi-country deployment catalog must match a country and its
+            # own region together; two unrelated locations are not a match.
+            coverage = quote["coverage_locations"]
+            if not isinstance(coverage, list) or not any(
+                isinstance(location, dict)
+                and location.get("country_code") in filters["coverage_countries"]
+                and location.get("region") in filters["coverage_regions"] for location in coverage
+            ):
+                continue
         if locations is not None and filters.get("compute_countries") and filters.get("regions"):
             # A country and region must refer to the same applicable location,
             # rather than matching two unrelated entries of a multi-country SKU.

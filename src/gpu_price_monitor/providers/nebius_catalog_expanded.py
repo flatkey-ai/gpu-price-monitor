@@ -14,7 +14,7 @@ import re
 
 from ..settings import Settings
 from ..transport import FetchError, fetch_text
-from . import nebius, nebius_catalog, nebius_spot
+from . import nebius, nebius_catalog, nebius_regions, nebius_spot
 
 SOURCE_URL = "https://docs.nebius.com/compute/resources/pricing.md"
 PUBLIC_URL = "https://docs.nebius.com/compute/resources/pricing"
@@ -26,9 +26,6 @@ SOURCE_TYPE = "official_pricing_document"
 _PRESET = re.compile(r"([1-9]\d*)gpu-([1-9]\d*)vcpu-([1-9]\d*)gb\Z")
 _REGION = re.compile(r"`([a-z]{2}-[a-z]+\d+)`")
 _PLATFORM = re.compile(r"\b(gpu-[a-z0-9-]+)\b")
-_COUNTRY_NAMES = {"Finland": "FI", "Madrid, Spain": "ES", "France": "FR", "Israel": "IL",
-                  "Kansas City, Missouri, US": "US", "Woodbury, Minnesota, US": "US",
-                  "United Kingdom": "GB", "Iceland": "IS"}
 
 
 def _invalid() -> ValueError:
@@ -58,18 +55,10 @@ def _table(content, expected):
     return rows[2:]
 
 
-def parse_regions(content: str) -> dict[str, dict]:
+def parse_regions(content: str, *, observed_at: str | None = None) -> dict[str, dict]:
     """Read explicit official country names; never infer a country from a code."""
-    result = {}
-    for title, private in (("Public regions", False), ("Private regions", True)):
-        body = _section(content, "^## " + title, r"^## ")
-        for code, country in re.findall(r"^\* `([a-z]{2}-[a-z]+\d+)`: ([^\n]+)", body, re.MULTILINE):
-            name = _plain(country)
-            if name not in _COUNTRY_NAMES or code in result:
-                raise _invalid()
-            result[code] = {"country_code": _COUNTRY_NAMES[name], "country_description": name,
-                            "private_region": private}
-    if not result:
+    result = nebius_regions.parse_directory(content, observed_at=observed_at)
+    if any(location["country_code"] is None for location in result.values()):
         raise _invalid()
     return result
 
@@ -197,7 +186,7 @@ def _value(value: Decimal) -> str:
 def calculate_catalog(pricing: str, types: str, regions: str, *, observed_at: str, as_of: date | None = None) -> dict:
     """Return exact compute-only preset calculations, with coverage kept separate."""
     as_of = as_of or datetime.fromisoformat(observed_at.replace("Z", "+00:00")).date()
-    countries = parse_regions(regions)
+    countries = parse_regions(regions, observed_at=observed_at)
     platforms = parse_platforms(types, countries)
     rates, minimums = _rates(pricing, platforms, as_of)
     if "Prices in US dollars (USD" not in pricing or "companies from Israel" not in pricing:
@@ -236,6 +225,7 @@ def calculate_catalog(pricing: str, types: str, regions: str, *, observed_at: st
                 "compute_countries": [], "geographic_scope": "platform_coverage", "price_scope": "platform_coverage",
                 "region_price_verified": False, "coverage_regions": coverage,
                 "coverage_countries": sorted({countries[region]["country_code"] for region in coverage}),
+                "coverage_locations": [deepcopy(countries[region]) for region in coverage],
                 "coverage_location_source": {"url": REGIONS_URL.removesuffix(".md"), "types_url": TYPES_URL.removesuffix(".md"),
                                              "basis": "platform_availability_not_region_price"},
                 "selected_configuration": {"platform": platform["platform_id"], **deepcopy(preset)},
@@ -266,6 +256,9 @@ def calculate_catalog(pricing: str, types: str, regions: str, *, observed_at: st
 def expand_spot(spot_prices: list[dict], catalog: dict) -> tuple[list[dict], list[dict]]:
     """Apply a live SKU's GPU-hour price only to its own region/platform presets."""
     result, excluded = [], []
+    if catalog["regions"]:
+        spot_prices, country_gaps = nebius_regions.attach_spot_locations(spot_prices, catalog["regions"])
+        excluded.extend({**gap, "reason": "spot_country_not_in_verified_live_directory"} for gap in country_gaps)
     for supplied in spot_prices:
         platform = catalog["platforms"].get(supplied.get("raw_sku"))
         actual_regions = supplied.get("regions")
@@ -310,9 +303,9 @@ def expand_spot(spot_prices: list[dict], catalog: dict) -> tuple[list[dict], lis
             country = catalog["regions"].get(region)
             if country:
                 quote["compute_countries"] = [country["country_code"]]
-                quote["location"] = {"region": region, "country_code": country["country_code"]}
-                quote["location_source"] = {"url": REGIONS_URL.removesuffix(".md"), "source_type": "official_region_directory",
-                                            "country_basis": "explicit_region_country_list"}
+                # Keep the fresh country names, location provenance and private
+                # access restriction attached before preset expansion.
+                quote["location"].update(region=region, country_code=country["country_code"])
             quote["notes"] = [note for note in quote.get("notes", []) if "GPU quantity and VM configuration are not specified" not in note]
             quote["notes"].extend([
                 "The API supplies a current regional GPU-hour SKU rate; the explicit preset and instance compute total are calculated using the official preset catalog.",
@@ -327,7 +320,7 @@ def collect_result(*, settings: Settings, observed_at: str, include_spot: bool =
     """Return full public preset calculations plus independent live Spot prices."""
     if type(include_spot) is not bool:
         raise _invalid()
-    errors, excluded_spot, source_spot_count = [], [], 0
+    errors, excluded_spot, source_spot_count, raw_spot = [], [], 0, []
     catalog = {"prices": [], "platforms": {}, "regions": {}, "source_rate_groups": [], "published_minimums": []}
     try:
         catalog = calculate_catalog(fetch_text(SOURCE_URL, settings), fetch_text(TYPES_URL, settings),
@@ -342,6 +335,8 @@ def collect_result(*, settings: Settings, observed_at: str, include_spot: bool =
         try:
             spot = nebius_spot.collect_quotes(settings=settings, observed_at=observed_at)
             source_spot_count = len(spot)
+            raw_spot = (nebius_regions.attach_spot_locations(spot, catalog["regions"])[0]
+                        if catalog["regions"] else deepcopy(spot))
             expanded, excluded_spot = expand_spot(spot, catalog)
             prices.extend(expanded)
         except FetchError as exc:
@@ -373,6 +368,9 @@ def collect_result(*, settings: Settings, observed_at: str, include_spot: bool =
                          "raw_document_gpu_rate_count": len(catalog["source_rate_groups"]) + len(catalog["published_minimums"]),
                          "raw_document_resource_rate_count": sum(len(item["rows"]) for item in catalog["source_rate_groups"]) + len(catalog["published_minimums"]),
                          "reported_spot_api_quote_count": source_spot_count,
+                         "country_verified_spot_api_quote_count": sum(bool(q.get("compute_countries")) for q in raw_spot),
+                         "spot_api_region_codes": sorted({r for q in raw_spot for r in q.get("regions", [])}),
+                         "spot_api_country_codes": sorted({c for q in raw_spot for c in q.get("compute_countries", [])}),
                          "unexpanded_spot_api_quote_count": sum(q.get("quote_origin") == "reported_regional_spot_rate" for q in prices),
                          "catalog_calculation_count": sum(q.get("quote_origin") == "published_tariff_preset_calculation" for q in prices),
                          "regional_spot_calculation_count": sum(q.get("quote_origin") == "regional_spot_preset_calculation" for q in prices),
@@ -383,6 +381,7 @@ def collect_result(*, settings: Settings, observed_at: str, include_spot: bool =
             "coverage": summary,
             "catalog_coverage": {"summary": summary, "platforms": deepcopy(catalog["platforms"]),
                                  "regions": deepcopy(catalog["regions"]), "source_rate_groups": catalog["source_rate_groups"],
+                                 "reported_spot_api_quotes": raw_spot,
                                  "contact_sales_rows": contacts, "types_source_url": TYPES_URL,
                                  "pricing_source_url": SOURCE_URL, "regions_source_url": REGIONS_URL},
             "gaps": [{"scope": "account_specific_and_contract_prices", "status": "authentication_required",

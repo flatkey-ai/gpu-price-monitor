@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "capture_date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "runtime": "python",
+  "uses_llm": false,
+  "authentication": "none",
+  "currency": "USD",
+  "unit": "gpu_hour",
+  "historical_sample_only": true,
+  "providers": [
+    {
+      "provider": "nebius",
+      "status": "success",
+      "collected_at": "2026-10-22T03:53:12.584066+00:00",
+      "source_url": "https://api.nebius.cloud/billing/v1alpha1/spot-price",
+      "additional_source_urls": [
+        "https://docs.nebius.com/overview/regions"
+      ],
+      "source_type": "official_public_api",
+      "collection_method": "http_json_with_documented_location_metadata",
+      "fetched_count": 12,
+      "numeric_quote_count": 12,
+      "verified_regional_quote_count": 12,
+      "coverage": {
+        "reported_spot_api_quote_count": 12,
+        "country_verified_spot_api_quote_count": 12,
+        "region_codes": [
+          "eu-north1",
+          "eu-south1",
+          "eu-west1",
+          "eu-west2",
+          "me-west1",
+          "uk-south1",
+          "uk-south2",
+          "us-central1",
+          "us-north1"
+        ],
+        "country_codes": [
+          "ES",
+          "FI",
+          "FR",
+          "GB",
+          "IL",
+          "US"
+        ],
+        "derived_preset_row_count": 0,
+        "all_platform_prices_complete": false
+      },
+      "gaps": [],
+      "geographic_coverage": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "regional_quote": 12
+        },
+        "country_codes": [
+          "ES",
+          "FI",
+          "FR",
+          "GB",
+          "IL",
+          "US"
+        ],
+        "country_bound_quote_count": 12,
+        "region_bound_quote_count": 12,
+        "unlocated_quote_count": 0,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [],
+        "coverage_country_codes": []
+      }
+    },
+    {
+      "provider": "crusoe",
+      "status": "success",
+      "collected_at": "2026-10-22T03:53:15.088758+00:00",
+      "source_url": "https://www.crusoe.ai/cloud/pricing",
+      "additional_source_urls": [
+        "https://docs.crusoecloud.com/compute/virtual-machines/overview/",
+        "https://docs.crusoecloud.com/locations/"
+      ],
+      "source_type": "official_public_sources",
+      "collection_method": "http_html_and_documents",
+      "fetched_count": 24,
+      "numeric_quote_count": 7,
+      "verified_regional_quote_count": 0,
+      "coverage": {
+        "public_price_cell_count": 24,
+        "numeric_price_count": 7,
+        "contact_sales_count": 17,
+        "documented_vm_configuration_count": 17,
+        "documented_location_count": 7,
+        "documented_country_count": 3,
+        "independent_regional_quote_count": 0,
+        "uniform_price_verified": false
+      },
+      "gaps": [
+        {
+          "scope": "regional_and_uniform_gpu_rental_prices",
+          "status": "not_verified",
+          "source_url": "https://www.crusoe.ai/cloud/pricing",
+          "login_url": "https://console.crusoecloud.com/",
+          "reason": "No geographic price binding or universal uniform-price statement is supplied by the public table; documented deployment locations are metadata only."
+        },
+        {
+          "scope": "gpu_rental_price_api",
+          "status": "not_found_in_current_public_schema",
+          "source_url": "https://api.crusoecloud.com/v1/openapi.json",
+          "login_url": "https://console.crusoecloud.com/",
+          "reason": "VM types lack prices; existing-account bills, reservation contracts and model deployment rates are different data scopes."
+        }
+      ],
+      "geographic_coverage": {
+        "scope": "returned_quotes",
+        "price_scope_counts": {
+          "unlocated_catalog": 24
+        },
+        "country_codes": [],
+        "country_bound_quote_count": 0,
+        "region_bound_quote_count": 0,
+        "unlocated_quote_count": 24,
+        "platform_coverage_quote_count": 0,
+        "coverage_region_codes": [
+          "eu-iceland1",
+          "eu-norway1",
+          "us-east1",
+          "us-east2",
+          "us-southcentral1",
+          "us-west1"
+        ],
+        "coverage_country_codes": [
+          "IS",
+          "NO",
+          "US"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "Spot is current at the recorded snapshot and may change within minutes.",
+    "Crusoe price geography and uniform pricing are unverified; deployment metadata is a separate catalog.",
+    "Nebius account on-demand discovery requires authorization and has not passed authenticated live verification.",
+    "These public samples are never a runtime fallback for failed or changed sources."
+  ]
+}

@@ -99,6 +99,40 @@ class CrusoeParserTests(unittest.TestCase):
         self.assertEqual(h100["gpu_variant"], "HGX")
         self.assertEqual(h100["raw_name"], "NVIDIA HGX H100")
 
+    def test_contact_listing_preserves_non_gb_memory_without_inventing_per_gpu_capacity(self):
+        content = CURRENT_FIXTURE.read_text(encoding="utf-8")
+        # The current CMS can publish NVL72 and a system-level TB label while
+        # keeping both pricing cells as Contact sales.
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(content, "html.parser")
+        for row in soup.select(".pricing_gpu-item"):
+            if "Vera Rubin" in row.get_text(" "):
+                row.select(".pricing-tag")[0].string = "20.7TB"
+        prices = parse(str(soup))
+        rubin = [price for price in prices if price["gpu_model"] == "VERA RUBIN"]
+        self.assertEqual(len(rubin), 2)
+        for price in rubin:
+            self.assertIsNone(price["vram_gb"])
+            self.assertIsNone(price["amount"])
+            self.assertEqual(price["gpu_variant"], "NVL72")
+            self.assertEqual(price["gpu_memory_description"], "20.7TB")
+
+    def test_numeric_tb_memory_is_rejected_until_per_gpu_unit_is_established(self):
+        with self.assertRaises(ValueError):
+            parse(self.content.replace("141GB", "20.7TB"))
+
+    def test_october_22_catalog_uses_current_cells_and_new_memory_labels(self):
+        prices = parse((FIXTURE.parent / "crusoe-pricing-20261022.html").read_text())
+        self.assertEqual(len(prices), 24)
+        self.assertEqual(sum(q["amount"] is not None for q in prices), 7)
+        h200 = next(q for q in prices if q["gpu_model"] == "H200" and q["billing_mode"] == "on_demand")
+        self.assertEqual(h200["amount"], "4.29")
+        b200 = [q for q in prices if q["gpu_model"] == "B200"]
+        self.assertTrue(all(q["quote_status"] == "contact_sales" for q in b200))
+        rubin = next(q for q in prices if q["gpu_model"] == "VERA RUBIN")
+        self.assertIsNone(rubin["vram_gb"])
+        self.assertEqual(rubin["gpu_memory_description"], "20.7TB")
+
     def test_missing_or_ambiguous_memory_still_rejected_for_numeric_quotes(self):
         variants = [
             self.content.replace("141GB", ""),
