@@ -66,7 +66,9 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
         supported.add("regions")
     if provider == "ucloud":
         supported.update({"compute_countries", "regions", "zones", "gpu_counts"})
-        reason = ("Matched against the configured quotation request context; availability was not verified."
+        reason = ("Matched against official UHost console catalog locations and regional quotation request fields; a quote does not establish current stock."
+                  if settings is not None and settings.ucloud_source == "console" else
+                  "Matched against the configured quotation request context; availability was not verified."
                   if settings is not None and (settings.ucloud_source == "api" or settings.source_policy != "configured") else
                   "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
     else:

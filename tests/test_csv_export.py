@@ -280,6 +280,77 @@ class CompactCsvExportTests(unittest.TestCase):
         self.assertEqual(len(rows(english_csv(source))), 5)
         self.assertTrue(all(not publishable_quote(item) for item in source["prices"]))
 
+    def test_console_configuration_exposes_price_affecting_network_and_disk(self):
+        source = result(regional_quote(
+            provider="ucloud", source_type="official_internal_api", pricing_tier="account",
+            resources={"vcpu_count": 16, "memory_mb": 32768, "cpu_platform": "Intel",
+                       "net_capability": "Super", "disks": [
+                           {"IsBoot": "True", "Type": "CLOUD_SSD", "Size": 40}]}))
+        row = self.compact_rows(source)[0]
+        for value in ("Intel CPU", "网络=Super", "40 GB CLOUD_SSD 系统盘"):
+            self.assertIn(value, row["gpu_model"])
+        self.assertIn("账号报价", row["pricing_conditions"])
+
+    def test_ucloud_console_summary_keeps_terms_without_verbose_audit_data(self):
+        source = result(regional_quote(
+            provider="ucloud", source_type="official_internal_api", pricing_tier="account",
+            account_scope="account_quote", tax_scope="excluded", currency="CNY", gpu_count=2,
+            price_basis="instance_total_allocated", amount="5.75",
+            instance_price={"amount": "11.50", "original_amount": "12.8000", "currency": "CNY", "unit": "instance_hour"},
+            resources={"vcpu_count": 32, "memory_mb": 65536, "net_capability": "Super",
+                       "disks": [{"IsBoot": "True", "Type": "CLOUD_SSD", "Size": 40}]},
+            image_selection={"image_license_price_verified": True},
+            notes=["Account-scoped UHost Dynamic hourly quote.", "Price includes CPU, RAM and the boot disk."],
+            normalization={"formula": "instance_price.amount / gpu_count", "decimal_places": 12},
+        ), status="partial")
+        before = deepcopy(source)
+        full_before = english_csv(source)
+        for profile in ("compact", "market"):
+            with self.subTest(profile=profile):
+                row = rows(prices_to_csv(source, bilingual_headers=False, profile=profile))[0]
+                conditions = row["pricing_conditions"]
+                for text in ("按需小时", "账号报价", "当前账号询价", "未含税", "整机价按卡分摊",
+                             "整机总价=11.50 CNY/小时", "整机原价=12.8000 CNY/小时",
+                             "含GPU、CPU、内存及系统盘", "不含额外数据盘、公网IP及带宽",
+                             "镜像费用已核实为0", "本批采集不完整"):
+                    self.assertIn(text, conditions)
+                for text in ("Account-scoped", "Price includes", "分摊规则", "decimal_places", "{", "partial"):
+                    self.assertNotIn(text, conditions)
+                for text in ("32 vCPU", "65536 MB RAM", "网络=Super", "40 GB CLOUD_SSD 系统盘"):
+                    self.assertIn(text, row["gpu_model"])
+                self.assertLess(len(conditions), 220)
+                self.assertEqual(row["amount"], "5.75")
+        self.assertEqual(source, before)
+        self.assertEqual(english_csv(source), full_before)
+        audit = rows(full_before)[0]
+        self.assertEqual(json.loads(audit["notes_json"]), before["prices"][0]["notes"])
+        self.assertEqual(json.loads(audit["normalization_json"]), before["prices"][0]["normalization"])
+        self.assertEqual(audit["instance_original_amount"], "12.8000")
+
+    def test_ucloud_console_summary_omits_equal_original_and_unverified_image_claim(self):
+        for verified in (None, False, 1, "true"):
+            source = result(regional_quote(
+                provider="ucloud", source_type="official_internal_api", account_scope="account_quote",
+                tax_scope="unspecified", instance_price={"amount": "12", "original_amount": "12.00",
+                                                         "currency": "CNY", "unit": "instance_hour"},
+                image_selection={"image_license_price_verified": verified}))
+            for profile in ("compact", "market"):
+                with self.subTest(verified=verified, profile=profile):
+                    conditions = rows(prices_to_csv(source, bilingual_headers=False, profile=profile))[0]["pricing_conditions"]
+                    self.assertIn("税费未说明", conditions)
+                    self.assertNotIn("整机原价", conditions)
+                    self.assertNotIn("镜像费用", conditions)
+                    self.assertNotIn("本批采集", conditions)
+
+    def test_ucloud_signed_source_keeps_original_audit_prose_in_compact(self):
+        source = result(regional_quote(
+            provider="ucloud", source_type="official_quote_api",
+            notes=["Signed quote has a separate billing restriction."],
+            normalization={"formula": "instance_price.amount / gpu_count"}))
+        conditions = self.compact_rows(source)[0]["pricing_conditions"]
+        self.assertIn("Signed quote has a separate billing restriction.", conditions)
+        self.assertIn("分摊规则", conditions)
+
     def test_regional_and_requested_quotes_preserve_country_region_and_zone(self):
         actual = self.compact_rows(result(
             regional_quote(provider="ucloud", regions=["cn-bj2"], zones=["cn-bj2-02"], compute_countries=["CN"],
