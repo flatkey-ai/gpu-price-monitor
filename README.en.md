@@ -1,12 +1,13 @@
 # GPU Price Monitor
 
 Version 0.15 adds explicit `LAMBDA_SOURCE=console`: read-only Lambda internal JSON
-catalogs using your own saved login session. An existing authenticated browser
-session successfully read 22 GPU instance configurations, 14 cluster configurations
-(six GPU/tariff tiers), and 18 region metadata entries on 2026-10-22, without a
-payment method or launched resources. Independent Python HTTP verification still
-requires a caller-supplied saved session. Capacity locations are not independently
-quoted regional prices. See [setup and limitations](docs/lambda-console.md) and
+catalogs using your own saved login session. **Standalone Python CLI / HTTP collection
+passed all three GETs on 2026-10-22 and returned 36 GPU quotes: 22 on-demand instance
+configurations and 14 reserved-cluster configurations (six GPU/tariff tiers).** Two
+CPU configurations were excluded with audit records, and 18 region metadata entries
+were retained. No payment method or launched resources were needed. Capacity locations
+are not independently quoted regional prices; cluster duration and final purchase
+terms remain unverified. See [setup and limitations](docs/lambda-console.md) and
 [environment template](.env.lambda.example).
 
 Version 0.14 adds `--catalog-scope complete` for Nebius, Lambda and Crusoe.
@@ -14,8 +15,9 @@ Copy `.env.three.example` to `.env.three.local` and pass `--env-file .env.three.
 The complete mode includes Nebius's explicit tariff/preset cost calculations and current
 regional Spot rates, Lambda's on-demand and reserved cluster catalogs, and Crusoe's
 numeric and sales-only public listings. Calculated configurations are marked as
-derivations, not independent provider quotes. Account adapters require credentials;
-successful live authentication has not yet been verified. See the
+derivations, not independent provider quotes. Nebius account estimates, Lambda's
+API-key mode and Crusoe contract authentication still lack successful live credential
+verification; Lambda's console-session HTTP path has now passed it. See the
 [scope and authentication guide](docs/three-provider-coverage.md).
 
 Use `--format csv --csv-profile catalog` for ten columns including labeled starting-price
@@ -114,7 +116,7 @@ The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe
 | Nebius account estimates | Explicit `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and one of `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` |
 | Authorized AutoDL market | `AUTODL_SOURCE=market` and valid `AUTODL_STORAGE_STATE_PATH`; public homepage collection does not use a token |
 
-A partial UCloud key pair or missing account targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Account estimates, Lambda authenticated catalog, and authorized AutoDL market still need valid credentials for live successful verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
+A partial UCloud key pair or missing account targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Lambda's console-session mode passed standalone Python HTTP collection on 2026-10-22. Nebius/UCloud account estimates, Lambda's API-key mode, Crusoe contract authentication and authorized AutoDL market still lack successful live credential verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
 
 JSON `execution` declares Python, deterministic rules, no LLM, and the policy. `provider_results` reports actual sources, collection methods, selection/fallback reasons, and per-provider `market_quote_count`. `market_comparison` counts eligible hourly catalog/regional quotes; the existing `comparison` retains strict regional counts. Successful collection, hourly-price eligibility, verified location, and current orderability are separate facts.
 

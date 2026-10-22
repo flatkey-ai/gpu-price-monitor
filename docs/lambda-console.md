@@ -1,6 +1,8 @@
 # Lambda 免费登录态采集
 
-`LAMBDA_SOURCE=console` 读取已有账号可见的 JSON 目录。2026-10-22 实际登录会话读取成功：24 个实例规格中有 22 个 GPU、2 个 CPU；另有 14 个预留集群配置和 18 条地区元数据。无需创建 API key、绑定支付卡或启动 GPU。本轮是浏览器已有登录会话读取真实接口，再由 Python 固定规则解析；**尚未用新保存的会话完成独立 Python HTTP 联调**，离线测试不能替代这一步。
+`LAMBDA_SOURCE=console` 读取已有账号可见的 JSON 目录。**2026-10-22 用户手动登录并保存会话后，独立 Python CLI / HTTP 的三个 GET 均实采成功，返回 36 条 GPU 报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）**；另有 2 个 CPU 规格被审计排除，保留 18 条地区元数据。无需创建 API key、绑定支付卡或启动 GPU。采集由独立 Python HTTP 请求和固定字段解析完成，不依赖浏览器或 Codex 执行；浏览器只用于用户手动登录和保存会话。这次成功不代表所有地区、合同价或最终下单条件均已核实。
+
+验证记录：2026-10-22 **11:05:33（北京时间，UTC+8）**，Python 库实采成功并从同批结果生成 36 行、10 列 CSV；将 0.15.0 wheel 独立安装后，CLI 真实采集 CSV 同样通过，36 行均为 `USD` / `gpu_hour`。这些结果证明本次账号可见目录的读取与导出成功，不是其他时间或账号的价格保证。
 
 这些是控制台内部接口，可能变更，不是承诺稳定的公开云 API。采集库只调用下列 GET：
 
@@ -50,6 +52,6 @@ csv_text = prices_to_csv(result)  # UTF-8 BOM，中英双语 10 列
 
 `regions_with_capacity_available`、`regions_available` 仅表明可选容量位置，不是按地区独立询价，也不证明全球同价。保留官方国家/城市描述和 region code 供核对；`regions`、`compute_countries` 仍为空，严格地区筛选会拒绝。没有把同一报价复制成 18 个地区的价格。
 
-公开页与登录目录会有差异：本轮公开页列出 4×B200，账号目录没有该配置；账号目录另外列出两个不同 V100 SKU。各自来源分别保留，不把公开页数据插入接口结果。所有合同折扣、容量预留或最终结算价仍不能宣称已全部获取。
+公开页与登录目录会有差异：本轮公开页列出 4×B200，账号目录没有该配置；账号目录另外列出两个不同 V100 SKU。各自来源分别保留，不把公开页数据插入接口结果。`provider_results` 的目录覆盖仍标 `all_prices_complete=false`；所有合同折扣、容量预留或最终结算价不能宣称已全部获取。
 
 官网对照：[公开价格](https://lambda.ai/pricing)、[1-Click Clusters](https://lambda.ai/1-click-clusters)、[计费说明](https://docs.lambda.ai/public-cloud/billing/)、[公开 API 文档](https://docs.lambda.ai/api/cloud)。

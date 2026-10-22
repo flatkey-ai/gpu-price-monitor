@@ -4,7 +4,7 @@
 
 ## 独立运行
 
-Python 3.11+，安装基础包即可；这三家不需要 AutoDL 的浏览器依赖，也不需要 Codex、LLM 或模型 API Key。
+下面的公开来源示例使用 Python 3.11+，安装基础包即可，不需要 AutoDL 的浏览器依赖，也不需要 Codex、LLM 或模型 API Key。可选 Lambda console 模式的手动登录与保存会话另见下文；后续 HTTP 采集仍不启动浏览器。
 
 ```bash
 python -m pip install .
@@ -72,7 +72,7 @@ From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 
 
 可选 `LAMBDA_API_KEY` 与显式 `LAMBDA_SOURCE=api` 调用认证 instance-types。API `price_cents_per_hour / 100` 是整实例美元小时价，再按明确 GPU 数分摊。`regions_with_capacity_available` 只表明容量，不是地区价；账号 API 也不等于所有长期协议 / 销售折扣均可读取。
 
-0.15.0 另提供免费 `LAMBDA_SOURCE=console`：只 GET 控制台内部实例、预留集群和地区目录，使用调用者自行保存的会话；2026-10-22 现有登录会话已读取成功。独立 Python HTTP 仍待使用保存会话验证；不能以浏览器读成功冒充 HTTP 已联调。[登录态配置、字段冲突和覆盖边界](lambda-console.md)。
+0.15.0 另提供免费 `LAMBDA_SOURCE=console`：只 GET 控制台内部实例、预留集群和地区目录，使用调用者自行保存的会话。**2026-10-22 用户手动登录保存会话后，独立 Python CLI / HTTP 三个 GET 均实采成功，返回 36 条 GPU 报价：22 个按需实例规格和 14 个预留集群配置（6 个型号/费率档）**；另审计排除 2 个 CPU 规格，保留 18 条地区元数据。采集时不启动浏览器，不需要 API key、绑定付款方式或创建 GPU。内部接口可能变化；地区仅表明容量，不是逐地区价格。集群期限与最终购买条件仍未核实，不能宣称所有合同价已获取。[登录态配置、字段冲突和覆盖边界](lambda-console.md)。
 
 ## Crusoe：全部公开目录与账号合同审计
 
@@ -91,9 +91,9 @@ From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 
 | 平台 | 登录入口 | 仍需调用者提供 |
 | --- | --- | --- |
 | Nebius | [控制台](https://console.nebius.com/) | 有效 IAM token、有权使用的真实项目、完整估价目标 |
-| Lambda | [控制台](https://cloud.lambda.ai/) | 有效 API key；认证目录不包含一切合同条件 |
+| Lambda | [控制台](https://cloud.lambda.ai/) | console 模式使用自己的有效保存会话，已通过独立 HTTP 实测；API key 模式仍需有效 key 验证，二者均不保证包含所有合同条件 |
 | Crusoe | [控制台](https://console.crusoecloud.com/) | API access key ID、secret、组织 UUID 及对已有合同的权限 |
 
-本轮公开来源已实际采集；新增账号路径只有离线结构 / 签名 / 失败测试，**尚未用有效账号凭据完成真实成功验证**。缺密钥、鉴权失败或源格式变化会明确报错，不以公开目录、旧快照或零价冒充账号成功。
+公开来源已实际采集；Lambda 控制台会话路径也已在 2026-10-22 完成独立 Python HTTP 真实成功验证。Nebius 账号估价、Lambda API key 模式和 Crusoe 合同认证仍缺有效凭据的成功联调证据；原文档另两家的 UCloud 签名估价、AutoDL 登录市场也仍未完成该验证。缺密钥、会话过期、鉴权失败或源格式变化会明确报错，不以公开目录、旧快照或零价冒充账号成功。
 
 库只返回原币 JSON / CSV 文本，不做 FX、上传或定时。默认 `market` 表、保留询价项的 `catalog` 表、严格地区 `compact` 表和全部来源 `full` 审计用途不同；目录计算、承诺预留与独立地区询价必须带着条件一起阅读。需要完整状态、公式、销售缺口和 `contract_records` 时应保留 JSON，不能只看有效报价 CSV 的行数。
