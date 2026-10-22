@@ -1,6 +1,6 @@
 # Nebius、Lambda、Crusoe 三家完整目录
 
-0.17 新增 [Nebius 地区 Spot / 账号发现估价及 Crusoe 部署目录](nebius-crusoe.md)。以下历史样本计数仍以原采集时间为准；当前官网数值、销售询价和地区目录须重新采集。
+0.18 已完成 [Nebius 账号发现估价的真实联调](nebius-crusoe.md)：2026-10-22 14:21:49（北京时间）发现并询价 37 个 GPU preset，取得 36 条有效计算报价，覆盖 9 地区、6 国家。GB300 返回零计算费，明确留缺口，结果为 `partial`。账号目录主价只含 VM 计算资源，SSD 另计。以下公开目录历史样本仍以原采集时间为准，不能当当前价格。
 
 `catalog_scope=complete` 用于逐项清点三家的公开价格目录、已公布配置、预留条件和缺口。**完整目录不是所有地区和所有账号的最终成交价，也不是每一条配置都新增了一次独立询价。** Contact sales、未核实单位及账号权限缺口必须保留，不能以零价或计算行数掩盖。
 
@@ -39,13 +39,15 @@ print(result["catalog_audit"]["totals"])
 
 ## 各平台实际返回什么
 
+以下数量为 **2026-10-21 19:37（北京时间）公开目录历史样本**，不包含后续账号采集。
+
 | 平台 | 公开来源与范围 | 必须保留的边界 |
 | --- | --- | --- |
 | Nebius | 官方资源费率、平台 / preset / 地区文档、当前地区 Spot API、网站 JSON 询价项 | 明确区分原始费率、按配置推导的成本、实际 Spot 地区费率及账号估价 |
-| Lambda | 本轮官网为 22 条按需配置，另有 8 条预留集群记录：6 条数值、2 条联系销售 | 预留承诺、集群卡数、每 GPU 小时价和按周结算都保留，不当普通单机按需价 |
-| Crusoe | 本轮官网为 12 个 GPU 目录项、按需 / Spot 共 24 格：8 条数值、16 条 Contact sales | 没有公开数值的 Spot 不填价；公开目录没有独立地区价格，已有合同另作账号审计 |
+| Lambda | 22 条按需配置，另有 8 条预留集群记录：6 条数值、2 条联系销售 | 预留承诺、集群卡数、每 GPU 小时价和按周结算都保留，不当普通单机按需价 |
+| Crusoe | 12 个 GPU 目录项、按需 / Spot 共 24 格：8 条数值、16 条 Contact sales | 没有公开数值的 Spot 不填价；公开目录没有独立地区价格，已有合同另作账号审计 |
 
-以上数量是本轮公开结构核查结果，页面会变化；实际覆盖以本次 `provider_results`、目录覆盖 / 缺口及原始记录为准。已发现配置、成功请求、原始来源条目、派生配置行、有效小时价和已核实地区价不是同一个数字。
+页面会变化，以上数量只证明该历史样本；当前覆盖以每次 `provider_results`、目录覆盖 / 缺口及原始记录为准。已发现配置、成功请求、原始来源条目、派生配置行、有效小时价和已核实地区价不是同一个数字。
 
 ## Nebius：费率计算不等于独立报价
 
@@ -64,7 +66,11 @@ print(result["catalog_audit"]["totals"])
 
 From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 JSON 是公开网站的数据接口，不是正式稳定云价目 API。
 
-账号估价需要有效 IAM token、调用者有权使用的项目及完整资源目标；显式 `NEBIUS_SOURCE=api`，设置 `NEBIUS_ACCESS_TOKEN` 及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一。项目 / 地区 / 国家 / 平台 / preset 与磁盘条件须核对，模板不证明配置可售。[Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)只估价，不创建 VM；不同项目、账号合同及地区并不会仅靠登录自动枚举齐全。
+账号目录使用 `NEBIUS_SOURCE=catalog_api` 与有效 `NEBIUS_ACCESS_TOKEN`，自动读取已有授权 tenant / project / platform / preset，再逐项调用 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)，无需手填 targets。项目地区与官方国家映射逐项核对，不能把供给 coverage 当价格位置。**2026-10-22 14:21:49（北京时间）实采的 37 个 GPU preset 中，36 个取得有效计算报价；GB300 的零计算费被拒收并保留 `compute_tariff_unavailable` 缺口，另排除 117 个 CPU preset。** 36 条覆盖 9 地区、6 国家，均为该账号当时可访问项目的估价，不代表所有合同、库存或全球统一价。
+
+目录主价为 GPU / CPU / RAM 计算费除以卡数，`instance_price.scope=compute_resources_only`。40 GiB SSD 独立询价并保存在 `storage_quote`，`full_configuration_price` 保留计算加盘总额；CSV 条件列标清 SSD 另计，网络等未请求服务不含。程序核对独立计算 / 磁盘 SKU 和分项总额，不能以有金额的磁盘项掩盖零计算费。
+
+指定目标模式另用 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 与 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一，主金额保持全部请求资源总额语义。两种模式均只估价、不创建资源；模板不证明配置可售，已有项目发现也不等于能枚举其他客户合同。
 
 ## Lambda：按需、集群预留与账号目录分开
 
@@ -80,7 +86,7 @@ From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 
 
 官方来源：[GPU instances 价格表](https://www.crusoe.ai/cloud/pricing)、[OpenAPI](https://api.crusoecloud.com/v1/openapi.json)、[VM 规格及供给可用区](https://docs.crusoecloud.com/compute/virtual-machines/overview/)、[Spot 政策](https://docs.crusoecloud.com/usage-billing/spot/)、[预留合同](https://docs.crusoecloud.com/usage-billing/reservations/overview/)。
 
-12 个公开目录项包括有数值价的型号，以及 GB200、MI355X、GB300、Vera Rubin 等无数值项。当前公开表没有数值 Spot，16 个 Contact sales 格保留 null；不把账单、Foundry 模型部署或旧宣传价代替 GPU VM 报价。规格页的实例 SKU / zone 是供给覆盖，不能为公开费率补造地区绑定。
+2026-10-21 19:37 的公开样本有 12 个目录项，包括有数值价的型号及 GB200、MI355X、GB300、Vera Rubin 等无数值项；当时 16 个 Contact sales 格保持 null。2026-10-22 11:53 的后续样本则为 7 条数值、17 条销售询价，说明公开页会变化。两批均不能把账单、Foundry 模型部署或旧宣传价代替 GPU VM 报价。规格页的实例 SKU / zone 是供给覆盖，不能为公开费率补造地区绑定。
 
 可选 `CRUSOE_SOURCE=account` 只读已有 reservations；`combined` 同时保留公开目录与已有合同审计。要求 `CRUSOE_ACCESS_KEY_ID`、`CRUSOE_SECRET_KEY`、`CRUSOE_ORGANIZATION_ID`。认证按[官方 HMAC-SHA256 1.0 签名](https://docs.crusoecloud.com/reference/api/)执行，secret 是供应商生成的 URL-safe Base64，不是普通 Bearer token；只 GET 已有合同，不创建或修改资源。
 
@@ -92,10 +98,10 @@ From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 
 
 | 平台 | 登录入口 | 仍需调用者提供 |
 | --- | --- | --- |
-| Nebius | [控制台](https://console.nebius.com/) | 有效 IAM token、有权使用的真实项目、完整估价目标 |
+| Nebius | [控制台](https://console.nebius.com/) | `catalog_api` 需有效 IAM token 及已有项目读取 / 估价权限，无需 targets；指定 `api` 模式另需完整估价目标 |
 | Lambda | [控制台](https://cloud.lambda.ai/) | console 模式使用自己的有效保存会话，已通过独立 HTTP 实测；API key 模式仍需有效 key 验证，二者均不保证包含所有合同条件 |
 | Crusoe | [控制台](https://console.crusoecloud.com/) | API access key ID、secret、组织 UUID 及对已有合同的权限 |
 
-公开来源已实际采集；Lambda 控制台会话路径也已在 2026-10-22 完成独立 Python HTTP 真实成功验证。Nebius 账号估价、Lambda API key 模式和 Crusoe 合同认证仍缺有效凭据的成功联调证据；原文档另两家的 UCloud 签名估价、AutoDL 登录市场也仍未完成该验证。缺密钥、会话过期、鉴权失败或源格式变化会明确报错，不以公开目录、旧快照或零价冒充账号成功。
+公开来源已实际采集；Lambda 控制台会话与 Nebius `catalog_api` 也已在 2026-10-22 完成独立 Python HTTP 真实验证，后者为 36 条有效报价加 1 个明确未定价缺口的 `partial` 结果。Lambda API key 模式和 Crusoe 合同认证仍缺有效凭据的成功联调证据；原文档另两家的 UCloud 签名估价、AutoDL 登录市场也仍未完成该验证。缺密钥、会话过期、鉴权失败或源格式变化会明确报错，不以公开目录、旧快照或零价冒充账号成功。
 
 库只返回原币 JSON / CSV 文本，不做 FX、上传或定时。默认 `market` 表、保留询价项的 `catalog` 表、严格地区 `compact` 表和全部来源 `full` 审计用途不同；目录计算、承诺预留与独立地区询价必须带着条件一起阅读。需要完整状态、公式、销售缺口和 `contract_records` 时应保留 JSON，不能只看有效报价 CSV 的行数。

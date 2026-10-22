@@ -1,13 +1,22 @@
 # GPU Price Monitor
 
-Version 0.17 extends Nebius and Crusoe. `NEBIUS_SOURCE=spot_api` reads current
-regional Spot rates with live country verification. `catalog_api` discovers existing
-authorized projects and GPU presets, then requests configuration estimates (a token
-is required; authenticated live verification remains pending). Crusoe complete mode
+Version 0.18 completes live verification of the Nebius account catalog.
+`NEBIUS_SOURCE=catalog_api` discovers existing authorized projects and GPU presets,
+then calls the official estimate API using your token; no manual targets are needed.
+`spot_api` continues to read current regional Spot rates without authentication. Crusoe complete mode
 reads every public GPU price cell alongside official VM specifications and deployment
 locations. Deployment metadata is not a regional quote, sales-only amounts remain
 empty, and no worldwide uniform price is inferred. See [usage and evidence](docs/nebius-crusoe.md),
 [Nebius configuration](.env.nebius.example) and [Crusoe configuration](.env.crusoe.example).
+
+The standalone Nebius account capture at **2026-10-22 14:21:49 Asia/Shanghai**
+discovered and estimated 37 GPU presets, yielding **36 valid compute quotes across
+nine regions in six countries**. GB300 returned a zero compute tariff and remains an
+explicit `compute_tariff_unavailable` gap, not a free GPU offer; status is `partial`.
+The main GPU-hour amount includes VM GPU/CPU/RAM. A 40 GiB SSD is estimated separately,
+with disk cost and the full configuration total retained outside the comparison amount.
+No resources or payment method were created. Coverage is limited to accessible account
+projects, not all contracts or inventory; equal rates do not establish worldwide pricing.
 
 The standalone Python capture at **2026-10-22 11:53 Asia/Shanghai** returned 12
 original Nebius Spot rates across nine regions and six countries. Crusoe returned
@@ -43,9 +52,9 @@ Copy `.env.three.example` to `.env.three.local` and pass `--env-file .env.three.
 The complete mode includes Nebius's explicit tariff/preset cost calculations and current
 regional Spot rates, Lambda's on-demand and reserved cluster catalogs, and Crusoe's
 numeric and sales-only public listings. Calculated configurations are marked as
-derivations, not independent provider quotes. Nebius account estimates, Lambda's
-API-key mode and Crusoe contract authentication still lack successful live credential
-verification; Lambda's console-session HTTP path has now passed it. See the
+derivations, not independent provider quotes. Nebius's account catalog and Lambda's
+console-session HTTP path have now passed live verification; Lambda's API-key mode
+and Crusoe contract authentication remain unverified. See the
 [scope and authentication guide](docs/three-provider-coverage.md).
 
 Use `--format csv --csv-profile catalog` for ten columns including labeled starting-price
@@ -98,7 +107,7 @@ Load a local profile explicitly with `Settings.from_env(env_file=".env.five.loca
 
 | Provider | `api_preferred` source | Limits |
 | --- | --- | --- |
-| Nebius | Anonymous current Spot API plus the official website Next.js JSON catalog | Spot is dynamic and region-bound; the catalog adds on-demand rates. L40S starting prices and Contact us remain audit records |
+| Nebius | Default anonymous Spot API + website Next.js JSON; explicit `catalog_api` discovers account projects/presets and calls the official estimate API | Spot is region-bound; account compute rates include VM GPU/CPU/RAM, with SSD charged separately. Public starting prices and Contact us remain audit records |
 | Lambda | Public page, keyed API, or explicit `console` mode with your own saved session | Instance cents are allocated over explicit GPU counts; the reviewed current frontend establishes one SKU catalog rate across its listed selectable standard regions, not independent regional quotes |
 | Crusoe | Deterministic Python HTML parser for the GPU instances section | No verified public VM price API; billing, reservations, and managed model deployment prices are excluded |
 | AutoDL | Playwright with fixed DOM rules for ordinary/member prices | No suitable public market-price API; homepage locations are unknown; authorized market mode is optional |
@@ -125,6 +134,11 @@ The ten fields cover GPU/configuration, provider, quote applicability, native pe
 
 Python equivalents are `prices_to_csv(result)`, `prices_to_csv(result, profile="compact")`, and `prices_to_csv(result, profile="full")`. `market_eligible_quote` checks hourly catalog/regional eligibility; `publishable_quote` retains strict regional eligibility. Column constants are `MARKET_CSV_*`, `COMPACT_CSV_*`, and `CSV_*`.
 
+Nebius `catalog_api` uses compute cost as its main amount, with
+`instance_price.scope=compute_resources_only`. `storage_quote` retains the separately
+estimated SSD fee and `full_configuration_price` retains the compute-plus-disk total.
+CSV conditions explain these extras. Network and other unrequested services are excluded.
+
 Amounts retain exact native decimal strings; **the library does not convert to USD** or divide monthly packages by 720. RackRate is a separate consumer. CSV has a UTF-8 BOM and CRLF endings; diagnostics stay on stderr. Keep JSON for provider status and exclusion details. Exit codes are `0` for successful sources, `2` for partial failure, and `1` for failure/configuration errors. A successful collection with no eligible rows in a profile produces a header-only CSV and still exits `0`.
 
 ## Source policies and credentials
@@ -132,7 +146,7 @@ Amounts retain exact native decimal strings; **the library does not convert to U
 | Policy | Behavior |
 | --- | --- |
 | `api_preferred` | Recommended five-provider policy; permits clearly labeled deterministic official-page and website-JSON sources where appropriate; selected API failures never trigger another source |
-| `api_only` | Price APIs only; Nebius returns current Spot without website catalog; Crusoe/AutoDL page sources fail with `api_price_source_unavailable` |
+| `api_only` | Price APIs only; public Nebius returns Spot, while explicit `catalog_api` / `api` allow account estimates, without website catalogs; Crusoe/AutoDL page sources fail with `api_price_source_unavailable` |
 | `configured` | Backward-compatible default honoring `*_SOURCE`; public Nebius retains document + Spot, and public UCloud retains the older UHost monthly promotion adapter |
 
 The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe,autodl,ucloud` and `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`. CLI `--providers` and `--source-policy` override them. The general `.env.example` retains `configured`.
@@ -141,10 +155,11 @@ The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe
 | --- | --- |
 | Lambda authenticated catalog | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`, or free session mode: `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
 | Signed UCloud UHost quotes | `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY`, and one of `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON`; optional `UCLOUD_PROJECT_ID` |
-| Nebius account estimates | Explicit `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and one of `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` |
+| Nebius account regional catalog | Explicit `NEBIUS_SOURCE=catalog_api` and `NEBIUS_ACCESS_TOKEN`; existing authorized projects/presets are discovered without targets; see [optional disk/currency settings](.env.nebius.example) |
+| Nebius explicit configuration estimates | Explicit `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and one of `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON`; the main amount totals all requested resources |
 | Authorized AutoDL market | `AUTODL_SOURCE=market` and valid `AUTODL_STORAGE_STATE_PATH`; public homepage collection does not use a token |
 
-A partial UCloud key pair or missing account targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Lambda's console-session mode passed standalone Python HTTP collection on 2026-10-22. Nebius/UCloud account estimates, Lambda's API-key mode, Crusoe contract authentication and authorized AutoDL market still lack successful live credential verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
+A partial UCloud key pair or missing UCloud targets fails rather than falling back to another product line. Target templates do not establish sellable configurations. Nebius `catalog_api` and Lambda's console-session mode passed standalone Python HTTP collection on 2026-10-22. Signed UCloud estimates, Lambda's API-key mode, Crusoe contract authentication and authorized AutoDL market still lack successful live credential verification; offline tests do not establish access. See [provider details](docs/PROVIDERS.md). Credentials, cookies, private targets, and browser state must not enter Git or price results.
 
 JSON `execution` declares Python, deterministic rules, no LLM, and the policy. `provider_results` reports actual sources, collection methods, selection/fallback reasons, and per-provider `market_quote_count`. `market_comparison` counts eligible hourly catalog/regional quotes; the existing `comparison` retains strict regional counts. Successful collection, hourly-price eligibility, verified location, and current orderability are separate facts.
 

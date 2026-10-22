@@ -2,8 +2,9 @@
 
 Only tenant/project/platform GETs and the non-provisioning EstimateBatch POST
 are permitted. This is an account-scoped catalog, never all customer contracts.
-The default comparison target includes a 40 GiB managed SSD boot disk; no disk
-or VM is created. Users can explicitly choose a different disk size/currency.
+The default comparison is the VM compute rate. A 40 GiB SSD is estimated in
+the same batch and returned separately, never added to the headline GPU rate.
+No disk or VM is created. Users can choose a different disk size/currency.
 """
 
 from __future__ import annotations
@@ -28,6 +29,36 @@ MAX_PAGES = 10
 PAGE_SIZE = 100
 MAX_TARGETS = 1000
 _LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
+# Reviewed official identities, 2026-10-22. The current VM-types table lags
+# these products: its B300 row says 288 GB, while the platform API and these
+# independent provider product pages say 270 GB. No GB/GiB conversion is made.
+_B300_MEMORY_SOURCES = [
+    "https://nebius.com/self-service",
+    "https://nebius.com/blog/posts/nebius-weka-shared-kv-cache-benchmark-hgx-b300",
+]
+_GB300_SOURCES = [
+    "https://nebius.com/compute/gb300",
+    "https://raw.githubusercontent.com/nebius/nebius-solutions-library/main/k8s-training/README.md",
+]
+
+
+def _api_text(value) -> str:
+    return " ".join(value.replace("®", "").replace("™", "").split()) if isinstance(value, str) else ""
+
+
+def _additional_platform(name: str, spec: dict, region: str) -> dict | None:
+    """Accept the exact provider-published GB300 configuration, not arbitrary
+    unfamiliar GPUs. The current authenticated project supplies its region;
+    the public product page alone establishes neither region nor availability.
+    """
+    if (name != "gpu-gb300" or _api_text(spec.get("shortHumanReadableName")) != "NVIDIA GB300 NVL72"
+            or _api_text(spec.get("humanReadableName")) != "NVIDIA GB300 NVL72 with NVIDIA Grace"
+            or type(spec.get("gpuMemoryGigabytes")) is not int or spec["gpuMemoryGigabytes"] != 279):
+        return None
+    return {"platform_id": name, "gpu_model": "GB300", "form_factor": "NVL72", "vram_gb": 279,
+            "coverage_regions": [region], "presets": [{"preset": "4gpu-112vcpu-800gb", "gpu_count": 4,
+                "vcpus": 112, "memory_gib": 800, "coverage_regions": [region]}],
+            "identity_sources": list(_GB300_SOURCES), "identity_basis": "official_api_and_provider_configuration_example"}
 
 
 def _invalid() -> ValueError:
@@ -94,7 +125,7 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
             or not _label(project.get("project_id")) or not project["project_id"].startswith("project-")
             or type(boot_disk_gib) is not int or not 1 <= boot_disk_gib <= 32768 or currency not in {"usd", "ils"}):
         raise _invalid()
-    targets, gaps, seen = [], [], set()
+    targets, target_evidence, gaps, seen, identities = [], [], [], set(), {}
     excluded_cpu, discovered_gpu = 0, 0
     for row in platform_rows:
         metadata = row.get("metadata") if isinstance(row, dict) else None
@@ -109,7 +140,10 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
             preset_name = preset.get("name") if isinstance(preset, dict) else None
             if not _label(preset_name):
                 raise _invalid()
-            count = resources.get("gpuCount") if isinstance(resources, dict) else None
+            # ProtoJSON may omit a CPU preset's default zero GPU count. Only
+            # an explicit CPU platform establishes that missing value as zero;
+            # GPU and unfamiliar platforms still require a positive count.
+            count = resources.get("gpuCount", 0 if name.startswith("cpu-") else None) if isinstance(resources, dict) else None
             if type(count) is int and count > 0:
                 gpu_presets.append(preset)
             elif name.startswith("cpu-") and type(count) is int and count == 0:
@@ -122,7 +156,7 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
                              "reason": "A GPU/unknown platform preset has no valid positive GPU count; it was not classified as a CPU preset."})
         if not gpu_presets:
             continue
-        documented = platforms.get(name)
+        documented = platforms.get(name) or _additional_platform(name, spec, project["region"])
         for preset in gpu_presets:
             discovered_gpu += 1
             preset_name, resources = preset.get("name"), preset["resources"]
@@ -137,9 +171,24 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
                              "reason": "API preset has no matching current documented platform/preset/region."})
                 continue
             expected = matching[0]
+            identity = deepcopy(documented)
+            evidence = {"identity_basis": identity.get("identity_basis", "official_api_and_vm_types_table"),
+                        "source_urls": identity.get("identity_sources", [nebius_catalog_expanded.TYPES_URL.removesuffix(".md")]),
+                        "api_gpu_memory_gb": spec.get("gpuMemoryGigabytes"),
+                        "documented_gpu_memory_gb": documented["vram_gb"]}
+            if (name == "gpu-b300-sxm" and documented["gpu_model"] == "B300"
+                    and documented["vram_gb"] == 288 and spec.get("gpuMemoryGigabytes") == 270
+                    and type(spec.get("gpuMemoryGigabytes")) is int
+                    and _api_text(spec.get("shortHumanReadableName")) == "NVIDIA B300 NVLink"):
+                identity["vram_gb"] = 270
+                evidence.update(identity_basis="official_api_and_provider_product_pages",
+                                source_urls=evidence["source_urls"] + _B300_MEMORY_SOURCES,
+                                documentation_discrepancy={"field": "gpu_memory_gb", "vm_types_table": 288,
+                                    "api_and_product_pages": 270, "unit": "GB",
+                                    "reason": "Official sources disagree; no ECC, reserved-memory or GB/GiB explanation is inferred."})
             if ("gpuMemoryGigabytes" in spec
                     and (type(spec["gpuMemoryGigabytes"]) is not int
-                         or spec["gpuMemoryGigabytes"] != documented["vram_gb"])):
+                         or spec["gpuMemoryGigabytes"] != identity["vram_gb"])):
                 gaps.append({**scope, "status": "gpu_memory_gb_conflict",
                              "reason": "Explicit API GPU-memory GB differs from the current documented per-GPU GB identity or has an invalid type."})
                 continue
@@ -149,17 +198,23 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
                              "reason": "API GPU/CPU/RAM quantities disagree with the documented preset."})
                 continue
             serial = len(targets)
+            identities.update(identity_catalog({name: identity}))
             targets.append({
-                **project, "gpu_model": documented["gpu_model"], "gpu_count": expected["gpu_count"],
-                "gpu_variant": documented["form_factor"], "vram_gb": documented["vram_gb"],
+                **project, "gpu_model": identity["gpu_model"], "gpu_count": expected["gpu_count"],
+                "gpu_variant": identity["form_factor"], "vram_gb": identity["vram_gb"],
                 "currency": currency, "aggregation_units": ["hour"], "offer_types": [],
                 "resource_specs": [{"spec": {"@type": "type.googleapis.com/nebius.compute.v1.CreateInstanceRequest",
                     "metadata": {"parentId": project["project_id"], "name": f"catalog-price-{serial}"},
                     "spec": {"resources": {"platform": name, "preset": preset_name}, "onDemand": {},
                         "bootDisk": {"attachMode": "READ_WRITE", "managedDisk": {
-                            "name": f"catalog-boot-{serial}", "spec": {"type": "NETWORK_SSD", "sizeGibibytes": str(boot_disk_gib)}}}}}}],
+                            "name": f"catalog-boot-{serial}", "spec": {"type": "NETWORK_SSD", "sizeGibibytes": str(boot_disk_gib)}}}}}},
+                    {"spec": {"@type": "type.googleapis.com/nebius.compute.v1.CreateDiskRequest",
+                        "metadata": {"parentId": project["project_id"], "name": f"catalog-boot-estimate-{serial}"},
+                        "spec": {"type": "NETWORK_SSD", "sizeGibibytes": str(boot_disk_gib)}}}],
             })
-    return {"targets": targets, "gaps": gaps, "discovered_gpu_preset_count": discovered_gpu,
+            target_evidence.append(evidence)
+    return {"targets": targets, "target_evidence": target_evidence, "identity_catalog": identities,
+            "gaps": gaps, "discovered_gpu_preset_count": discovered_gpu,
             "excluded_cpu_preset_count": excluded_cpu}
 
 
@@ -169,6 +224,64 @@ def _error(scope: str, exc, *, region: str | None = None, project_ref: str | Non
             "code": exc.code if isinstance(exc, FetchError) else "parse_failed",
             "message": "The read-only Nebius account catalog/estimate request could not be verified.",
             "retryable": exc.retryable if isinstance(exc, FetchError) else False}
+
+
+def split_compute_storage(payload: dict, target: dict, *, observed_at: str,
+                          identities: dict, country_codes: dict) -> list[dict]:
+    """Validate the complete batch, then retain the exact VM line as main rate.
+
+    The VM projection below contains only unchanged API VM resource costs and
+    their own exact total breakdown. It is not a second provider response or a
+    new quote. The complete batch and storage portion remain explicit metadata.
+    """
+    full_quotes = nebius_quote.parse_quote(payload, target, observed_at=observed_at,
+        project_region_verified=True, identity_catalog=identities, region_countries=country_codes)
+    instance = target["resource_specs"][0]["spec"]
+    vm_name = instance["metadata"]["name"]
+    nested_name = instance["spec"]["bootDisk"]["managedDisk"]["name"]
+    if any((cost.get("overrideMetadata") or cost.get("metadata") or {}).get("name") == nested_name
+           for cost in payload["resourceCosts"]):
+        raise FetchError("nested_storage_pricing_changed",
+                         "The calculator now itemizes the nested boot disk; do not also charge the explicit disk estimate.")
+    vm_costs = [cost for cost in payload["resourceCosts"]
+                if (cost.get("overrideMetadata") or cost.get("metadata") or {}).get("name") == vm_name]
+    vm_totals = []
+    for cost in vm_costs:
+        breakdown = cost.get("general") or cost.get("fixedInstance")
+        vm_totals.append({"aggregationUnit": deepcopy(cost["aggregationUnit"]),
+                          "general": {"total": deepcopy(breakdown["total"])}})
+    vm_target = deepcopy(target)
+    vm_target["resource_specs"] = vm_target["resource_specs"][:1]
+    vm_projection = {"currency": payload["currency"], "resourceCosts": vm_costs, "totalCosts": vm_totals}
+    quotes = nebius_quote.parse_quote(vm_projection, vm_target, observed_at=observed_at,
+        project_region_verified=True, identity_catalog=identities, region_countries=country_codes)
+    full_by_unit = {quote["unit"]: quote for quote in full_quotes}
+    for quote in quotes:
+        full = full_by_unit[quote["unit"]]
+        storage = [line for line in full["components"] if line["resource_type"] == "CreateDiskRequest"]
+        if (len(storage) != 1 or not storage[0]["sku_costs"] or not quote["components"]
+                or not quote["components"][0]["sku_costs"]):
+            raise ValueError("The calculator did not itemize one explicit SSD and a billable VM tariff.")
+        if nebius_quote._amount(quote["instance_price"]["amount"]) <= 0:
+            raise FetchError("compute_tariff_unavailable",
+                             "The calculator returned no positive compute tariff; a disk-only charge is not a free GPU quote.")
+        storage_skus = {line["sku_id"] for line in storage[0]["sku_costs"]}
+        compute_skus = {sku["sku_id"] for component in quote["components"] for sku in component["sku_costs"]}
+        if storage_skus & compute_skus:
+            raise FetchError("embedded_storage_pricing_changed",
+                             "The VM and independent SSD share a billed SKU; storage cannot safely be separated.")
+        quote["instance_price"]["scope"] = "compute_resources_only"
+        quote["pricing_scope"] = "compute_vm_only"
+        quote["normalization"]["method"] = "exact calculator VM resource cost / explicit GPU count; storage excluded"
+        quote["normalization"]["storage_sku_disjoint"] = True
+        quote["storage_quote"] = {"amount": storage[0]["amount"], "currency": quote["currency"],
+                                  "unit": "disk_hour", "breakdown": deepcopy(storage[0]),
+                                  "included_in_main_gpu_price": False}
+        quote["full_configuration_price"] = {**deepcopy(full["instance_price"]),
+                                             "scope": "compute_vm_plus_explicit_ssd",
+                                             "per_gpu_amount": full["amount"], "per_gpu_unit": full["unit"],
+                                             "components": deepcopy(full["components"])}
+    return quotes
 
 
 def collect_result(*, settings: Settings, observed_at: str) -> dict:
@@ -193,7 +306,7 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
     identities = identity_catalog(platforms)
     country_codes = {region: info["country_code"] for region, info in regions.items()}
     tenants = _list(TENANTS_URL, settings, headers)
-    errors, gaps, prices, contexts, projects = [], [], [], [], []
+    errors, gaps, prices, contexts, projects, unpriced = [], [], [], [], [], []
     coverage = {"tenant_count": len(tenants), "project_count": 0, "verified_project_count": 0,
                 "discovered_gpu_preset_count": 0, "excluded_cpu_preset_count": 0,
                 "estimate_target_count": 0, "successful_estimate_count": 0,
@@ -245,7 +358,8 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
         except (FetchError, ValueError, TypeError, KeyError) as exc:
             errors.append(_error("platform_discovery", exc, region=region, project_ref=reference))
             continue
-        for target in targets:
+        project_identities = {**identities, **discovery["identity_catalog"]}
+        for target, identity_evidence in zip(targets, discovery["target_evidence"]):
             targets_seen += 1
             if targets_seen > MAX_TARGETS:
                 errors.append({"scope": "account_catalog", "code": "target_limit", "retryable": False,
@@ -254,14 +368,13 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
             coverage["estimate_target_count"] += 1
             resource = target["resource_specs"][0]["spec"]["spec"]["resources"]
             try:
-                validated = nebius_quote.validate_targets(json.dumps([target]), identity_catalog=identities,
+                validated = nebius_quote.validate_targets(json.dumps([target]), identity_catalog=project_identities,
                                                          region_countries=country_codes)[0]
                 payload = request_json(SOURCE_URL, settings, method="POST",
                                        headers={**headers, "Content-Type": "application/json"},
                                        data=nebius_quote.build_request(validated), authenticated=True)
-                quotes = nebius_quote.parse_quote(payload, validated, observed_at=observed_at,
-                                                  project_region_verified=True, identity_catalog=identities,
-                                                  region_countries=country_codes)
+                quotes = split_compute_storage(payload, validated, observed_at=observed_at,
+                                               identities=project_identities, country_codes=country_codes)
                 for quote in quotes:
                     quote["project_reference"] = reference
                     quote["location_validation"] = {"project_region_verified": True,
@@ -273,15 +386,45 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
                     quote["catalog_discovery"] = {"method": "authenticated_tenant_project_platform_list",
                                                    "platform_catalog_url": PLATFORMS_URL,
                                                    "project_region_source_url": PROJECTS_URL,
-                                                   "fresh_platform_and_preset_verified": True}
+                                                   "fresh_platform_and_preset_verified": True,
+                                                   "identity_evidence": deepcopy(identity_evidence)}
+                    quote["configuration_source"] = PLATFORMS_URL
+                    quote["configuration_sources"] = deepcopy(identity_evidence["source_urls"])
+                    quote["notes"] = [note for note in quote["notes"]
+                                      if not note.startswith("GPU model, form factor, VRAM")]
+                    quote["notes"].append(
+                        "Hardware identity follows the live official Platform API and the supporting sources in "
+                        "catalog_discovery.identity_evidence; current project exposure does not verify stock or orderability.")
+                    if "documentation_discrepancy" in identity_evidence:
+                        quote["catalog_metadata_discrepancy"] = deepcopy(identity_evidence["documentation_discrepancy"])
                     quote["selected_configuration"] = {**resource, "boot_disk_gib": disk, "boot_disk_type": "NETWORK_SSD"}
-                    quote["conditions"] = [f"一个GPU实例及{disk} GiB SSD启动盘的账号估价，按GPU数量分摊；不创建资源。",
+                    quote["storage_estimate"] = {"size_gib": disk, "disk_type": "NETWORK_SSD",
+                                                "basis": "explicit_CreateDiskRequest_in_same_calculator_batch",
+                                                "nested_boot_disk_independently_itemized": False}
+                    quote["storage_quote"].update(size_gib=disk, disk_type="NETWORK_SSD")
+                    quote["conditions"] = ["普通报价仅含VM计算费（GPU、CPU、RAM），按GPU数量分摊；不含另计磁盘和网络。",
+                                           f"{disk} GiB SSD额外{quote['storage_quote']['amount']} {quote['currency']}/小时；"
+                                           f"实例加盘总额{quote['full_configuration_price']['amount']} {quote['currency']}/小时。",
+                                           "盘费来自同批独立CreateDiskRequest；实例中的启动盘配置本身未被视为已计费；不创建资源。",
                                            "项目API已核实部署地区；逐项目询价，不假定跨地区统一。",
                                            "不含本次未请求的网络及其他服务；库存、税项、最终订单价格未验证。"]
+                    if "documentation_discrepancy" in identity_evidence:
+                        quote["conditions"].append("显存按接口及产品页270 GB；VM类型文档仍写288 GB，保留此官方资料差异。")
+                    if resource["platform"] == "gpu-gb300":
+                        quote["conditions"].append("GB300产品页要求联系销售；本次账号估价不证明自助可租或有库存。")
                     prices.append(quote)
                 coverage["successful_estimate_count"] += 1
             except (FetchError, ValueError, TypeError, KeyError) as exc:
                 errors.append({**_error("regional_configuration_estimate", exc, region=region, project_ref=reference), **resource})
+                if isinstance(exc, FetchError) and exc.code == "compute_tariff_unavailable":
+                    entry = {"platform": resource["platform"], "preset": resource["preset"],
+                             "gpu_model": target["gpu_model"], "gpu_variant": target["gpu_variant"],
+                             "vram_gb": target["vram_gb"], "gpu_count": target["gpu_count"],
+                             "region": region, "country_code": project["country_code"],
+                             "status": "compute_tariff_unavailable", "source_url": SOURCE_URL,
+                             "reason": "The calculator returned a zero compute cost; separately priced storage does not establish a GPU rental rate. Do not interpret this as free GPU capacity."}
+                    unpriced.append(entry)
+                    gaps.append({"scope": "regional_compute_tariff", **entry})
         if targets_seen > MAX_TARGETS:
             break
     coverage["region_codes"] = sorted({p["region"] for p in projects})
@@ -295,12 +438,13 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
             "prices": prices, "errors": errors, "gaps": gaps, "source_contexts": contexts,
             "authentication_method": "IAM_Bearer_token", "coverage": coverage,
             "catalog_coverage": {"summary": coverage, "regions": deepcopy(regions),
+                                 "unpriced_configurations": unpriced,
                                  "target_configuration": {"boot_disk_gib": disk, "boot_disk_type": "NETWORK_SSD",
                                                           "currency": currency.upper(), "aggregation_unit": "hour",
                                                           "capacity_type": "on_demand"},
                                  "source_urls": [TENANTS_URL, PROJECTS_URL, PLATFORMS_URL, SOURCE_URL]},
             "pricing_limitations": ["API discovery is account-scoped, not a worldwide price catalog.",
-                                     "Each estimate includes the explicitly configured SSD boot disk; no resources are provisioned."]}
+                                     "The headline rate excludes separately estimated SSD storage; its precise cost and the complete batch remain metadata. No resources are provisioned."]}
 
 
 def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:

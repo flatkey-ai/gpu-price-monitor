@@ -2,7 +2,9 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
-**0.17.0 扩展 Nebius 与 Crusoe**：`NEBIUS_SOURCE=spot_api` 免费取当前 Spot 地区价并核实国家；`catalog_api` 自动发现账号已有项目和 GPU 规格后逐项估价（需 token，尚待账号真实联调）。Crusoe 完整模式读取官网全部价格格，并补官方 GPU VM 规格与部署目录；部署地点不冒充报价地区，销售询价不填金额，也不宣称全球统一。[用法和证据边界](docs/nebius-crusoe.md) · [Nebius 配置](.env.nebius.example) · [Crusoe 配置](.env.crusoe.example)。
+**0.18.0 完成 Nebius 账号目录实采**：`NEBIUS_SOURCE=catalog_api` 使用自己的 token，自动发现已有授权项目的 GPU 规格并逐项调用官方估价 API，无需手填 targets。`spot_api` 继续免费取当前 Spot 地区价。Crusoe 完整模式读取官网全部价格格及官方 VM / 部署目录；部署地点不冒充报价地区，销售询价不填金额。[用法和证据边界](docs/nebius-crusoe.md) · [Nebius 配置](.env.nebius.example) · [Crusoe 配置](.env.crusoe.example)。
+
+**2026-10-22 14:21:49（北京时间）Nebius 独立 Python 账号实采**：发现并询价 37 个 GPU preset，取得 **36 条有效计算资源报价，覆盖 9 地区、6 国家**。GB300 的计算费返回零，按 `compute_tariff_unavailable` 留缺口，不当免费 GPU 价格，故结果为 `partial`。主价是含 GPU / CPU / RAM 的每 GPU 小时计算费；40 GiB SSD 单独询价，另存磁盘费与完整配置总价，不混入 GPU 比价。该批未创建资源或绑定付款方式；范围仅为当前账号可访问项目，不代表所有合同或库存，也不据相同金额宣称全球统一。
 
 **2026-10-22 11:53（北京时间）独立 Python 实采**：Nebius 12 条原始 Spot 地区价，覆盖 9 地区、6 国家；Crusoe 7 条明确价格、17 条销售询价记录，另有 17 个文档 GPU 规格和 7 可用区 / 3 国家部署目录。Crusoe 尚无价格地区绑定证据，未进入地区比价主表。[Nebius 地区 CSV](examples/nebius-regional-spot-2026-10-22.csv) · [Crusoe 官网目录 CSV](examples/crusoe-public-catalog-2026-10-22.csv) · [Crusoe 部署目录（非价格表）](examples/crusoe-deployment-catalog-2026-10-22.csv) · [来源与缺口](examples/nebius-crusoe-sources-2026-10-22.json)。这些是带时间的历史样本，程序不会用它们兜底实时采集。
 
@@ -12,7 +14,7 @@
 
 [English](README.en.md) · [平台来源与限制](docs/PROVIDERS.md) · [数据口径](docs/DATA_MODEL.md) · [文档需求对照](docs/DOCUMENT_COVERAGE.md)
 
-**0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；Nebius 账号估价、Lambda API key 模式和 Crusoe 合同认证仍待有效凭据验证，Lambda 控制台会话模式已通过上述真实 HTTP 联调。
+**0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；Nebius 账号目录与 Lambda 控制台会话现已通过上述真实 HTTP 联调，Lambda API key 模式和 Crusoe 合同认证仍待有效凭据验证。
 
 默认 CSV 为 10 列 `market` 小时报价表，包含已核实地区价和明确标注范围的目录价。`catalog` 另保留起价 / 销售询价项（无数值保持空），`compact` 要求国家与价格地区均核实，`full` 保留审计元数据。目录价不复制到多个国家，也不宣称全球统一。
 
@@ -23,7 +25,7 @@ gpu-price-monitor collect --env-file .env.three.local --pretty > three-prices.js
 gpu-price-monitor collect --env-file .env.three.local --format csv --csv-profile catalog > three-catalog.csv
 ```
 
-**2026-10-21 19:37（北京时间）三家实采样本**：156 行目录、136 行有金额，其中 100 行为明确标注的 Nebius 配置计算，另有 20 行需销售询价；Nebius 当前地区 Spot 源费率只有 12 条，按配置展开不能算新增独立报价。[原币目录 CSV](examples/three-catalog-2026-10-21.csv) · [来源、计数与缺口](examples/three-catalog-sources-2026-10-21.json)。该历史批次不含账号来源；Lambda 控制台的后续实测见上文。
+**2026-10-21 19:37（北京时间）三家实采样本**：156 行目录、136 行有金额，其中 100 行为明确标注的 Nebius 配置计算，另有 20 行需销售询价；Nebius 当前地区 Spot 源费率只有 12 条，按配置展开不能算新增独立报价。[原币目录 CSV](examples/three-catalog-2026-10-21.csv) · [来源、计数与缺口](examples/three-catalog-sources-2026-10-21.json)。该历史批次不含账号来源；Nebius 账号目录和 Lambda 控制台的后续实测见上文。
 
 **2026-10-21 17:45（北京时间）五家实采全部成功**：111 条有效小时报价，Nebius 17、Lambda 22、Crusoe 8、AutoDL 24、UCloud·优云智算 40；其中 52 条地区已核实，59 条为目录报价。[下载本批 CSV](examples/five-market-2026-10-21.csv) · [来源与请求状态](examples/five-market-sources-2026-10-21.json)。另有 20 条起价 / 询价只留审计，不算有效报价。本批无账号密钥；这不是所有规格、地区或库存的完整清单。
 
@@ -65,7 +67,7 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 
 | 平台 | `api_preferred` 来源 | 核对价格时的限制 |
 | --- | --- | --- |
-| Nebius | 官方匿名当前 Spot API，加官网 Next.js JSON 目录 | Spot 是地区动态价；JSON 目录补普通按需价。L40S 的 From 和 Contact us 保留审计，不当确定报价 |
+| Nebius | 默认官方匿名 Spot API + 官网 Next.js JSON；可显式选 `catalog_api` 发现账号项目 / preset 并调用官方估价 API | Spot 是地区动态价；账号主价含 VM 的 GPU / CPU / RAM，SSD 另计。公开目录的 From / Contact us 不当确定报价 |
 | Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 整实例价按卡分摊；经当前前端版本核实，所列可选标准地区共享 SKU 目录价，非逐地区独立询价 |
 | Crusoe | Python 固定 HTML 规则解析官网 GPU instances 区块 | 没有已核实的公共 VM 价目 API；不混入账单、预留合同或模型部署费用 |
 | AutoDL | Playwright 固定 DOM 规则读取普通 / 会员价 | 无合适公开市场价 API；会员条件保留，首页没有价格地区；可选授权 market 模式 |
@@ -96,6 +98,8 @@ Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="co
 
 完整目录用 `prices_to_csv(result, profile="catalog")`。`gpu_cluster` 为集群产品，集群总卡数与最短预留时长必须一起读取，不能当单机卡数或普通按需价。Nebius `rate_derivation.independent_provider_quote=false` 表示按已公布费率计算，不是账号询价；`provider_results.catalog_coverage` 分别记录原始费率数量和派生配置数量。
 
+Nebius `catalog_api` 的主金额为计算资源费，`instance_price.scope=compute_resources_only`；额外 SSD 保留在 `storage_quote`，含盘完整配置总额保留在 `full_configuration_price`。CSV 条件列说明这些另计费用；网络等未请求的服务不包含在内。
+
 金额保留原币精确十进制字符串，**库不统一换成美元**；月价不除以 720 或其他假定小时数。RackRate 应用另行换汇和发布。CSV 为 UTF-8 BOM / CRLF，不附来源状态表；完整状态、排除原因和审计记录请保留 JSON。stdout 只含所选 JSON 或 CSV，诊断写 stderr；退出码成功 `0`、部分失败 `2`、失败 / 配置错误 `1`。来源成功但所选 profile 无合格行时仅表头，仍退出 `0`。
 
 ## 来源策略与环境变量
@@ -103,7 +107,7 @@ Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="co
 | 策略 | 行为 |
 | --- | --- |
 | `api_preferred` | 五家推荐策略；优先价格接口，允许已标明的官网程序解析与网站 JSON。选中接口后失败就报错，不改抓其他页面 |
-| `api_only` | 仅允许价格 API；Nebius 只取当前 Spot，不补网站目录；Crusoe / AutoDL 页面来源报 `api_price_source_unavailable` |
+| `api_only` | 仅允许价格 API；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不补网站目录；Crusoe / AutoDL 页面来源报 `api_price_source_unavailable` |
 | `configured` | 兼容默认，按各 `*_SOURCE` 配置；Nebius 保留旧文档 + Spot，UCloud public 保留旧 UHost 活动月包 |
 
 独立五家模板设置 `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe,autodl,ucloud` 和 `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`。CLI 可覆盖为 `--providers ... --source-policy ...`。通用 `.env.example` 保留 `configured` 兼容行为。
@@ -112,10 +116,11 @@ Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="co
 | --- | --- |
 | Lambda 认证实例目录 | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`；或免费登录态 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
 | UCloud 签名 UHost 完整配置询价 | `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，及 `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON` 之一；可选 `UCLOUD_PROJECT_ID` |
-| Nebius 账号完整配置估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`，及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一 |
+| Nebius 账号地区目录 | 显式 `NEBIUS_SOURCE=catalog_api`、`NEBIUS_ACCESS_TOKEN`；自动发现已有授权项目与 preset，无需 targets；SSD 大小 / 币种可选，见 [配置](.env.nebius.example) |
+| Nebius 指定完整配置估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`，及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一；主金额为全部请求资源总额 |
 | AutoDL 授权市场 | `AUTODL_SOURCE=market` 与有效 `AUTODL_STORAGE_STATE_PATH`；首页公开采集不用 token |
 
-只填一把 UCloud key 或漏填 targets 会报错，不降级成其他产品线。targets 模板不证明账号可售。Lambda 控制台会话已在 2026-10-22 通过独立 Python HTTP 实测；Nebius / UCloud 账号估价、Lambda API key 模式、Crusoe 合同认证与 AutoDL 登录市场仍缺有效凭据的真实成功验证，不能以离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
+只填一把 UCloud key 或漏填其 targets 会报错，不降级成其他产品线。targets 模板不证明账号可售。Nebius `catalog_api` 与 Lambda 控制台会话已在 2026-10-22 通过独立 Python HTTP 实测；UCloud 签名估价、Lambda API key 模式、Crusoe 合同认证与 AutoDL 登录市场仍缺有效凭据的真实成功验证，不能以离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
 
 JSON 的 `execution` 声明 Python、固定规则、不使用 LLM 及所选策略；`provider_results` 标明实际来源、`collection_method`、选择原因、回退选择原因和逐平台 `market_quote_count`。`market_comparison` 统计小时目录 / 地区报价；原 `comparison` 继续统计严格地区价。来源采集成功、有效小时报价、地区已核实及实时可购是不同事实。
 

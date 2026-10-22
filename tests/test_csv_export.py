@@ -412,6 +412,62 @@ class MarketCsvExportTests(unittest.TestCase):
     def market_rows(self, source):
         return rows(prices_to_csv(source, bilingual_headers=False, profile="market"))
 
+    def test_compute_rate_and_additional_disk_cost_remain_separate_in_both_profiles(self):
+        item = regional_quote(
+            amount="8.50000000", gpu_count=8,
+            instance_price={"amount": "68.00000000", "currency": "USD", "unit": "instance_hour",
+                            "scope": "compute_resources_only"},
+            storage_quote={"amount": "0.00388888", "currency": "USD", "unit": "disk_hour",
+                           "included_in_main_gpu_price": False},
+            full_configuration_price={"amount": "68.00388888", "currency": "USD", "unit": "instance_hour"},
+        )
+        source = result(item)
+        before = deepcopy(source)
+        for profile in ("market", "compact"):
+            with self.subTest(profile=profile):
+                row = rows(prices_to_csv(source, bilingual_headers=False, profile=profile))[0]
+                self.assertEqual(row["amount"], "8.50000000")
+                self.assertIn("实例计算资源小时费=68.00000000 USD instance_hour", row["pricing_conditions"])
+                self.assertNotIn("整实例总价=68.00000000", row["pricing_conditions"])
+                self.assertIn("另计磁盘小时费=0.00388888 USD disk_hour", row["pricing_conditions"])
+                self.assertIn("计算资源加磁盘每实例小时合计=68.00388888 USD instance_hour", row["pricing_conditions"])
+        self.assertEqual(source, before)
+        full_row = rows(english_csv(source))[0]
+        extra = json.loads(full_row["extra_metadata_json"])
+        self.assertEqual(extra["storage_quote"], item["storage_quote"])
+        self.assertEqual(extra["full_configuration_price"], item["full_configuration_price"])
+
+    def test_invalid_supplemental_amounts_fail_without_echoing_input(self):
+        for field in ("storage_quote", "full_configuration_price"):
+            for value in ({"amount": "=private_upstream_value"}, {"amount": "-1"}, [], "invalid"):
+                for profile in ("market", "compact"):
+                    with self.subTest(field=field, value=value, profile=profile), self.assertRaises(ValueError) as error:
+                        prices_to_csv(result(regional_quote(instance_price={"amount": "8.5"}, **{field: value})), profile=profile)
+                    self.assertNotIn("private_upstream_value", str(error.exception))
+
+    def test_discovered_compute_market_summary_keeps_restrictions_and_omits_request_dtos(self):
+        item = regional_quote(
+            instance_price={"amount": "9.5", "scope": "compute_resources_only"},
+            catalog_discovery={"method": "authenticated_tenant_project_platform_list"},
+            conditions=["普通报价仅含VM计算费（GPU、CPU、RAM），按GPU数量分摊。",
+                        "40 GiB SSD额外0.0039 USD/小时；实例加盘总额9.5039 USD/小时。",
+                        "盘费来自同批独立CreateDiskRequest；不创建资源。",
+                        "项目API已核实部署地区；逐项目询价。", "仅适用于现有账号；网络与税费未验证。"],
+            selected_configuration={"preset": "1gpu-24vcpu-346gb", "boot_disk_gib": 40},
+            requested_configuration={"resource_specs": [{"type": "CreateInstanceRequest"}]},
+        )
+        source = result(item)
+        before = deepcopy(source)
+        row = self.market_rows(source)[0]
+        conditions = row["pricing_conditions"]
+        self.assertIn("含GPU/CPU/RAM计算费；磁盘与网络另计", conditions)
+        self.assertIn("仅适用于现有账号；网络与税费未验证。", conditions)
+        self.assertIn("规格=1gpu-24vcpu-346gb；另配SSD=40 GiB", conditions)
+        self.assertNotIn("CreateDiskRequest", conditions)
+        self.assertNotIn("CreateInstanceRequest", conditions)
+        self.assertEqual(json.loads(rows(english_csv(source))[0]["extra_metadata_json"])["requested_configuration"], item["requested_configuration"])
+        self.assertEqual(source, before)
+
     def test_default_market_has_ten_columns_and_keeps_catalog_and_regional_quotes(self):
         source = result(quote(provider="lambda"), regional_quote())
         before = deepcopy(source)

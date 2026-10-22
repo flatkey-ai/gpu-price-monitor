@@ -34,6 +34,7 @@ _COUNTRIES = REGION_COUNTRIES
 _UNITS = {"hour": ("FILTER_AGGREGATION_UNIT_HOUR", "gpu_hour", "instance_hour"),
           "month": ("FILTER_AGGREGATION_UNIT_MONTH", "gpu_month", "instance_month")}
 _LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
+_VARIANT_LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9 .+/_-]{0,127}\Z")
 _DECIMAL = re.compile(r"\d+(?:\.\d{1,24})?\Z")
 _TOKEN = re.compile(r"[A-Za-z0-9._~+/-]+=*\Z")
 _PRESET = re.compile(r"([1-9]\d*)gpu-([1-9]\d*)vcpu-([1-9]\d*)gb\Z")
@@ -198,7 +199,8 @@ def validate_targets(raw: str, *, identity_catalog: dict | None = None,
             raise _target_error()
         if target.get("zones") not in (None, []):
             raise _target_error()
-        if "gpu_variant" in target and target["gpu_variant"] is not None and not _label(target["gpu_variant"]):
+        if ("gpu_variant" in target and target["gpu_variant"] is not None
+                and (not isinstance(target["gpu_variant"], str) or not _VARIANT_LABEL.fullmatch(target["gpu_variant"]))):
             raise _target_error()
         if "vram_gb" in target and target["vram_gb"] is not None and not _positive_int(target["vram_gb"], 4096):
             raise _target_error()
@@ -422,7 +424,7 @@ def parse_quote(payload: dict, target: dict, *, observed_at: str, project_region
             "source_conditions": {"offer_types": list(target["offer_types"]), "aggregation_unit": unit},
             "notes": [
                 "Account-scoped fixed configuration estimate, not a public Nebius price catalog or guaranteed invoice.",
-                "The full batch cost of one requested VM, its managed disks and any explicitly added storage resources is allocated across its GPU count; this is not a GPU-only component tariff.",
+                "Returned batch costs for one VM and explicitly itemized storage resources are allocated across its GPU count; nested managed-disk configuration alone does not establish that disk fees were included.",
                 ("Compute project region was checked with the read-only Project API; country follows that explicit region in official Nebius documentation, never the requested currency."
                  if project_region_verified else "Standalone parser: region is caller-supplied and has not been verified with the Project API; country only describes that region in official documentation."),
                 "GPU model, form factor, VRAM, GPU count, preset CPU/RAM and platform region are checked against the official VM types documentation; this does not verify current inventory or account access.",

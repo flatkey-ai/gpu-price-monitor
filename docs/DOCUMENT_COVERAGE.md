@@ -1,16 +1,16 @@
 # 原始 Word 需求与实现对照
 
-对照版本：0.13.0，日期：2026-10-21。原始《GPU云算力_价格入口与API核查_2026-10-10.docx》核查 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 五家；本文以前五家为验收重点。文档中的接口示例、失败响应与接入建议是核查材料，不是直接复制的真实报价。
+对照版本：0.18.0，日期：2026-10-22。原始《GPU云算力_价格入口与API核查_2026-10-10.docx》核查 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 五家；本文以前五家为验收重点。文档中的接口示例、失败响应与接入建议是核查材料，不是直接复制的真实报价。
 
 用户后续明确：免费公开采集、开源可 clone、独立 Python / CLI、接口优先、金额真实可追溯，不依赖 Codex / LLM 解析；允许没有合适市场价接口的 Crusoe / AutoDL 用代码解析官网。库只采集 / 返回，存储、换汇、上传、定时与网站更新由调用方负责。
 
 ## 五家按原文对照
 
-| 平台 / 原文事项 | 0.13 实现 | 真实验证与限制 |
+| 平台 / 原文事项 | 当前实现 | 真实验证与限制 |
 | --- | --- | --- |
-| Nebius：Estimate Batch 需要完整资源及 Bearer token | 推荐匿名当前地区 Spot API，加官网 Next.js JSON 普通目录；账号 Estimate Batch 保留为显式可选分支 | Spot 和网站 JSON 已由 Python 真实请求成功；目录不是地区价，也不是正式稳定云 API；账号估价仍缺有效 token 成功联调 |
-| Lambda：instance-types 含美分整机价、卡数及容量位置 | 有 key 用 API，按整实例金额 / 明确卡数分摊；无 key 固定规则采官网价格页 | 公开页已实采；认证 API 有离线测试但缺有效 key 成功联调；容量位置不当价格地区 |
-| Crusoe：VM types 无价；账单 / 托管模型不同于 GPU VM 租价 | 固定规则只解析官网 GPU instances 区块，数值、起价与 Contact sales 分开 | 官网已实采；重新核查官方 OpenAPI 未找到合适公共 VM 价目 API，api_only 明确拒绝网页 |
+| Nebius：Estimate Batch 需要完整资源及 Bearer token | 匿名 Spot；公开网站 JSON 目录；显式 `catalog_api` 自动发现已有项目与 GPU presets 后逐项只读估价 | 2026-10-22 账号实采 37 配置、36 条正数计算价、9 地区 / 6 国家；GB300 零计算费列缺口，SSD 另计。不是库存或全部账号合同 |
+| Lambda：instance-types 含美分整机价、卡数及容量位置 | 密钥 API、公开页，或显式 `console` 用本地会话读取官方 JSON | 免费登录态已由 Python / CLI 实采；当前前端证明同 SKU 所列可选标准地区共用目录价。密钥 API 仍未成功联调；容量本身不证明价格地区 |
+| Crusoe：VM types 无价；账单 / 托管模型不同于 GPU VM 租价 | 固定规则只解析官网 GPU instances 区块，数值、起价与 Contact sales 分开 | 官网已实采；登录账号可读 35 个规格但无价格字段，当前无配额且配置入口要求付款资料。未找到可验证的完整地区价 API；不补造全球统一价 |
 | AutoDL：已有 Pro 实例 / 部署价格不是全市场目录 | 固定 DOM 采首页普通 / 会员价；可选用户授权登录市场，核验分页 / 单位 / 位置 | 首页已真实采集；授权市场有测试但缺有效会话成功联调；不拿已有资源 API 冒充市场 |
 | UCloud：指定完整地区 / GPU / CPU / RAM / 磁盘配置后询价 | 接口优先无 key 走旗下 CompShare 匿名小时配置询价，普通原价分摊；有任一 key 要求完整签名 UHost 询价 | CompShare 已有真实匿名 API 成功响应；两条产品线分开。原文 UHost 签名路径仍缺有效账号成功联调，不将原报告 RetCode 错误当报价 |
 
