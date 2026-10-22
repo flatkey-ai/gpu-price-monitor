@@ -30,7 +30,12 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 def _request_text(url: str, settings: Settings, *, method: str = "GET", headers: dict | None = None,
-                  data: bytes | None = None, authenticated: bool = False) -> str:
+                  data: bytes | None = None, authenticated: bool = False,
+                  max_response_bytes: int | None = None) -> str:
+    if max_response_bytes is None:
+        max_response_bytes = MAX_RESPONSE_BYTES
+    if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= 32 * 1024 * 1024:
+        raise FetchError("invalid_request", "The response size limit must be an integer within 32 MiB.")
     request_headers = {
         "User-Agent": "gpu-price-monitor/0.2 (+https://github.com/flatkey-ai/gpu-price-monitor)",
         "Accept": "text/markdown,text/html,text/plain;q=0.9",
@@ -53,10 +58,10 @@ def _request_text(url: str, settings: Settings, *, method: str = "GET", headers:
                             or len(length_header) > 12):
                         raise FetchError("invalid_response", "The pricing response has an invalid length header.")
                     expected_length = int(length_header)
-                    if expected_length > MAX_RESPONSE_BYTES:
+                    if expected_length > max_response_bytes:
                         raise FetchError("response_too_large", "The pricing response exceeds the size limit.")
-                body = response.read(MAX_RESPONSE_BYTES + 1)
-                if len(body) > MAX_RESPONSE_BYTES:
+                body = response.read(max_response_bytes + 1)
+                if len(body) > max_response_bytes:
                     raise FetchError("response_too_large", "The pricing response exceeds the size limit.")
                 if expected_length is not None and len(body) != expected_length:
                     raise FetchError("response_incomplete", "The pricing response ended before its declared length.", True)
@@ -91,7 +96,8 @@ def fetch_text(url: str, settings: Settings) -> str:
 
 
 def request_json(url: str, settings: Settings, *, method: str = "GET", headers: dict | None = None,
-                 data: bytes | None = None, authenticated: bool = False) -> dict:
+                 data: bytes | None = None, authenticated: bool = False,
+                 max_response_bytes: int | None = None) -> dict:
     """Read an API response without leaking headers, body or signed query data.
 
     Floats are decoded as Decimal to preserve the provider's monetary value.
@@ -99,7 +105,8 @@ def request_json(url: str, settings: Settings, *, method: str = "GET", headers: 
     """
     request_headers = {"Accept": "application/json"}
     request_headers.update(headers or {})
-    content = _request_text(url, settings, method=method, headers=request_headers, data=data, authenticated=authenticated)
+    limits = {} if max_response_bytes is None else {"max_response_bytes": max_response_bytes}
+    content = _request_text(url, settings, method=method, headers=request_headers, data=data, authenticated=authenticated, **limits)
     def reject_constant(value):
         raise ValueError("Non-finite JSON constant")
     try:

@@ -82,7 +82,7 @@ Nebius 当前 Spot API 的 region 是价格位置；官网 JSON 目录没有价�
 - **Nebius**：Spot API 读取实际 `GPU hour`、币种、region 和生效时间；网站 Next.js JSON 补普通 on-demand 目录，CPU / RAM 按表中 GB 保留，未公布卡数和显存不猜。From 和 Contact us 留审计。兼容文档的 L40S GPU 组件不当整机。账号估价必须核对整套资源和聚合单位。
 - **Lambda**：网页每卡价原样读取；API `price_cents_per_hour / 100 / specs.gpus` 分摊，整实例原值保留，容量不补成地区价。
 - **Crusoe**：仅 GPU instances 区块；数值普通报价与 Contact sales 分开，不混入账单 / 模型部署。
-- **AutoDL**：首页普通 / 会员各自读取；授权市场按显示金额和小时单位解析，保留资格与地区，不取已有实例或 SSH 数据。
+- **AutoDL**：首页普通 / 会员各自读取；授权市场直接读取 JSON 的 `payg` SKU 普通 / 会员数值，按照已核实前端毫元换算及两位小数显示规则返回 `amount`，接口更高精度保留于 `exact_api_hourly_amount`。保留资格与原始地区，国家仅按有证据的地区身份交叉核对；不取已有实例或 SSH 数据。`out_of_stock` 代表“已租完”，不等于下线，仍保留真实报价。
 - **UCloud**：CompShare 实际 `GetCompShareInstancePrice` 询价的 `OriginalPriceDetails` 提供普通原价；优惠 `PriceDetails` 资格未核实，仅审计。按实际 GPU 数分摊完整配置小时费，产品线及配置保留。显式签名 UHost 需业务成功与单位核对；旧匿名 UHost 月包仅在兼容来源中保留月单位，不换算小时。
 
 其他四家和具体请求 / 认证边界见 [PROVIDERS.md](PROVIDERS.md)。合成测试不能证明有效账号成功联调，历史样本不能作为现价。

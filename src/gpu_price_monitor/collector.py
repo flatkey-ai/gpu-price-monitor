@@ -70,8 +70,8 @@ def _selected_module(provider: str, settings: Settings | None = None):
         from .providers import crusoe_catalog
         return crusoe_catalog
     if provider == "autodl" and settings.autodl_source == "market":
-        from .providers import autodl_market
-        return autodl_market
+        from .providers import autodl_market_api
+        return autodl_market_api
     return IMPLEMENTED_PROVIDERS.get(provider)
 
 
@@ -101,7 +101,7 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
     if provider == "nebius" and settings is not None and settings.source_policy != "configured":
         return "official_public_api"
     if provider == "autodl" and settings is not None and settings.autodl_source == "market":
-        return "authorized_browser"
+        return "official_internal_api"
     return PROVIDER_SOURCES[provider]
 
 
@@ -113,7 +113,13 @@ def _source_selection(provider: str, settings: Settings, module) -> dict:
                 "selection_reason": "anonymous_current_spot_api_with_live_country_verification",
                 "fallback_reason": None, "api_endpoint": nebius_spot.SOURCE_URL,
                 "additional_source_urls": [nebius_regions.REGIONS_URL]}
-    if source == "official_internal_api":
+    if provider == "autodl" and source == "official_internal_api":
+        from .providers import autodl_regions
+        return {"collection_method": "authenticated_http_json",
+                "selection_reason": "explicit_market_session_catalog",
+                "fallback_reason": None, "api_endpoint": module.SOURCE_URL,
+                "additional_source_urls": [autodl_regions.REGIONS_URL]}
+    if provider == "lambda" and source == "official_internal_api":
         from .providers import lambda_console
         return {"collection_method": "authenticated_http_json",
                 "selection_reason": "explicit_console_session_catalog",

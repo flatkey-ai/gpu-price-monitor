@@ -740,7 +740,7 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
                 "currency": quote.get("currency"), "unit": quote.get("unit"),
                 "pricing_conditions": (_compact_conditions if profile == "compact" else _market_conditions)(
                     quote, collection_status=result.get("status")),
-                "availability": quote.get("availability"), "source_url": quote.get("source_url"),
+                "availability": quote.get("availability"), "source_url": quote.get("pricing_page_url") or quote.get("source_url"),
                 "observed_at": quote.get("observed_at"),
             }
             writer.writerow([
