@@ -267,6 +267,15 @@ def _compact_gpu(quote: dict) -> str:
                 if resources.get(field) is not None:
                     parts.append(f"{resources[field]} {suffix}")
                     break
+        if quote.get("provider") == "ucloud" and quote.get("source_type") == "official_internal_api":
+            if resources.get("cpu_platform"):
+                parts.append(str(resources["cpu_platform"]) + " CPU")
+            if resources.get("net_capability"):
+                parts.append("网络=" + str(resources["net_capability"]))
+            for disk in resources.get("disks", []):
+                if isinstance(disk, dict):
+                    label = "系统盘" if disk.get("IsBoot") in (True, "True") else "数据盘"
+                    parts.append(f"{disk.get('Size')} GB {disk.get('Type')} {label}")
         storage = resources.get("storage")
         if isinstance(storage, dict) and storage.get("amount") is not None:
             parts.append(" ".join(str(storage[key]) for key in ("amount", "unit", "type") if storage.get(key) is not None))
@@ -364,6 +373,52 @@ def _separate_configuration_costs(quote: dict) -> list[str]:
     return parts
 
 
+def _ucloud_console_conditions(quote: dict, *, collection_status: object) -> str:
+    """Short display of the console adapter's verified baseline and account terms.
+
+    Exact hardware/disk/network values already appear in the GPU configuration
+    cell. Source notes and normalization metadata remain in the audit profiles.
+    """
+    parts = [{"on_demand": "按需小时", "spot": "Spot（可中断）", "reserved": "预留"}.get(
+        quote.get("billing_mode"), str(quote.get("billing_mode") or "计费方式未说明"))]
+    tier = {"account": "账号报价", "ordinary": "普通用户", "member": "会员价"}.get(quote.get("pricing_tier"))
+    if tier:
+        parts.append(tier)
+    account = {"account_quote": "当前账号询价",
+               "account_contract_quote": "账号合同价",
+               "authenticated_catalog": "认证账号目录价",
+               "public_catalog": "公开目录价"}.get(quote.get("account_scope"))
+    parts.append(account or "账号适用范围待确认")
+    parts.append({"excluded": "未含税", "included": "含税"}.get(quote.get("tax_scope"), "税费未说明"))
+    if quote.get("price_basis") == "instance_total_allocated":
+        parts.append("整机价按卡分摊")
+    if quote.get("membership_required") is not None:
+        parts.append("需会员" if quote["membership_required"] else "无需会员")
+    if quote.get("membership_discount") is not None:
+        parts.append("会员折扣=" + str(quote["membership_discount"]))
+    instance = quote.get("instance_price")
+    if instance is not None and not isinstance(instance, dict):
+        raise ValueError("CSV instance prices must be objects or null")
+    if instance:
+        amount = _amount_cell(instance.get("amount"))
+        original = _amount_cell(instance.get("original_amount"))
+        unit = {"instance_hour": "/小时"}.get(instance.get("unit"), " " + str(instance.get("unit") or ""))
+        suffix = " " + str(instance.get("currency") or quote.get("currency") or "") + unit
+        if amount:
+            parts.append("整机总价=" + amount + suffix)
+        if original and (not amount or Decimal(original) != Decimal(amount)):
+            parts.append("整机原价=" + original + suffix)
+    parts.extend(("含GPU、CPU、内存及系统盘", "不含额外数据盘、公网IP及带宽"))
+    image = quote.get("image_selection")
+    if isinstance(image, dict) and image.get("image_license_price_verified") is True:
+        parts.append("镜像费用已核实为0")
+    if collection_status == "partial":
+        parts.append("本批采集不完整（已保留核实报价）")
+    elif collection_status not in (None, "success"):
+        parts.append("本批采集失败" if collection_status == "failed" else "采集状态=" + str(collection_status))
+    return "；".join(parts)
+
+
 def _compact_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
     derivation = quote.get("rate_derivation")
@@ -372,7 +427,7 @@ def _compact_conditions(quote: dict, *, collection_status: object) -> str:
     labels = (
         ("billing_mode", {"on_demand": "按需", "spot": "Spot（可中断）", "reserved": "预留",
                           "monthly": "月包", "yearly": "年包"}, "计费"),
-        ("pricing_tier", {"ordinary": "普通用户", "member": "会员", "authenticated_market": "认证市场"}, "档位"),
+        ("pricing_tier", {"ordinary": "普通用户", "member": "会员", "account": "账号报价", "authenticated_market": "认证市场"}, "档位"),
         ("price_basis", {"advertised_per_gpu": "公开每GPU价", "starting_price": "最低起步价",
                          "gpu_component": "GPU组件价（CPU/RAM另计）", "instance_total_allocated": "整机价按卡分摊"}, "口径"),
         ("account_scope", {"public_catalog": "公开目录", "public_promotion": "公开促销",
@@ -518,7 +573,7 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
         parts.append("只含计算资源，磁盘与网络另计")
     for field, mapping, label in (
         ("billing_mode", {"on_demand": "按需", "spot": "Spot（可中断）", "reserved": "预留"}, "计费"),
-        ("pricing_tier", {"ordinary": "普通用户", "member": "会员", "authenticated_market": "认证市场"}, "档位"),
+        ("pricing_tier", {"ordinary": "普通用户", "member": "会员", "account": "账号报价", "authenticated_market": "认证市场"}, "档位"),
         ("price_basis", {"advertised_per_gpu": "每GPU价", "instance_total_allocated": "整机价按卡分摊"}, "口径"),
         ("tax_scope", {"excluded": "未含税", "included": "含税", "unspecified": "税费未说明"}, "税费"),
     ):
@@ -733,13 +788,16 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
                         catalog_eligible_record if profile == "catalog" else market_eligible_quote)
             if not eligible(quote):
                 continue
+            conditions_writer = _compact_conditions if profile == "compact" else _market_conditions
+            if (profile in {"compact", "market"} and quote.get("provider") == "ucloud"
+                    and quote.get("source_type") == "official_internal_api"):
+                conditions_writer = _ucloud_console_conditions
             row = {
                 "gpu_model": _compact_gpu(quote), "provider": quote.get("provider"),
                 "location": _compact_location(quote) if profile == "compact" else _market_location(quote),
                 "amount": None if quote.get("quote_status") == "contact_sales" else quote.get("amount"),
                 "currency": quote.get("currency"), "unit": quote.get("unit"),
-                "pricing_conditions": (_compact_conditions if profile == "compact" else _market_conditions)(
-                    quote, collection_status=result.get("status")),
+                "pricing_conditions": conditions_writer(quote, collection_status=result.get("status")),
                 "availability": quote.get("availability"), "source_url": quote.get("pricing_page_url") or quote.get("source_url"),
                 "observed_at": quote.get("observed_at"),
             }

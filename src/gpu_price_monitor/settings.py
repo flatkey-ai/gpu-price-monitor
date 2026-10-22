@@ -82,6 +82,7 @@ class Settings:
     crusoe_organization_id: str | None = field(default=None, repr=False)
     ucloud_public_key: str | None = field(default=None, repr=False)
     ucloud_private_key: str | None = field(default=None, repr=False)
+    ucloud_session_path: str | None = field(default=None, repr=False)
     ucloud_project_id: str | None = field(default=None, repr=False)
     ucloud_price_targets_json: str | None = field(default=None, repr=False)
     autodl_token: str | None = field(default=None, repr=False)
@@ -94,6 +95,7 @@ class Settings:
     nebius_catalog_currency: str = "usd"
     lambda_source: str = "public"
     ucloud_source: str = "public"
+    ucloud_check_availability: bool = False
     autodl_source: str = "public"
     crusoe_source: str = "public"
     source_policy: str = "configured"
@@ -120,8 +122,10 @@ class Settings:
             raise ConfigurationError("CRUSOE_SOURCE must be public, account or combined")
         if self.lambda_source not in ("public", "api", "console"):
             raise ConfigurationError("LAMBDA_SOURCE must be public, api or console")
-        if self.ucloud_source not in ("public", "api"):
-            raise ConfigurationError("UCLOUD_SOURCE must be public or api")
+        if self.ucloud_source not in ("public", "api", "console"):
+            raise ConfigurationError("UCLOUD_SOURCE must be public, api or console")
+        if type(self.ucloud_check_availability) is not bool:
+            raise ConfigurationError("UCLOUD_CHECK_AVAILABILITY must be true or false")
         if self.nebius_source not in ("public", "api", "catalog_api", "spot_api"):
             raise ConfigurationError("NEBIUS_SOURCE must be public, api, catalog_api or spot_api")
         if (type(self.nebius_catalog_boot_disk_gib) is not int
@@ -177,6 +181,10 @@ class Settings:
             value = values.get(name)
             return value if value and value.strip() else None
 
+        ucloud_availability = values.get("UCLOUD_CHECK_AVAILABILITY", "false").lower()
+        if ucloud_availability not in {"true", "false"}:
+            raise ConfigurationError("UCLOUD_CHECK_AVAILABILITY must be true or false")
+
         targets_json = credential("UCLOUD_PRICE_TARGETS_JSON")
         targets_file = credential("UCLOUD_PRICE_TARGETS_FILE")
         if targets_json and targets_file:
@@ -197,6 +205,7 @@ class Settings:
             crusoe_organization_id=credential("CRUSOE_ORGANIZATION_ID"),
             ucloud_public_key=credential("UCLOUD_PUBLIC_KEY"),
             ucloud_private_key=credential("UCLOUD_PRIVATE_KEY"),
+            ucloud_session_path=credential("UCLOUD_SESSION_PATH"),
             ucloud_project_id=credential("UCLOUD_PROJECT_ID"),
             ucloud_price_targets_json=targets_json,
             ucloud_price_targets_file=targets_file,
@@ -206,6 +215,7 @@ class Settings:
             autodl_storage_state_path=credential("AUTODL_STORAGE_STATE_PATH"),
             lambda_source=values.get("LAMBDA_SOURCE", "public"),
             ucloud_source=values.get("UCLOUD_SOURCE", "public"),
+            ucloud_check_availability=ucloud_availability == "true",
             nebius_source=values.get("NEBIUS_SOURCE", "public"),
             nebius_catalog_boot_disk_gib=nebius_boot_disk,
             nebius_catalog_currency=values.get("NEBIUS_CATALOG_CURRENCY", "usd"),
@@ -219,6 +229,11 @@ class Settings:
             if not session_path.is_absolute():
                 session_path = env_path.parent / session_path
             settings = replace(settings, lambda_storage_state_path=str(session_path))
+        if settings.ucloud_session_path and env_path is not None:
+            session_path = Path(settings.ucloud_session_path).expanduser()
+            if not session_path.is_absolute():
+                session_path = env_path.parent / session_path
+            settings = replace(settings, ucloud_session_path=str(session_path))
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at
             # import time; the target validator performs no authenticated calls.

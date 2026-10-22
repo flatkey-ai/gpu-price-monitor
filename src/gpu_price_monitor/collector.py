@@ -37,6 +37,9 @@ def _selected_module(provider: str, settings: Settings | None = None):
         prefer_api and (settings.lambda_api_key or settings.source_policy == "api_only")
     )):
         return lambda_cloud
+    if provider == "ucloud" and settings.ucloud_source == "console":
+        from .providers import ucloud_console
+        return ucloud_console
     if provider == "ucloud" and (settings.ucloud_source == "api" or (
         prefer_api and (settings.ucloud_public_key or settings.ucloud_private_key)
     )):
@@ -80,6 +83,8 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
     module = _selected_module(provider, settings)
     if provider == "lambda" and settings is not None and settings.lambda_source == "console":
         return "official_internal_api"
+    if provider == "ucloud" and settings is not None and settings.ucloud_source == "console":
+        return "official_internal_api"
     if module is lambda_cloud:
         if settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
             return "official_public_sources"
@@ -119,6 +124,10 @@ def _source_selection(provider: str, settings: Settings, module) -> dict:
                 "selection_reason": "explicit_market_session_catalog",
                 "fallback_reason": None, "api_endpoint": module.SOURCE_URL,
                 "additional_source_urls": [autodl_regions.REGIONS_URL]}
+    if provider == "ucloud" and source == "official_internal_api":
+        return {"collection_method": "authenticated_http_json",
+                "selection_reason": "explicit_uhost_console_session_catalog",
+                "fallback_reason": None, "api_endpoint": module.SOURCE_URL}
     if provider == "lambda" and source == "official_internal_api":
         from .providers import lambda_console
         return {"collection_method": "authenticated_http_json",
@@ -348,7 +357,7 @@ def collect_prices(
             result["error"] = {"code": "unsupported_filter", "message": "The source cannot verify one or more requested conditions.", "retryable": False}
         else:
             try:
-                is_authenticated = provider_source(provider, settings) in {"official_api", "official_quote_api", "authorized_browser"}
+                is_authenticated = provider_source(provider, settings) in {"official_api", "official_quote_api", "official_internal_api", "authorized_browser"}
                 target_errors = []
                 source_errors = []
                 completed_sources = 0
@@ -398,6 +407,14 @@ def collect_prices(
                     result["discovery"] = outcome["discovery"]
                     result["target_errors"] = target_errors
                     result["product_line"] = module.PRODUCT_LINE
+                elif provider == "ucloud" and settings.ucloud_source == "console":
+                    observed_at = _now()
+                    outcome = module.collect_result(settings=settings, observed_at=observed_at,
+                                                    regions=conditions[provider].get("regions"),
+                                                    zones=conditions[provider].get("zones"),
+                                                    gpu_models=conditions[provider].get("gpu_models"))
+                    quotes, source_errors = _record_outcome(result, outcome, module)
+                    completed_sources = int(outcome.get("status") not in {"failed", "partial"})
                 elif uses_outcome:
                     observed_at = _now()
                     outcome = module.collect_result(settings=settings, observed_at=observed_at)

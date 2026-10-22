@@ -2,6 +2,8 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.20.0 新增 UCloud UHost 登录态接口采集**，对应原文档的 GPU 配置报价页：显式设置 `UCLOUD_SOURCE=console` 与 `UCLOUD_SESSION_PATH`，程序读取官方国家 / 地区 / 可用区和 GPU 配置目录，逐个配置调用每小时询价接口。默认只确认报价，库存为未知；设置 `UCLOUD_CHECK_AVAILABILITY=true` 可额外核查库存。运行时使用独立 Python HTTP，不需要浏览器或 LLM；UHost 与优云智算 CompShare 分开，不相互替代。优先使用基础 Linux 镜像；无兼容项时选择官方明确支持该 GPU 的预装 Linux 镜像，并核实镜像费用为零。[本地会话、采集范围与价格口径](docs/ucloud-console.md)。
+
 **AutoDL 市场接口已于 2026-10-22 完成实采**：`AUTODL_SOURCE=market` 使用自己从官网导出的最小登录会话，直接请求官方市场 JSON，不启动浏览器或 LLM，支持 `api_only`。本次一次读取 3,372 条市场记录，排除 93 条非 GPU 记录，取得 3,279 个 GPU 资源的普通 / 会员两档报价，共 6,558 行，覆盖 30 个型号、17 个地区代码。其中 3,358 行的国家地区证据完整；其余国家缺证据的地区保留原价与缺口，不猜国家。计费范围是明确的按量每 GPU 小时，不包含包日 / 包月价。[登录会话导出与用法](docs/autodl-market.md)。
 
 **0.18.0 完成 Nebius 账号目录实采**：`NEBIUS_SOURCE=catalog_api` 使用自己的 token，自动发现已有授权项目的 GPU 规格并逐项调用官方估价 API，无需手填 targets。`spot_api` 继续免费取当前 Spot 地区价。Crusoe 完整模式读取官网全部价格格及官方 VM / 部署目录；部署地点不冒充报价地区，销售询价不填金额。[用法和证据边界](docs/nebius-crusoe.md) · [Nebius 配置](.env.nebius.example) · [Crusoe 配置](.env.crusoe.example)。
@@ -73,7 +75,7 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 | Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 整实例价按卡分摊；经当前前端版本核实，所列可选标准地区共享 SKU 目录价，非逐地区独立询价 |
 | Crusoe | Python 固定 HTML 规则解析官网 GPU instances 区块 | 没有已核实的公共 VM 价目 API；不混入账单、预留合同或模型部署费用 |
 | AutoDL | `market` 直接读取授权市场 JSON；兼容 `public` 读取首页 DOM | 市场接口返回逐资源地区及普通 / 会员小时 SKU；首页没有价格地区。`market` 采集无需 Playwright |
-| UCloud | 无 key 用旗下优云智算 CompShare 匿名配置询价 API；有任一 key 则要求完整签名 UHost 询价配置 | CompShare 与 UHost 分开标记产品线；普通原价用于比较，资格未核实的优惠价留在审计数据 |
+| UCloud | 显式 `console` 使用自己的登录会话读取 UHost 配置目录并逐项询价；另保留签名 UHost targets 和匿名 CompShare 来源 | `console` 询价绑定具体国家、地区、可用区、GPU / CPU / 内存及明确的基准网络模式；账号报价不代表所有合同，CompShare 不代替 UHost |
 
 金额由程序直接读取接口或固定页面结构，运行时没有模型解读或推测。Nebius 官网 JSON 是网站数据接口，**不是正式稳定的云价目 API**：程序只从 HTML 取得动态构建路由，实际金额来自后续 JSON。UCloud 前端目录只用于发现可询价配置，金额必须取自实际询价响应。
 
@@ -109,7 +111,7 @@ Nebius `catalog_api` 的主金额为计算资源费，`instance_price.scope=comp
 | 策略 | 行为 |
 | --- | --- |
 | `api_preferred` | 五家推荐策略；优先价格接口，允许已标明的官网程序解析与网站 JSON。选中接口后失败就报错，不改抓其他页面 |
-| `api_only` | 仅允许价格 API；AutoDL 显式 `market` 可用；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不补网站目录；Crusoe / AutoDL 首页页面来源报 `api_price_source_unavailable` |
+| `api_only` | 仅允许价格 API；AutoDL 显式 `market`、UCloud 显式 `console` 可用；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不补网站目录；Crusoe / AutoDL 首页页面来源报 `api_price_source_unavailable` |
 | `configured` | 兼容默认，按各 `*_SOURCE` 配置；Nebius 保留旧文档 + Spot，UCloud public 保留旧 UHost 活动月包 |
 
 独立五家模板设置 `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe,autodl,ucloud` 和 `GPU_PRICE_MONITOR_SOURCE_POLICY=api_preferred`。CLI 可覆盖为 `--providers ... --source-policy ...`。通用 `.env.example` 保留 `configured` 兼容行为。
@@ -117,12 +119,13 @@ Nebius `catalog_api` 的主金额为计算资源费，`instance_price.scope=comp
 | 可选能力 | 必要配置 |
 | --- | --- |
 | Lambda 认证实例目录 | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`；或免费登录态 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
+| UCloud 登录态 UHost 目录询价 | 显式 `UCLOUD_SOURCE=console` + `UCLOUD_SESSION_PATH`；可选 `UCLOUD_PROJECT_ID` 与 `UCLOUD_CHECK_AVAILABILITY`，不需要 API key 或手写 targets，见 [使用说明](docs/ucloud-console.md) |
 | UCloud 签名 UHost 完整配置询价 | `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，及 `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON` 之一；可选 `UCLOUD_PROJECT_ID` |
 | Nebius 账号地区目录 | 显式 `NEBIUS_SOURCE=catalog_api`、`NEBIUS_ACCESS_TOKEN`；自动发现已有授权项目与 preset，无需 targets；SSD 大小 / 币种可选，见 [配置](.env.nebius.example) |
 | Nebius 指定完整配置估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`，及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一；主金额为全部请求资源总额 |
 | AutoDL 授权市场 | `AUTODL_SOURCE=market` 与有效 `AUTODL_STORAGE_STATE_PATH`；首页公开采集不用 token |
 
-只填一把 UCloud key 或漏填其 targets 会报错，不降级成其他产品线。targets 模板不证明账号可售。Nebius `catalog_api`、Lambda 控制台会话及 AutoDL 市场接口已在 2026-10-22 通过独立 Python HTTP 实测；UCloud 签名估价、Lambda API key 模式与 Crusoe 合同认证仍缺有效凭据的真实成功验证，不能以离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
+UCloud 显式 `console` 始终使用登录态 UHost 来源，缺会话或会话失效会报错，不降级成其他产品线。在签名 API 模式下，只填一把 UCloud key 或漏填其 targets 同样会报错。targets 模板不证明账号可售。Nebius `catalog_api`、Lambda 控制台会话及 AutoDL 市场接口已在 2026-10-22 通过独立 Python HTTP 实测；UCloud 签名估价、Lambda API key 模式与 Crusoe 合同认证仍缺有效凭据的真实成功验证，不能以离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
 
 JSON 的 `execution` 声明 Python、固定规则、不使用 LLM 及所选策略；`provider_results` 标明实际来源、`collection_method`、选择原因、回退选择原因和逐平台 `market_quote_count`。`market_comparison` 统计小时目录 / 地区报价；原 `comparison` 继续统计严格地区价。来源采集成功、有效小时报价、地区已核实及实时可购是不同事实。
 
