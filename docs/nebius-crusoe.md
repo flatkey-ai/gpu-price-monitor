@@ -35,9 +35,19 @@ csv_text = prices_to_csv(result, profile="compact")
 
 `NEBIUS_SOURCE=catalog_api` 按分页读取已有 tenant、project 和 platform/preset，再请求 [EstimateBatch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)。只估价，不调用项目、实例、磁盘、合同或密钥的创建接口。项目地区由官方返回值验证；只覆盖账号已有且有权限访问的项目。缺少项目的地区明确列为缺口，不复用其他地区金额。
 
-配置明确包含 preset 的 GPU / CPU / RAM 和默认 **40 GiB SSD 启动盘**，可用 `NEBIUS_CATALOG_BOOT_DISK_GIB` 调整。保留整机金额、分项费用及单 GPU 每小时折算，不能把整机总额当作单卡价。默认 `NEBIUS_CATALOG_CURRENCY=usd`，也支持 `ils`；库不做外汇换算。
+主金额是 preset 的 **GPU / CPU / RAM 计算费 ÷ GPU 数量**，单位为每 GPU 每小时。默认另估 **40 GiB SSD**，可用 `NEBIUS_CATALOG_BOOT_DISK_GIB` 调整。同一个 EstimateBatch 中明确请求 VM 与独立磁盘资源，校验分项和聚合总价后分别返回：
 
-标准用户可用[官方 CLI 的 OAuth 流程](https://docs.nebius.com/cli/install)取得短期 access token，再通过 `nebius iam get-access-token` 刷新。[认证文档](https://docs.nebius.com/rest-api/authentication)列明用户 token 通常有效 12 小时；token 继承用户权限，本身不是只读凭证。token 刷新由调用方负责；库不保存浏览器 Cookie 或刷新凭据。仅填写密钥或离线测试不代表已完成账号实采。
+- `amount`：每 GPU 小时计算费；`instance_price`：整实例计算费，范围为 `compute_resources_only`。
+- `storage_quote`：磁盘每小时费用，未混入主 GPU 价格。
+- `full_configuration_price`：该 VM 计算资源加一块指定磁盘的每实例小时合计。
+
+磁盘、网络及税费不能默认为包含在主价中。官方估价不返回正数计算费、分项总和不一致或出现重复计费 SKU 时保留错误与缺口，不用磁盘费或零填成 GPU 价格。默认 `NEBIUS_CATALOG_CURRENCY=usd`，也支持 `ils`；库不做外汇换算。
+
+**2026-10-22 14:21（北京时间）账号实采**：读取 9 个已有项目、9 个地区的 37 个 GPU preset，得到 36 条正数地区按需计算报价。GB300 NVL72 的计算 SKU 返回零，仅磁盘有费用，列为 `compute_tariff_unavailable`，不解释为免费 GPU。CPU preset 的零 GPU 数可以由 protobuf JSON 省略；程序明确排除 CPU，不把它们当漏抓的 GPU。
+
+B300 的账号 API 返回单卡 270 GB，GB300 NVL72 返回 279 GB。程序以[官方 B300 产品页](https://nebius.com/self-service)和[GB300 产品页](https://nebius.com/compute/gb300)、官方规格样例交叉核对。旧 VM types 表的 B300 288 GB 与 API 不一致，冲突记录在 `identity_evidence.documentation_discrepancy`，不静默覆盖。发现新型号或新字段不代表可以直接套用旧规格。
+
+标准用户可用[官方 CLI 的 OAuth 流程](https://docs.nebius.com/cli/install)取得短期 access token，再通过 `nebius iam get-access-token` 刷新。[认证文档](https://docs.nebius.com/rest-api/authentication)列明用户 token 通常有效 12 小时；token 继承用户权限，本身不是只读凭证。token 刷新由调用方负责；库不保存浏览器 Cookie 或刷新凭据。实采只证明当次账号有权限访问的项目与费率，不证明库存、其他账号合同或全部私有地区。
 
 ## Crusoe
 
@@ -57,3 +67,5 @@ JSON 的 `provider_results[].catalog_coverage.availability_catalog` 返回完整
 当前公开价格表没有把金额绑定到部署地区，也没有明示全球统一价。因此 `price_applicability.status=unverified`，不标“全国 / 全球统一”。`compact` 地区主表不会收录这些未核实地区的报价，`catalog` 导出保留官网目录供核对，`full` 保留所有审计字段。
 
 [账单](https://docs.crusoecloud.com/usage-billing/viewing-billing/)是已发生的消费，[预留合同](https://docs.crusoecloud.com/usage-billing/reservations/overview/)是已有账号协议，模型部署计费是另一产品。它们不能替代市场 VM 报价。当前公开 OpenAPI 与控制台客户端未找到可验证的完整 GPU 租价接口；登录账号不保证得到未公开或销售定制的报价。若后续取得官方地区报价依据，再增加对应价格绑定。
+
+2026-10-22 登录账号核查：会话有效，账号可读取项目和 35 条 VM types，但该接口未含价格字段。实例配置入口要求先完成付款资料，账号还提示暂无基础设施配额；未提交付款资料、申请配额或创建资源。官网同日下午实采仍是 7 条数值、17 条销售询价格。不能据此宣称拿到登录账号的全部地区报价。

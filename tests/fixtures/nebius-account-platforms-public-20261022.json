@@ -1,0 +1,85 @@
+{
+  "source": "https://api.nebius.cloud/compute/v1/platforms",
+  "captured_on": "2026-10-22",
+  "scope": "public hardware specifications only; all account IDs/names and prices excluded",
+  "platforms": {
+    "gpu-b300-sxm": {
+      "metadata": {
+        "name": "gpu-b300-sxm"
+      },
+      "spec": {
+        "presets": [
+          {
+            "name": "1gpu-24vcpu-346gb",
+            "resources": {
+              "vcpuCount": 24,
+              "memoryGibibytes": 346,
+              "gpuCount": 1
+            }
+          },
+          {
+            "name": "8gpu-192vcpu-2768gb",
+            "resources": {
+              "vcpuCount": 192,
+              "memoryGibibytes": 2768,
+              "gpuCount": 8
+            },
+            "allowGpuClustering": true
+          }
+        ],
+        "humanReadableName": "NVIDIA® B300 NVLink with Intel Granite Rapids",
+        "shortHumanReadableName": "NVIDIA® B300 NVLink",
+        "gpuMemoryGigabytes": 270
+      }
+    },
+    "gpu-rtx6000": {
+      "metadata": {
+        "name": "gpu-rtx6000"
+      },
+      "spec": {
+        "presets": [
+          {
+            "name": "1gpu-24vcpu-218gb",
+            "resources": {
+              "vcpuCount": 24,
+              "memoryGibibytes": 218,
+              "gpuCount": 1
+            }
+          },
+          {
+            "name": "8gpu-192vcpu-1744gb",
+            "resources": {
+              "vcpuCount": 192,
+              "memoryGibibytes": 1744,
+              "gpuCount": 8
+            }
+          }
+        ],
+        "humanReadableName": "NVIDIA® RTX PRO 6000 with Intel Granite Rapids",
+        "shortHumanReadableName": "NVIDIA® RTX PRO 6000",
+        "gpuMemoryGigabytes": 96
+      }
+    },
+    "gpu-gb300": {
+      "metadata": {
+        "name": "gpu-gb300"
+      },
+      "spec": {
+        "presets": [
+          {
+            "name": "4gpu-112vcpu-800gb",
+            "resources": {
+              "vcpuCount": 112,
+              "memoryGibibytes": 800,
+              "gpuCount": 4
+            },
+            "allowGpuClustering": true
+          }
+        ],
+        "humanReadableName": "NVIDIA® GB300 NVL72 with NVIDIA® Grace",
+        "shortHumanReadableName": "NVIDIA® GB300 NVL72",
+        "gpuMemoryGigabytes": 279
+      }
+    }
+  }
+}

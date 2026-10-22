@@ -93,6 +93,8 @@ Nebius 当前 Spot API 的 region 是价格位置；官网 JSON 目录没有价�
 
 Nebius `quote_origin=published_tariff_preset_calculation` 表示按官方 GPU / CPU / RAM 费率计算明确 preset，`regional_spot_preset_calculation` 表示当前地区 Spot 单价应用于明确 preset。两者都有 `rate_derivation.independent_provider_quote=false`、源分项和公式；`instance_price.scope` 是计算资源费用，磁盘与网络等附加费另计。覆盖地区仍不成为独立价格地区。
 
+0.18 的 Nebius `catalog_api` 为真实逐项目账号估价：`amount` 是 VM 计算费按 GPU 数分摊，`instance_price.scope=compute_resources_only`。`storage_quote` 单独保存 SSD 费用，单位 `disk_hour`；`full_configuration_price` 保存同批 VM 加 SSD 总额，单位 `instance_hour`。分项和聚合总和必须一致、VM 与磁盘 SKU 不重叠；计算费非正数则放入 `catalog_coverage.unpriced_configurations` 及缺口，不产生零价 GPU。`catalog_discovery.identity_evidence` 保留硬件身份依据及资料冲突。显式 `NEBIUS_SOURCE=api` 的手工完整 targets 仍以全部请求资源总额为主，不与自动发现模式混淆。
+
 Lambda 预留集群为 `product_type=gpu_cluster`，每 GPU 小时价和按周结算并存。`gpu_count=null` 不猜单机卡数，集群总数量在 `selected_configuration.cluster_gpu_count`，`cluster_gpu_count_relation=minimum` 表示下限；预留期限和是否联系销售保留。
 
 Crusoe 可选账号 reservations 放在 `provider_results.contract_records`，范围为私有账号审计，不进入 `prices` 或小时报价 CSV。响应缺少结构化币种、GPU 产品及小时单位证据时不得自行补成美元每卡小时价。该私有数据不应直接进入公开网站或仓库。

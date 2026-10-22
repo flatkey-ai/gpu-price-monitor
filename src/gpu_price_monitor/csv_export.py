@@ -345,6 +345,25 @@ def _market_location(quote: dict) -> str:
     return label + "；适用地区未标明（不代表全球统一价）"
 
 
+def _separate_configuration_costs(quote: dict) -> list[str]:
+    """Keep separately estimated storage out of the main per-GPU rate."""
+    parts = []
+    for field, label in (("storage_quote", "另计磁盘小时费"),
+                         ("full_configuration_price", "计算资源加磁盘每实例小时合计")):
+        value = quote.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, dict):
+            raise ValueError("CSV supplemental prices must be objects or null")
+        if value.get("amount") is None:
+            continue
+        amount = _amount_cell(value["amount"])
+        parts.append(label + "=" + " ".join(
+            [amount] + [str(value[key]) for key in ("currency", "unit") if value.get(key) is not None]
+        ))
+    return parts
+
+
 def _compact_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
     derivation = quote.get("rate_derivation")
@@ -387,9 +406,12 @@ def _compact_conditions(quote: dict, *, collection_status: object) -> str:
         for field, label in (("amount", "整实例总价"), ("original_amount", "整实例原价")):
             if instance.get(field) is not None:
                 amount = _amount_cell(instance[field])
+                if field == "amount" and str(instance.get("scope", "")).startswith("compute_resources_only"):
+                    label = "实例计算资源小时费"
                 parts.append(label + "=" + " ".join(
                     [amount] + [str(instance[key]) for key in ("currency", "unit") if instance.get(key) is not None]
                 ))
+        parts.extend(_separate_configuration_costs(quote))
     for field, label in (
         ("conditions", "报价条件"), ("promotion", "促销资格"), ("minimum_commitment", "最低承诺"),
         ("source_conditions", "来源条件"), ("components", "组件费用"), ("normalization", "分摊规则"),
@@ -473,6 +495,11 @@ def _market_note_conditions(quote: dict) -> list[str]:
 
 def _market_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
+    discovery = quote.get("catalog_discovery")
+    discovered_compute = (isinstance(discovery, dict)
+                          and discovery.get("method") == "authenticated_tenant_project_platform_list"
+                          and isinstance(quote.get("instance_price"), dict)
+                          and quote["instance_price"].get("scope") == "compute_resources_only")
     shared_locations = (_lambda_shared_catalog_locations(quote)
                         if _lambda_console_applicability_record(quote) else None)
     if shared_locations is not None:
@@ -521,7 +548,16 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
             parts.append(label + "=" + " ".join(
                 [_amount_cell(instance[field])] + [str(instance[key]) for key in ("currency", "unit") if instance.get(key) is not None]
             ))
+    if status != "contact_sales":
+        parts.extend(_separate_configuration_costs(quote))
     conditions = quote.get("conditions")
+    if discovered_compute and isinstance(conditions, list):
+        # The amounts and hardware already have dedicated human-readable cells.
+        # Preserve other restrictions; request DTOs remain in the full audit CSV.
+        conditions = [text for text in conditions if not isinstance(text, str) or not (
+            text.startswith(("普通报价仅含VM计算费", "盘费来自同批独立CreateDiskRequest", "项目API已核实部署地区"))
+            or re.match(r"\d+ GiB SSD额外", text))]
+        parts.append("含GPU/CPU/RAM计算费；磁盘与网络另计")
     if isinstance(conditions, list) and isinstance(derivation, dict):
         # These adapter-generated explanations are summarized above and in the
         # location/currency labels. Preserve any other eligibility restriction.
@@ -582,6 +618,16 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
             parts.append("来源条件=" + _json_cell(remaining))
     for field, label in (("minimum_commitment", "最低承诺"), ("selected_configuration", "选定配置"),
                          ("requested_configuration", "询价配置")):
+        if discovered_compute and field == "requested_configuration":
+            continue
+        if discovered_compute and field == "selected_configuration":
+            configuration = quote.get(field)
+            if isinstance(configuration, dict):
+                if configuration.get("preset"):
+                    parts.append("规格=" + str(configuration["preset"]))
+                if configuration.get("boot_disk_gib") is not None:
+                    parts.append("另配SSD=" + str(configuration["boot_disk_gib"]) + " GiB")
+            continue
         if field == "minimum_commitment" and cluster_summary:
             continue
         if field == "selected_configuration":

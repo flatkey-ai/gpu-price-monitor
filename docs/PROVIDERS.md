@@ -1,20 +1,20 @@
 # 五个平台的来源、金额与地区证据
 
-核查口径：公开来源沿用 2026-10-21 核查，Lambda 控制台会话于 2026-10-22 完成 0.15.0 独立 Python HTTP 实采。推荐采集范围是原文档的 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。全部由独立 Python 固定规则执行，不使用 Codex / LLM 或模型 API Key。另四家扩展适配器单独列在文末。
+核查口径：公开来源样本保留各自采集日期；Lambda 控制台会话和 0.18.0 Nebius 账号目录均于 2026-10-22 完成独立 Python HTTP 实采。推荐采集范围是原文档的 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。全部由独立 Python 固定规则执行，不使用 Codex / LLM 或模型 API Key。另四家扩展适配器单独列在文末。
 
 ## 来源策略
 
 | 策略 | 行为 |
 | --- | --- |
-| `api_preferred` | 五家推荐；Nebius 当前 Spot API 加官网 JSON 普通目录；Lambda 显式 `console` 用保存会话读内部 JSON，否则有 key 用 API、无 key 用公开页；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe / AutoDL 用已说明的固定页面规则 |
-| `api_only` | 仅允许价格 API，包含显式选择的 Lambda `official_internal_api`；Nebius 只取 Spot，不加网站目录；Crusoe / AutoDL 页面来源明确报 `api_price_source_unavailable` |
+| `api_preferred` | 五家推荐；Nebius 默认 Spot API 加官网 JSON，也可显式选账号 `catalog_api`；Lambda 显式 `console` 用保存会话读内部 JSON，否则有 key 用 API、无 key 用公开页；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe / AutoDL 用已说明的固定页面规则 |
+| `api_only` | 仅允许价格 API，包含显式选择的 Lambda `official_internal_api`；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不加网站目录；Crusoe / AutoDL 页面来源明确报 `api_price_source_unavailable` |
 | `configured` | 默认兼容行为，遵循各 `*_SOURCE`；Nebius public 保持旧文档 + Spot，UCloud public 保持旧 UHost 活动月包 |
 
 有任一 UCloud 账号 key 时，接口优先策略要求完整签名 UHost 询价配置，不能悄悄改成 CompShare；显式 API 认证失败、请求失败、结构变化都直接报错。选择页面 / 网站 JSON 是请求前的规则，不是接口报错后的兜底。实际 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 随结果返回；混合源不冒充单一 API。
 
 默认 `market` CSV 接受实际每 GPU 小时目录 / 地区价；`compact` 额外要求已核实国家和 region；`full` 为所有原始来源记录。起步价、组件、月包、询价、资格未核实的特殊优惠和明确下线项不进入有效小时表。库保留原币，不除以 720，不补造地区。
 
-## Nebius：地区 Spot API 与普通目录 JSON
+## Nebius：地区 Spot、账号按需估价与公开目录
 
 - 当前 Spot 接口：[GET /billing/v1alpha1/spot-price](https://api.nebius.cloud/billing/v1alpha1/spot-price)，[官方使用说明](https://docs.nebius.com/signup-billing/spot-prices)明确无需认证。
 - 普通目录：[官网价格页](https://nebius.com/prices)。程序只从 HTML 的 `__NEXT_DATA__` 提取构建 ID、locale 和路由，随后 GET 同源 `/_next/data/{buildId}/en/prices.json`，从官方页面 JSON 中唯一的 `NVIDIA GPU Instances` 表解析价格；不从 HTML 取金额。
@@ -27,7 +27,15 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 兼容模式另保留 [Compute 计价文档](https://docs.nebius.com/compute/resources/pricing)及官方 Markdown：生效日期、USD / ILS、GPU / CPU / RAM 分项和 From 均保留。文档供给范围单列 `coverage_regions` / `coverage_countries`，不当地区价；ILS 是客户计费辖区，不能据此认定机器部署在以色列。
 
-可选账号估价需显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 和一个 targets FILE / JSON。调用 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)，先只读核验项目地区和受支持 GPU 预设，再核对完整资源 / 聚合单位 / 分项总价。它不是匿名全目录，合同报价也不是所有人可购的普通价；当前尚缺有效 token 的真实成功联调证据。
+0.18.0 的账号目录使用显式 `NEBIUS_SOURCE=catalog_api` 与 `NEBIUS_ACCESS_TOKEN`，不需要手填 targets。程序只读调用官方 [tenants](https://api.nebius.cloud/iam/v2/tenants)、[projects](https://api.nebius.cloud/iam/v2/projects)、[platforms](https://api.nebius.cloud/compute/v1/platforms)，遍历账号可访问的已有项目及 GPU preset，再逐项调用 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)。价格地区取实际项目地区并核对官方国家目录，不把平台供给范围复制成报价。分页、重复项、硬件身份、币种、单位、SKU 分项及总额均校验；单项失败留诊断，不能用零价或旧值补齐。
+
+**2026-10-22 14:21:49（北京时间）Python 账号实采**发现并询价 37 个 GPU preset，得到 **36 条有效计算报价，覆盖 9 地区、6 国家**，另排除 117 个 CPU preset。有效型号为 B200、B300、H100、H200、L40S、RTX PRO 6000。GB300 已发现，但 API 计算费为零，返回 `compute_tariff_unavailable` 并计入未定价配置；SSD 有金额也不能把盘费当 GPU 费。结果为 `partial`，不宣称全部配置成功。该次未创建项目、VM、磁盘或付款方式；可访问项目范围不等于所有账号合同、配额或库存，多个地区同价也不证明全球统一。
+
+账号目录主价为 VM 的 GPU / CPU / RAM 计算资源小时费，再按明确卡数分摊。`instance_price.scope=compute_resources_only`；配置的 40 GiB SSD 用同批独立磁盘估价另列 `storage_quote`，`full_configuration_price` 保留含盘总额和分项，CSV 条件说明另计费用。实际对照中，仅把嵌套启动盘从 40 改为 80 GiB 不改变 VM 计算费；增加独立磁盘请求才得到额外 SSD 费用。程序要求计算与磁盘 SKU 非空且不重叠，并拒绝重复磁盘计费。网络等未请求服务不在内。
+
+显存使用当前平台 API 的 GB 字段，RAM 的 GiB 独立保留。B300 API 返回每卡 **270 GB**，与[官方产品](https://nebius.com/self-service)及[官方实测文章](https://nebius.com/blog/posts/nebius-weka-shared-kv-cache-benchmark-hgx-b300)一致；旧 VM types 文档的 288 GB 差异留作证据，不猜原因。GB300 的 279 GB / NVL72 与[官方产品](https://nebius.com/compute/gb300)及官方 preset 示例核对，但规格存在不等于已取得有效价格。[认证、配置与证据边界](nebius-crusoe.md)。
+
+指定目标模式仍使用 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 和一个 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON`；先核验项目地区和 preset，再询全部请求资源，主金额保持完整请求总额语义。它与自动目录的计算主价口径不同，不是匿名全目录，也不保证所有合同价可读。
 
 ## Lambda：认证实例 API、公开页或免费登录态 JSON
 
