@@ -2,6 +2,8 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.15.0 新增 Lambda 免费登录态目录接口**：显式 `LAMBDA_SOURCE=console`，使用自己的登录会话只读实例、预留集群和地区 JSON。2026-10-22 已有登录会话实际读取 22 个 GPU 实例规格、14 个集群配置（6 个每GPU费率档）及 18 条地区元数据；独立 Python HTTP 还需自己的保存会话完成联调。无需绑定付款方式或创建资源。会话过期会报错，不回退冒充成功。[配置和边界](docs/lambda-console.md) · [env 模板](.env.lambda.example)。
+
 [English](README.en.md) · [平台来源与限制](docs/PROVIDERS.md) · [数据口径](docs/DATA_MODEL.md) · [文档需求对照](docs/DOCUMENT_COVERAGE.md)
 
 **0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；登录后的账号路径需要有效凭据，尚未完成真实鉴权验证。
@@ -58,7 +60,7 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 | 平台 | `api_preferred` 来源 | 核对价格时的限制 |
 | --- | --- | --- |
 | Nebius | 官方匿名当前 Spot API，加官网 Next.js JSON 目录 | Spot 是地区动态价；JSON 目录补普通按需价。L40S 的 From 和 Contact us 保留审计，不当确定报价 |
-| Lambda | 有 `LAMBDA_API_KEY` 用实例 API；无 key 用固定规则解析官网实例页 | API 美分价为整实例总价，按明确卡数分摊；容量地区不是价格地区 |
+| Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 美分整实例价按明确卡数分摊；容量地区不是价格地区 |
 | Crusoe | Python 固定 HTML 规则解析官网 GPU instances 区块 | 没有已核实的公共 VM 价目 API；不混入账单、预留合同或模型部署费用 |
 | AutoDL | Playwright 固定 DOM 规则读取普通 / 会员价 | 无合适公开市场价 API；会员条件保留，首页没有价格地区；可选授权 market 模式 |
 | UCloud | 无 key 用旗下优云智算 CompShare 匿名配置询价 API；有任一 key 则要求完整签名 UHost 询价配置 | CompShare 与 UHost 分开标记产品线；普通原价用于比较，资格未核实的优惠价留在审计数据 |
@@ -102,7 +104,7 @@ Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="co
 
 | 可选能力 | 必要配置 |
 | --- | --- |
-| Lambda 认证实例目录 | `LAMBDA_API_KEY`，配合 `api_preferred` 或显式 `LAMBDA_SOURCE=api` |
+| Lambda 认证实例目录 | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`；或免费登录态 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
 | UCloud 签名 UHost 完整配置询价 | `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，及 `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON` 之一；可选 `UCLOUD_PROJECT_ID` |
 | Nebius 账号完整配置估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`，及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一 |
 | AutoDL 授权市场 | `AUTODL_SOURCE=market` 与有效 `AUTODL_STORAGE_STATE_PATH`；首页公开采集不用 token |

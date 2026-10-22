@@ -22,7 +22,7 @@ PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
                     "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
                     "runpod": "official_public_api", "digitalocean": "public_documentation",
                     "verda": "public_page", "azure": "official_public_api"}
-API_SOURCE_TYPES = frozenset({"official_api", "official_quote_api", "official_public_api"})
+API_SOURCE_TYPES = frozenset({"official_api", "official_quote_api", "official_public_api", "official_internal_api"})
 
 
 def _selected_module(provider: str, settings: Settings | None = None):
@@ -30,6 +30,9 @@ def _selected_module(provider: str, settings: Settings | None = None):
     if settings is None:
         return IMPLEMENTED_PROVIDERS.get(provider)
     prefer_api = settings.source_policy in {"api_preferred", "api_only"}
+    if provider == "lambda" and settings.lambda_source == "console":
+        from .providers import lambda_console_client
+        return lambda_console_client
     if provider == "lambda" and (settings.lambda_source == "api" or (
         prefer_api and (settings.lambda_api_key or settings.source_policy == "api_only")
     )):
@@ -65,6 +68,8 @@ def _selected_module(provider: str, settings: Settings | None = None):
 def provider_source(provider: str, settings: Settings | None = None) -> str:
     """Return the selected source type without making any requests."""
     module = _selected_module(provider, settings)
+    if provider == "lambda" and settings is not None and settings.lambda_source == "console":
+        return "official_internal_api"
     if module is lambda_cloud:
         if settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
             return "official_public_sources"
@@ -88,6 +93,12 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
 
 def _source_selection(provider: str, settings: Settings, module) -> dict:
     source = provider_source(provider, settings)
+    if source == "official_internal_api":
+        from .providers import lambda_console
+        return {"collection_method": "authenticated_http_json",
+                "selection_reason": "explicit_console_session_catalog",
+                "fallback_reason": None, "api_endpoint": lambda_console.INSTANCE_TYPES_URL,
+                "additional_source_urls": [lambda_console.RESERVED_CLUSTER_TYPES_URL, lambda_console.REGIONS_URL]}
     if source == "official_public_sources":
         if provider == "lambda":
             from .providers import lambda_clusters
@@ -193,7 +204,8 @@ def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = F
     context.setdefault("source_type", getattr(module, "SOURCE_TYPE", None))
     result.setdefault("source_contexts", []).append(context)
     for key in ("catalog_coverage", "coverage", "contract_records", "contract_record_count",
-                "pricing_limitations", "authentication_method", "api_endpoint_template"):
+                "pricing_limitations", "authentication_method", "api_endpoint_template",
+                "excluded_non_gpu_records", "excluded_non_gpu_record_count", "regions_catalog"):
         if key in outcome:
             result[key] = outcome[key]
     if "gaps" in outcome:
@@ -208,6 +220,8 @@ def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = F
 
 def _complete_mode_gaps(provider: str, settings: Settings) -> list[dict]:
     if settings.catalog_scope != "complete" or settings.source_policy != "api_only":
+        return []
+    if provider == "lambda" and settings.lambda_source == "console":
         return []
     scope = {"nebius": "public_on_demand_preset_catalog", "lambda": "public_reserved_cluster_catalog",
              "crusoe": "public_gpu_price_catalog"}.get(provider)

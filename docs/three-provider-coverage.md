@@ -72,6 +72,8 @@ From 最低抢占价不当当前 Spot；官网 Contact us 仍无数值。网站 
 
 可选 `LAMBDA_API_KEY` 与显式 `LAMBDA_SOURCE=api` 调用认证 instance-types。API `price_cents_per_hour / 100` 是整实例美元小时价，再按明确 GPU 数分摊。`regions_with_capacity_available` 只表明容量，不是地区价；账号 API 也不等于所有长期协议 / 销售折扣均可读取。
 
+0.15.0 另提供免费 `LAMBDA_SOURCE=console`：只 GET 控制台内部实例、预留集群和地区目录，使用调用者自行保存的会话；2026-10-22 现有登录会话已读取成功。独立 Python HTTP 仍待使用保存会话验证；不能以浏览器读成功冒充 HTTP 已联调。[登录态配置、字段冲突和覆盖边界](lambda-console.md)。
+
 ## Crusoe：全部公开目录与账号合同审计
 
 官方来源：[GPU instances 价格表](https://www.crusoe.ai/cloud/pricing)、[OpenAPI](https://api.crusoecloud.com/v1/openapi.json)、[VM 规格及供给可用区](https://docs.crusoecloud.com/compute/virtual-machines/overview/)、[Spot 政策](https://docs.crusoecloud.com/usage-billing/spot/)、[预留合同](https://docs.crusoecloud.com/usage-billing/reservations/overview/)。

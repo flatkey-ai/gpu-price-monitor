@@ -1,5 +1,14 @@
 # GPU Price Monitor
 
+Version 0.15 adds explicit `LAMBDA_SOURCE=console`: read-only Lambda internal JSON
+catalogs using your own saved login session. An existing authenticated browser
+session successfully read 22 GPU instance configurations, 14 cluster configurations
+(six GPU/tariff tiers), and 18 region metadata entries on 2026-10-22, without a
+payment method or launched resources. Independent Python HTTP verification still
+requires a caller-supplied saved session. Capacity locations are not independently
+quoted regional prices. See [setup and limitations](docs/lambda-console.md) and
+[environment template](.env.lambda.example).
+
 Version 0.14 adds `--catalog-scope complete` for Nebius, Lambda and Crusoe.
 Copy `.env.three.example` to `.env.three.local` and pass `--env-file .env.three.local`.
 The complete mode includes Nebius's explicit tariff/preset cost calculations and current
@@ -60,7 +69,7 @@ Load a local profile explicitly with `Settings.from_env(env_file=".env.five.loca
 | Provider | `api_preferred` source | Limits |
 | --- | --- | --- |
 | Nebius | Anonymous current Spot API plus the official website Next.js JSON catalog | Spot is dynamic and region-bound; the catalog adds on-demand rates. L40S starting prices and Contact us remain audit records |
-| Lambda | Instance API with `LAMBDA_API_KEY`; deterministic public-page parser otherwise | API cents are full-instance prices, allocated over explicit GPU counts; capacity locations are not price regions |
+| Lambda | Public page, keyed API, or explicit `console` mode with your own saved session | Instance cents are allocated over explicit GPU counts; capacity locations are not price regions |
 | Crusoe | Deterministic Python HTML parser for the GPU instances section | No verified public VM price API; billing, reservations, and managed model deployment prices are excluded |
 | AutoDL | Playwright with fixed DOM rules for ordinary/member prices | No suitable public market-price API; homepage locations are unknown; authorized market mode is optional |
 | UCloud | Anonymous configuration-price API for its CompShare product line without keys; signed UHost configuration quotes with keys | Product lines remain distinct; ordinary list prices qualify, while discounts with unverified eligibility remain audit-only |
@@ -100,7 +109,7 @@ The five-provider profile sets `GPU_PRICE_MONITOR_PROVIDERS=nebius,lambda,crusoe
 
 | Optional capability | Required settings |
 | --- | --- |
-| Lambda authenticated catalog | `LAMBDA_API_KEY`, with `api_preferred` or explicit `LAMBDA_SOURCE=api` |
+| Lambda authenticated catalog | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`, or free session mode: `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
 | Signed UCloud UHost quotes | `UCLOUD_PUBLIC_KEY`, `UCLOUD_PRIVATE_KEY`, and one of `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON`; optional `UCLOUD_PROJECT_ID` |
 | Nebius account estimates | Explicit `NEBIUS_SOURCE=api`, `NEBIUS_ACCESS_TOKEN`, and one of `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` |
 | Authorized AutoDL market | `AUTODL_SOURCE=market` and valid `AUTODL_STORAGE_STATE_PATH`; public homepage collection does not use a token |

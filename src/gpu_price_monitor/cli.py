@@ -104,6 +104,9 @@ def main(argv: list[str] | None = None) -> int:
     validate = commands.add_parser("validate-config", help="check environment and configuration without making requests")
     validate.add_argument("--config", type=Path, required=True)
     collect = commands.add_parser("collect", help="fetch current public prices; stdout is JSON or CSV")
+    login = commands.add_parser("lambda-login", help="manually sign in using a new browser and save a private Lambda session")
+    login.add_argument("--state-file", required=True, type=Path, help="new private session file; existing files are never overwritten")
+    login.add_argument("--timeout", type=int, default=300, help="manual login timeout, 1–300 seconds (default: 300)")
     for command in (status, validate, collect):
         command.add_argument("--env-file", type=Path, default=argparse.SUPPRESS,
                              help="explicit dotenv file; process environment overrides its values")
@@ -123,8 +126,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
     collect.add_argument("--max-retries", type=int)
-    collect.add_argument("--lambda-source", choices=("public", "api"),
-                         help="Lambda source; public page is the free default, api requires a key")
+    collect.add_argument("--lambda-source", choices=("public", "api", "console"),
+                         help="Lambda public page, keyed API, or read-only console JSON using your own saved login session")
     collect.add_argument("--ucloud-source", choices=("public", "api"),
                          help="UCloud source; public promotional packages are free to read, api requires keys and targets")
     collect.add_argument("--nebius-source", choices=("public", "api"),
@@ -143,6 +146,18 @@ def main(argv: list[str] | None = None) -> int:
         collect.add_argument(f"--{option}", dest=name, action="append", type=int if name == "gpu_counts" else str)
     args = parser.parse_args(argv)
     try:
+        if args.command == "lambda-login":
+            from .lambda_login import save_lambda_session
+            from .transport import FetchError
+            if not 1 <= args.timeout <= 300:
+                raise ConfigurationError("Login timeout must be between 1 and 300 seconds.")
+            try:
+                save_lambda_session(args.state_file, timeout_seconds=args.timeout)
+            except FetchError as exc:
+                print(f"Lambda login: {exc.code}: {exc}", file=sys.stderr)
+                return 1
+            print("Lambda session saved privately. Select LAMBDA_SOURCE=console and set LAMBDA_STORAGE_STATE_PATH to this file.")
+            return 0
         settings = Settings.from_env(env_file=args.env_file)
         if args.source_policy is not None:
             settings = replace(settings, source_policy=args.source_policy)

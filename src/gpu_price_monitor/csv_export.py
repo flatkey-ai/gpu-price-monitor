@@ -452,6 +452,7 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
         if value is not None and value != "":
             parts.append(label + "=" + mapping.get(value, str(value)))
     account = {"public_promotion": "公开促销", "authenticated_catalog": "认证账号目录",
+               "authenticated_console_catalog": "登录账号可见目录（非合同价）",
                "account_quote": "账号配置询价", "account_contract_quote": "账号合同价"}.get(quote.get("account_scope"))
     if account:
         parts.append("账户适用=" + account)
@@ -498,6 +499,8 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
         if offers:
             parts.append("价格方案=" + ",".join(map(str, offers)))
         if quote.get("product_type") == "gpu_cluster":
+            if source_conditions.get("duration_unverified") or source_conditions.get("pricing_terms_unverified"):
+                parts.append("预留期限与最终购买条件待确认")
             if source_conditions.get("billing_increment") == "week":
                 parts.append("按周结算；价格单位仍为每GPU小时")
             if source_conditions.get("sales_contact_required") is True:
@@ -519,6 +522,9 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
         if cluster_summary:
             handled.add("reservation_term")
         if quote.get("product_type") == "gpu_cluster":
+            handled.update({"duration_unverified", "pricing_terms_unverified"})
+            if source_conditions.get("reservation_term") is None:
+                handled.add("reservation_term")
             if source_conditions.get("billing_increment") == "week":
                 handled.add("billing_increment")
             if source_conditions.get("sales_contact_required") is True:
@@ -557,10 +563,19 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
     if quote.get("price_scope") == "platform_coverage" or quote.get("coverage_regions"):
         parts.append("平台覆盖（非地区报价）")
     if quote.get("capacity_regions"):
-        parts.append("可用容量地区（非地区报价）")
+        locations = quote.get("capacity_locations")
+        if isinstance(locations, list) and locations:
+            parts.append("可选容量地区=" + "、".join(
+                str(location.get("description", "")) + " [" + str(location.get("name", "")) + "]"
+                for location in locations if isinstance(location, dict)) + "（非独立地区报价）")
+        else:
+            parts.append("可用容量地区（非地区报价）")
+    if quote.get("source_field_conflict"):
+        parts.append("原始金额字段有冲突；采用官方前端每GPU显示价，其余仅供审计")
     source_type = quote.get("source_type")
     if source_type:
         source = {"official_api": "官方接口", "official_public_api": "官方公开接口",
+                  "official_internal_api": "官方控制台内部接口",
                   "official_website_json": "官网结构化数据（非云API）",
                   "official_quote_api": "官方询价接口", "public_documentation": "官方文档",
                   "official_pricing_document": "官方价目文档", "public_page": "官网价目页",

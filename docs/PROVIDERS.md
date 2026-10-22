@@ -29,13 +29,15 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 可选账号估价需显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 和一个 targets FILE / JSON。调用 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)，先只读核验项目地区和受支持 GPU 预设，再核对完整资源 / 聚合单位 / 分项总价。它不是匿名全目录，合同报价也不是所有人可购的普通价；当前尚缺有效 token 的真实成功联调证据。
 
-## Lambda：认证实例 API 或公开实例页
+## Lambda：认证实例 API、公开页或免费登录态 JSON
 
 有 `LAMBDA_API_KEY` 时，接口优先使用 [GET instance-types](https://cloud.lambda.ai/api/v1/instance-types)，文档见 [List instance types](https://docs.lambda.ai/api/cloud#listInstanceTypes)与 [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)。`price_cents_per_hour / 100` 是整实例 USD 小时价，再除 `specs.gpus` 分摊每卡；保留原实例价和卡数。
 
 无 key 时，接口优先在请求前选择[官网实例页](https://lambda.ai/instances)，Python HTTP / 固定 HTML 结构解析 1 / 2 / 4 / 8 卡配置、每 GPU 小时价及明确 CPU / RAM / 磁盘单位。API 和页面单位不同，不能把整机 API 总价直接与网页单卡价比较。
 
 `regions_with_capacity_available` 仅存 `capacity_regions`，不填价格地区。API / 页面均没有依据证明独立逐地区费率，目录可进 market，不能仅凭容量进入 compact。显式 `LAMBDA_SOURCE=api` 或 api_only 缺 key 会报错；鉴权或结构错误不回退网页。公开页已有真实采集，认证目录仍缺有效 key 的成功联调证据。
+
+0.15.0 增加显式 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH`：只 GET 控制台内部实例、预留集群和地区 JSON，使用调用者自己的登录 Cookie。现有浏览器登录会话已在 2026-10-22 免费读到 22 个 GPU 实例规格、14 个集群配置和 18 条地区元数据；独立 Python HTTP 待保存会话完成联调。`api_only` 允许这个 JSON 源，但清楚标为 `official_internal_api`，不能当稳定公开 API。集群金额采用前端每 GPU 小时字段，冲突旧字段只留审计，期限与最终购买条件仍未核实。[操作步骤和边界](lambda-console.md)。
 
 ## Crusoe：程序解析 GPU instances 区块
 
