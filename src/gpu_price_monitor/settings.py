@@ -16,7 +16,7 @@ PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl",
 SOURCES = frozenset({
     "official_public_sources",
     "official_api", "public_documentation", "public_page",
-    "official_quote_api", "official_public_api", "authorized_browser",
+    "official_quote_api", "official_public_api", "official_internal_api", "authorized_browser",
 })
 SOURCE_POLICIES = ("configured", "api_preferred", "api_only")
 CATALOG_SCOPES = ("standard", "complete")
@@ -75,6 +75,7 @@ class Settings:
     timeout_seconds: float = 30.0
     max_retries: int = 2
     lambda_api_key: str | None = field(default=None, repr=False)
+    lambda_storage_state_path: str | None = field(default=None, repr=False)
     nebius_access_token: str | None = field(default=None, repr=False)
     crusoe_access_key_id: str | None = field(default=None, repr=False)
     crusoe_secret_key: str | None = field(default=None, repr=False)
@@ -115,8 +116,8 @@ class Settings:
             raise ConfigurationError("GPU_PRICE_MONITOR_CATALOG_SCOPE must be standard or complete")
         if self.crusoe_source not in ("public", "account", "combined"):
             raise ConfigurationError("CRUSOE_SOURCE must be public, account or combined")
-        if self.lambda_source not in ("public", "api"):
-            raise ConfigurationError("LAMBDA_SOURCE must be public or api")
+        if self.lambda_source not in ("public", "api", "console"):
+            raise ConfigurationError("LAMBDA_SOURCE must be public, api or console")
         if self.ucloud_source not in ("public", "api"):
             raise ConfigurationError("UCLOUD_SOURCE must be public or api")
         if self.nebius_source not in ("public", "api"):
@@ -178,6 +179,7 @@ class Settings:
             timeout_seconds=timeout,
             max_retries=retries,
             lambda_api_key=credential("LAMBDA_API_KEY"),
+            lambda_storage_state_path=credential("LAMBDA_STORAGE_STATE_PATH"),
             nebius_access_token=credential("NEBIUS_ACCESS_TOKEN"),
             crusoe_access_key_id=credential("CRUSOE_ACCESS_KEY_ID"),
             crusoe_secret_key=credential("CRUSOE_SECRET_KEY"),
@@ -199,6 +201,11 @@ class Settings:
             source_policy=values.get("GPU_PRICE_MONITOR_SOURCE_POLICY", "configured"),
             catalog_scope=values.get("GPU_PRICE_MONITOR_CATALOG_SCOPE", "standard"),
         )
+        if settings.lambda_storage_state_path and env_path is not None:
+            session_path = Path(settings.lambda_storage_state_path).expanduser()
+            if not session_path.is_absolute():
+                session_path = env_path.parent / session_path
+            settings = replace(settings, lambda_storage_state_path=str(session_path))
         if targets_file:
             # Delayed imports keep Settings and provider modules independent at
             # import time; the target validator performs no authenticated calls.

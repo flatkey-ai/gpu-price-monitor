@@ -1,0 +1,426 @@
+{
+  "data": {
+    "gpu_1x_gh200": {
+      "instance_type": {
+        "name": "gpu_1x_gh200",
+        "description": "1x GH200 (96 GB)",
+        "gpu_description": "GH200 (96 GB)",
+        "price_cents_per_hour": 229,
+        "architecture": "arm64",
+        "specs": {
+          "vcpus": 64,
+          "memory_gib": 432,
+          "storage_gib": 4096,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-east-3",
+          "description": "Washington DC, USA"
+        }
+      ]
+    },
+    "gpu_8x_b200_sxm6": {
+      "instance_type": {
+        "name": "gpu_8x_b200_sxm6",
+        "description": "8x B200 (180 GB SXM6)",
+        "gpu_description": "B200 (180 GB SXM6)",
+        "price_cents_per_hour": 5352,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 208,
+          "memory_gib": 2900,
+          "storage_gib": 22528,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_2x_b200_sxm6": {
+      "instance_type": {
+        "name": "gpu_2x_b200_sxm6",
+        "description": "2x B200 (180 GB SXM6)",
+        "gpu_description": "B200 (180 GB SXM6)",
+        "price_cents_per_hour": 1378,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 52,
+          "memory_gib": 720,
+          "storage_gib": 5632,
+          "gpus": 2
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_1x_b200_sxm6": {
+      "instance_type": {
+        "name": "gpu_1x_b200_sxm6",
+        "description": "1x B200 (180 GB SXM6)",
+        "gpu_description": "B200 (180 GB SXM6)",
+        "price_cents_per_hour": 699,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 26,
+          "memory_gib": 360,
+          "storage_gib": 2816,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_8x_h100_sxm5": {
+      "instance_type": {
+        "name": "gpu_8x_h100_sxm5",
+        "description": "8x H100 (80 GB SXM5)",
+        "gpu_description": "H100 (80 GB SXM5)",
+        "price_cents_per_hour": 3192,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 208,
+          "memory_gib": 1800,
+          "storage_gib": 22528,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_4x_h100_sxm5": {
+      "instance_type": {
+        "name": "gpu_4x_h100_sxm5",
+        "description": "4x H100 (80 GB SXM5)",
+        "gpu_description": "H100 (80 GB SXM5)",
+        "price_cents_per_hour": 1636,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 104,
+          "memory_gib": 900,
+          "storage_gib": 11264,
+          "gpus": 4
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_2x_h100_sxm5": {
+      "instance_type": {
+        "name": "gpu_2x_h100_sxm5",
+        "description": "2x H100 (80 GB SXM5)",
+        "gpu_description": "H100 (80 GB SXM5)",
+        "price_cents_per_hour": 838,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 52,
+          "memory_gib": 450,
+          "storage_gib": 5632,
+          "gpus": 2
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_1x_h100_sxm5": {
+      "instance_type": {
+        "name": "gpu_1x_h100_sxm5",
+        "description": "1x H100 (80 GB SXM5)",
+        "gpu_description": "H100 (80 GB SXM5)",
+        "price_cents_per_hour": 429,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 26,
+          "memory_gib": 225,
+          "storage_gib": 2816,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-southeast-1",
+          "description": "Georgia, USA"
+        }
+      ]
+    },
+    "gpu_1x_h100_pcie": {
+      "instance_type": {
+        "name": "gpu_1x_h100_pcie",
+        "description": "1x H100 (80 GB PCIe)",
+        "gpu_description": "H100 (80 GB PCIe)",
+        "price_cents_per_hour": 329,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 26,
+          "memory_gib": 200,
+          "storage_gib": 1024,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-west-3",
+          "description": "Utah, USA"
+        }
+      ]
+    },
+    "gpu_8x_a100_80gb_sxm4": {
+      "instance_type": {
+        "name": "gpu_8x_a100_80gb_sxm4",
+        "description": "8x A100 (80 GB SXM4)",
+        "gpu_description": "A100 (80 GB SXM4)",
+        "price_cents_per_hour": 2232,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 240,
+          "memory_gib": 1800,
+          "storage_gib": 20480,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-east-1",
+          "description": "Virginia, USA"
+        }
+      ]
+    },
+    "gpu_1x_a10": {
+      "instance_type": {
+        "name": "gpu_1x_a10",
+        "description": "1x A10 (24 GB PCIe)",
+        "gpu_description": "A10 (24 GB PCIe)",
+        "price_cents_per_hour": 129,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 30,
+          "memory_gib": 200,
+          "storage_gib": 1400,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-east-1",
+          "description": "Virginia, USA"
+        },
+        {
+          "name": "us-west-1",
+          "description": "California, USA"
+        }
+      ]
+    },
+    "gpu_1x_rtx6000": {
+      "instance_type": {
+        "name": "gpu_1x_rtx6000",
+        "description": "1x RTX 6000 (24 GB)",
+        "gpu_description": "RTX 6000 (24 GB)",
+        "price_cents_per_hour": 69,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 14,
+          "memory_gib": 46,
+          "storage_gib": 512,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_1x_a100": {
+      "instance_type": {
+        "name": "gpu_1x_a100",
+        "description": "1x A100 (40 GB PCIe)",
+        "gpu_description": "A100 (40 GB PCIe)",
+        "price_cents_per_hour": 199,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 30,
+          "memory_gib": 200,
+          "storage_gib": 512,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_1x_a100_sxm4": {
+      "instance_type": {
+        "name": "gpu_1x_a100_sxm4",
+        "description": "1x A100 (40 GB SXM4)",
+        "gpu_description": "A100 (40 GB SXM4)",
+        "price_cents_per_hour": 199,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 30,
+          "memory_gib": 200,
+          "storage_gib": 512,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": [
+        {
+          "name": "us-east-1",
+          "description": "Virginia, USA"
+        },
+        {
+          "name": "us-west-2",
+          "description": "Arizona, USA"
+        }
+      ]
+    },
+    "gpu_2x_a100": {
+      "instance_type": {
+        "name": "gpu_2x_a100",
+        "description": "2x A100 (40 GB PCIe)",
+        "gpu_description": "A100 (40 GB PCIe)",
+        "price_cents_per_hour": 398,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 60,
+          "memory_gib": 400,
+          "storage_gib": 1024,
+          "gpus": 2
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_4x_a100": {
+      "instance_type": {
+        "name": "gpu_4x_a100",
+        "description": "4x A100 (40 GB PCIe)",
+        "gpu_description": "A100 (40 GB PCIe)",
+        "price_cents_per_hour": 796,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 120,
+          "memory_gib": 800,
+          "storage_gib": 1024,
+          "gpus": 4
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_8x_a100": {
+      "instance_type": {
+        "name": "gpu_8x_a100",
+        "description": "8x A100 (40 GB SXM4)",
+        "gpu_description": "A100 (40 GB SXM4)",
+        "price_cents_per_hour": 1592,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 124,
+          "memory_gib": 1800,
+          "storage_gib": 6144,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_1x_a6000": {
+      "instance_type": {
+        "name": "gpu_1x_a6000",
+        "description": "1x A6000 (48 GB)",
+        "gpu_description": "A6000 (48 GB)",
+        "price_cents_per_hour": 109,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 14,
+          "memory_gib": 100,
+          "storage_gib": 200,
+          "gpus": 1
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_2x_a6000": {
+      "instance_type": {
+        "name": "gpu_2x_a6000",
+        "description": "2x A6000 (48 GB)",
+        "gpu_description": "A6000 (48 GB)",
+        "price_cents_per_hour": 218,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 28,
+          "memory_gib": 200,
+          "storage_gib": 1024,
+          "gpus": 2
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_4x_a6000": {
+      "instance_type": {
+        "name": "gpu_4x_a6000",
+        "description": "4x A6000 (48 GB)",
+        "gpu_description": "A6000 (48 GB)",
+        "price_cents_per_hour": 436,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 56,
+          "memory_gib": 400,
+          "storage_gib": 1024,
+          "gpus": 4
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_8x_v100": {
+      "instance_type": {
+        "name": "gpu_8x_v100",
+        "description": "8x Tesla V100 (16 GB)",
+        "gpu_description": "Tesla V100 (16 GB)",
+        "price_cents_per_hour": 632,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 92,
+          "memory_gib": 448,
+          "storage_gib": 6041,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "gpu_8x_v100_n": {
+      "instance_type": {
+        "name": "gpu_8x_v100_n",
+        "description": "8x Tesla V100 (16 GB)",
+        "gpu_description": "Tesla V100 (16 GB)",
+        "price_cents_per_hour": 632,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 88,
+          "memory_gib": 448,
+          "storage_gib": 6041,
+          "gpus": 8
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "cpu_4x_general": {
+      "instance_type": {
+        "name": "cpu_4x_general",
+        "description": "4x CPU General (16 GiB)",
+        "gpu_description": "N/A",
+        "price_cents_per_hour": 20,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 4,
+          "memory_gib": 16,
+          "storage_gib": 100,
+          "gpus": 0
+        }
+      },
+      "regions_with_capacity_available": []
+    },
+    "cpu_4x_generalx": {
+      "instance_type": {
+        "name": "cpu_4x_generalx",
+        "description": "4x CPU General Gen0 (16 GiB)",
+        "gpu_description": "N/A",
+        "price_cents_per_hour": 20,
+        "architecture": "x86_64",
+        "specs": {
+          "vcpus": 4,
+          "memory_gib": 16,
+          "storage_gib": 96,
+          "gpus": 0
+        }
+      },
+      "regions_with_capacity_available": []
+    }
+  }
+}

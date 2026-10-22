@@ -2,9 +2,11 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.15.0 新增 Lambda 免费登录态目录接口**：显式 `LAMBDA_SOURCE=console`，使用自己的登录会话只读实例、预留集群和地区 JSON。**2026-10-22 独立 Python CLI / HTTP 实采通过三个 GET，返回 36 条 GPU 报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）**；另审计排除 2 个 CPU 规格，保留 18 条地区元数据。无需绑定付款方式或创建资源；地区是容量信息，集群期限与最终购买条件仍未核实。会话过期会报错，不回退冒充成功。[配置和边界](docs/lambda-console.md) · [env 模板](.env.lambda.example)。
+
 [English](README.en.md) · [平台来源与限制](docs/PROVIDERS.md) · [数据口径](docs/DATA_MODEL.md) · [文档需求对照](docs/DOCUMENT_COVERAGE.md)
 
-**0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；登录后的账号路径需要有效凭据，尚未完成真实鉴权验证。
+**0.14.0 新增三家完整公开目录模式**：Nebius 官方费率与明确规格的计算成本、当前地区 Spot 费率，Lambda 按需实例与预留集群条款，以及 Crusoe 全部公开数值和销售询价项。[三平台配置与范围](docs/three-provider-coverage.md)。计算行标明来源公式，不能当作新增独立报价；Nebius 账号估价、Lambda API key 模式和 Crusoe 合同认证仍待有效凭据验证，Lambda 控制台会话模式已通过上述真实 HTTP 联调。
 
 默认 CSV 为 10 列 `market` 小时报价表，包含已核实地区价和明确标注范围的目录价。`catalog` 另保留起价 / 销售询价项（无数值保持空），`compact` 要求国家与价格地区均核实，`full` 保留审计元数据。目录价不复制到多个国家，也不宣称全球统一。
 
@@ -15,7 +17,7 @@ gpu-price-monitor collect --env-file .env.three.local --pretty > three-prices.js
 gpu-price-monitor collect --env-file .env.three.local --format csv --csv-profile catalog > three-catalog.csv
 ```
 
-**2026-10-21 19:37（北京时间）三家实采样本**：156 行目录、136 行有金额，其中 100 行为明确标注的 Nebius 配置计算，另有 20 行需销售询价；Nebius 当前地区 Spot 源费率只有 12 条，按配置展开不能算新增独立报价。[原币目录 CSV](examples/three-catalog-2026-10-21.csv) · [来源、计数与缺口](examples/three-catalog-sources-2026-10-21.json)。账号报价仍待有效凭据验证。
+**2026-10-21 19:37（北京时间）三家实采样本**：156 行目录、136 行有金额，其中 100 行为明确标注的 Nebius 配置计算，另有 20 行需销售询价；Nebius 当前地区 Spot 源费率只有 12 条，按配置展开不能算新增独立报价。[原币目录 CSV](examples/three-catalog-2026-10-21.csv) · [来源、计数与缺口](examples/three-catalog-sources-2026-10-21.json)。该历史批次不含账号来源；Lambda 控制台的后续实测见上文。
 
 **2026-10-21 17:45（北京时间）五家实采全部成功**：111 条有效小时报价，Nebius 17、Lambda 22、Crusoe 8、AutoDL 24、UCloud·优云智算 40；其中 52 条地区已核实，59 条为目录报价。[下载本批 CSV](examples/five-market-2026-10-21.csv) · [来源与请求状态](examples/five-market-sources-2026-10-21.json)。另有 20 条起价 / 询价只留审计，不算有效报价。本批无账号密钥；这不是所有规格、地区或库存的完整清单。
 
@@ -58,7 +60,7 @@ Path("prices.csv").write_text(prices_to_csv(result), encoding="utf-8", newline="
 | 平台 | `api_preferred` 来源 | 核对价格时的限制 |
 | --- | --- | --- |
 | Nebius | 官方匿名当前 Spot API，加官网 Next.js JSON 目录 | Spot 是地区动态价；JSON 目录补普通按需价。L40S 的 From 和 Contact us 保留审计，不当确定报价 |
-| Lambda | 有 `LAMBDA_API_KEY` 用实例 API；无 key 用固定规则解析官网实例页 | API 美分价为整实例总价，按明确卡数分摊；容量地区不是价格地区 |
+| Lambda | 公开页、密钥 API；另可显式选 `console` 用自己的登录会话读取目录 JSON | 美分整实例价按明确卡数分摊；容量地区不是价格地区 |
 | Crusoe | Python 固定 HTML 规则解析官网 GPU instances 区块 | 没有已核实的公共 VM 价目 API；不混入账单、预留合同或模型部署费用 |
 | AutoDL | Playwright 固定 DOM 规则读取普通 / 会员价 | 无合适公开市场价 API；会员条件保留，首页没有价格地区；可选授权 market 模式 |
 | UCloud | 无 key 用旗下优云智算 CompShare 匿名配置询价 API；有任一 key 则要求完整签名 UHost 询价配置 | CompShare 与 UHost 分开标记产品线；普通原价用于比较，资格未核实的优惠价留在审计数据 |
@@ -102,12 +104,12 @@ Python 分别使用 `prices_to_csv(result)`、`prices_to_csv(result, profile="co
 
 | 可选能力 | 必要配置 |
 | --- | --- |
-| Lambda 认证实例目录 | `LAMBDA_API_KEY`，配合 `api_preferred` 或显式 `LAMBDA_SOURCE=api` |
+| Lambda 认证实例目录 | `LAMBDA_API_KEY` + `LAMBDA_SOURCE=api`；或免费登录态 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH` |
 | UCloud 签名 UHost 完整配置询价 | `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，及 `UCLOUD_PRICE_TARGETS_FILE` / `UCLOUD_PRICE_TARGETS_JSON` 之一；可选 `UCLOUD_PROJECT_ID` |
 | Nebius 账号完整配置估价 | 显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN`，及 `NEBIUS_PRICE_TARGETS_FILE` / `NEBIUS_PRICE_TARGETS_JSON` 之一 |
 | AutoDL 授权市场 | `AUTODL_SOURCE=market` 与有效 `AUTODL_STORAGE_STATE_PATH`；首页公开采集不用 token |
 
-只填一把 UCloud key 或漏填 targets 会报错，不降级成其他产品线。targets 模板不证明账号可售；账号估价、Lambda 认证目录和 AutoDL 登录市场仍需有效凭据完成真实成功验证，不能用离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
+只填一把 UCloud key 或漏填 targets 会报错，不降级成其他产品线。targets 模板不证明账号可售。Lambda 控制台会话已在 2026-10-22 通过独立 Python HTTP 实测；Nebius / UCloud 账号估价、Lambda API key 模式、Crusoe 合同认证与 AutoDL 登录市场仍缺有效凭据的真实成功验证，不能以离线测试冒充联调。配置详情见 [PROVIDERS.md](docs/PROVIDERS.md)。密钥、Cookie、私有目标和浏览器会话不得提交或写入结果。
 
 JSON 的 `execution` 声明 Python、固定规则、不使用 LLM 及所选策略；`provider_results` 标明实际来源、`collection_method`、选择原因、回退选择原因和逐平台 `market_quote_count`。`market_comparison` 统计小时目录 / 地区报价；原 `comparison` 继续统计严格地区价。来源采集成功、有效小时报价、地区已核实及实时可购是不同事实。
 

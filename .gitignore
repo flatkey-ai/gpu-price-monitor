@@ -11,6 +11,7 @@ dist/
 !.env.example
 !.env.five.example
 !.env.three.example
+!.env.lambda.example
 configs/*.local.json
 data/
 evidence/

@@ -1,13 +1,13 @@
 # 五个平台的来源、金额与地区证据
 
-核查口径：2026-10-21，版本 0.13.0。推荐采集范围是原文档的 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。全部由独立 Python 固定规则执行，不使用 Codex / LLM 或模型 API Key。另四家扩展适配器单独列在文末。
+核查口径：公开来源沿用 2026-10-21 核查，Lambda 控制台会话于 2026-10-22 完成 0.15.0 独立 Python HTTP 实采。推荐采集范围是原文档的 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。全部由独立 Python 固定规则执行，不使用 Codex / LLM 或模型 API Key。另四家扩展适配器单独列在文末。
 
 ## 来源策略
 
 | 策略 | 行为 |
 | --- | --- |
-| `api_preferred` | 五家推荐；Nebius 当前 Spot API 加官网 JSON 普通目录；Lambda 有 key 用 API、无 key 用公开页；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe / AutoDL 用已说明的固定页面规则 |
-| `api_only` | 仅允许价格 API；Nebius 只取 Spot，不加网站目录；Crusoe / AutoDL 页面来源明确报 `api_price_source_unavailable` |
+| `api_preferred` | 五家推荐；Nebius 当前 Spot API 加官网 JSON 普通目录；Lambda 显式 `console` 用保存会话读内部 JSON，否则有 key 用 API、无 key 用公开页；无 key 的 UCloud 用 CompShare 匿名小时询价；Crusoe / AutoDL 用已说明的固定页面规则 |
+| `api_only` | 仅允许价格 API，包含显式选择的 Lambda `official_internal_api`；Nebius 只取 Spot，不加网站目录；Crusoe / AutoDL 页面来源明确报 `api_price_source_unavailable` |
 | `configured` | 默认兼容行为，遵循各 `*_SOURCE`；Nebius public 保持旧文档 + Spot，UCloud public 保持旧 UHost 活动月包 |
 
 有任一 UCloud 账号 key 时，接口优先策略要求完整签名 UHost 询价配置，不能悄悄改成 CompShare；显式 API 认证失败、请求失败、结构变化都直接报错。选择页面 / 网站 JSON 是请求前的规则，不是接口报错后的兜底。实际 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 随结果返回；混合源不冒充单一 API。
@@ -29,13 +29,15 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 可选账号估价需显式 `NEBIUS_SOURCE=api`、`NEBIUS_ACCESS_TOKEN` 和一个 targets FILE / JSON。调用 [Estimate Batch](https://docs.nebius.com/rest-api/billing/v1/calculator/estimate-batch)，先只读核验项目地区和受支持 GPU 预设，再核对完整资源 / 聚合单位 / 分项总价。它不是匿名全目录，合同报价也不是所有人可购的普通价；当前尚缺有效 token 的真实成功联调证据。
 
-## Lambda：认证实例 API 或公开实例页
+## Lambda：认证实例 API、公开页或免费登录态 JSON
 
 有 `LAMBDA_API_KEY` 时，接口优先使用 [GET instance-types](https://cloud.lambda.ai/api/v1/instance-types)，文档见 [List instance types](https://docs.lambda.ai/api/cloud#listInstanceTypes)与 [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)。`price_cents_per_hour / 100` 是整实例 USD 小时价，再除 `specs.gpus` 分摊每卡；保留原实例价和卡数。
 
 无 key 时，接口优先在请求前选择[官网实例页](https://lambda.ai/instances)，Python HTTP / 固定 HTML 结构解析 1 / 2 / 4 / 8 卡配置、每 GPU 小时价及明确 CPU / RAM / 磁盘单位。API 和页面单位不同，不能把整机 API 总价直接与网页单卡价比较。
 
-`regions_with_capacity_available` 仅存 `capacity_regions`，不填价格地区。API / 页面均没有依据证明独立逐地区费率，目录可进 market，不能仅凭容量进入 compact。显式 `LAMBDA_SOURCE=api` 或 api_only 缺 key 会报错；鉴权或结构错误不回退网页。公开页已有真实采集，认证目录仍缺有效 key 的成功联调证据。
+`regions_with_capacity_available` 仅存 `capacity_regions`，不填价格地区。API / 页面均没有依据证明独立逐地区费率，目录可进 market，不能仅凭容量进入 compact。选择公开密钥 API（显式 `LAMBDA_SOURCE=api` 或非 console 的 api_only）而缺 key 会报错；鉴权或结构错误不回退网页。公开页已有真实采集，API key 分支仍缺有效 key 的成功联调证据。
+
+0.15.0 增加显式 `LAMBDA_SOURCE=console` + `LAMBDA_STORAGE_STATE_PATH`：只 GET 控制台内部实例、预留集群和地区 JSON，使用调用者自己的登录 Cookie。**2026-10-22 用户手动登录并保存会话后，独立 Python CLI / HTTP 的三个 GET 全部实采成功，返回 36 条 GPU 报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）**，另审计排除 2 个 CPU 规格并保留 18 条地区元数据。无需创建 GPU 或绑定付款方式。`api_only` 允许这个 JSON 源，但清楚标为 `official_internal_api`，不能当稳定公开 API。18 条地区只是容量元数据，不能当 18 个地区分别报价；集群采用前端每 GPU 小时字段，冲突旧字段只留审计，期限与最终购买条件仍未核实，不宣称账号全部价格已获取。[操作步骤和边界](lambda-console.md)。
 
 ## Crusoe：程序解析 GPU instances 区块
 

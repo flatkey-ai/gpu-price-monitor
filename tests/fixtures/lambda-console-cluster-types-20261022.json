@@ -1,0 +1,440 @@
+{
+  "data": [
+    {
+      "cluster_type": {
+        "num_workers": 2,
+        "num_gpus": 16,
+        "price_cents_per_hour": 3840,
+        "price_cents_per_gpu_hour": 616,
+        "description": "16x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 4,
+        "num_gpus": 32,
+        "price_cents_per_hour": 7680,
+        "price_cents_per_gpu_hour": 616,
+        "description": "32x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 8,
+        "num_gpus": 64,
+        "price_cents_per_hour": 15360,
+        "price_cents_per_gpu_hour": 585,
+        "description": "64x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 16,
+        "num_gpus": 128,
+        "price_cents_per_hour": 30720,
+        "price_cents_per_gpu_hour": 585,
+        "description": "128x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 32,
+        "num_gpus": 256,
+        "price_cents_per_hour": 61440,
+        "price_cents_per_gpu_hour": 554,
+        "description": "256x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 64,
+        "num_gpus": 512,
+        "price_cents_per_hour": 122880,
+        "price_cents_per_gpu_hour": 554,
+        "description": "512x H100 (80 GB SXM5)",
+        "worker_instance_type": {
+          "name": "gpu_8x_h100_sxm5gdr",
+          "description": "8x H100 (80 GB SXM5)",
+          "gpu_description": "H100 (80 GB SXM5)",
+          "price_cents_per_hour": 1920,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 1800,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-east-2",
+          "description": "Washington DC, USA"
+        },
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 2,
+        "num_gpus": 16,
+        "price_cents_per_hour": 6064,
+        "price_cents_per_gpu_hour": 986,
+        "description": "16x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        },
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 4,
+        "num_gpus": 32,
+        "price_cents_per_hour": 12128,
+        "price_cents_per_gpu_hour": 986,
+        "description": "32x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        },
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 8,
+        "num_gpus": 64,
+        "price_cents_per_hour": 24256,
+        "price_cents_per_gpu_hour": 936,
+        "description": "64x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        },
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 16,
+        "num_gpus": 128,
+        "price_cents_per_hour": 48512,
+        "price_cents_per_gpu_hour": 936,
+        "description": "128x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        },
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 32,
+        "num_gpus": 256,
+        "price_cents_per_hour": 97024,
+        "price_cents_per_gpu_hour": 887,
+        "description": "256x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-south-3",
+          "description": "Central Texas, USA"
+        },
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 64,
+        "num_gpus": 512,
+        "price_cents_per_hour": 194048,
+        "price_cents_per_gpu_hour": 887,
+        "description": "512x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 128,
+        "num_gpus": 1024,
+        "price_cents_per_hour": 388096,
+        "price_cents_per_gpu_hour": 887,
+        "description": "1024x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    },
+    {
+      "cluster_type": {
+        "num_workers": 192,
+        "num_gpus": 1536,
+        "price_cents_per_hour": 582144,
+        "price_cents_per_gpu_hour": 887,
+        "description": "1536x B200 (180 GB)",
+        "worker_instance_type": {
+          "name": "gpu_8x_b200",
+          "description": "8x B200 (180 GB)",
+          "gpu_description": "B200 (180 GB)",
+          "price_cents_per_hour": 3032,
+          "architecture": "x86_64",
+          "specs": {
+            "vcpus": 208,
+            "memory_gib": 2900,
+            "storage_gib": 22528,
+            "gpus": 8
+          }
+        }
+      },
+      "regions_available": [
+        {
+          "name": "us-midwest-2",
+          "description": "Ohio, USA"
+        }
+      ]
+    }
+  ]
+}

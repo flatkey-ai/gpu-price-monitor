@@ -1,0 +1,76 @@
+{
+  "data": [
+    {
+      "name": "us-midwest-2",
+      "description": "Ohio, USA"
+    },
+    {
+      "name": "europe-central-1",
+      "description": "Germany"
+    },
+    {
+      "name": "us-west-1",
+      "description": "California, USA"
+    },
+    {
+      "name": "us-south-1",
+      "description": "Texas, USA"
+    },
+    {
+      "name": "asia-northeast-1",
+      "description": "Osaka, Japan"
+    },
+    {
+      "name": "us-southeast-1",
+      "description": "Georgia, USA"
+    },
+    {
+      "name": "us-west-2",
+      "description": "Arizona, USA"
+    },
+    {
+      "name": "australia-east-1",
+      "description": "Sydney, Australia"
+    },
+    {
+      "name": "asia-south-1",
+      "description": "India"
+    },
+    {
+      "name": "us-south-2",
+      "description": "North Texas, USA"
+    },
+    {
+      "name": "us-south-3",
+      "description": "Central Texas, USA"
+    },
+    {
+      "name": "asia-northeast-2",
+      "description": "Tokyo, Japan"
+    },
+    {
+      "name": "us-east-3",
+      "description": "Washington DC, USA"
+    },
+    {
+      "name": "us-east-1",
+      "description": "Virginia, USA"
+    },
+    {
+      "name": "us-west-3",
+      "description": "Utah, USA"
+    },
+    {
+      "name": "us-midwest-1",
+      "description": "Illinois, USA"
+    },
+    {
+      "name": "us-east-2",
+      "description": "Washington DC, USA"
+    },
+    {
+      "name": "me-west-1",
+      "description": "Israel"
+    }
+  ]
+}
