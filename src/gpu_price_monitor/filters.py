@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 
 from .settings import ConfigurationError, Settings
+from .providers.lambda_locations import validated_applicability_locations
 
 FILTER_FIELDS = frozenset({
     "compute_countries", "sales_countries", "regions", "zones",
@@ -55,6 +56,8 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
                 supported.update({"coverage_regions", "coverage_countries"})
     if provider in {"lambda", "digitalocean", "verda", "azure"}:
         supported.add("gpu_counts")
+    if provider == "lambda" and settings is not None and settings.lambda_source == "console":
+        supported.update({"regions", "compute_countries"})
     if provider == "azure":
         supported.update({"regions", "compute_countries"})
     if provider == "autodl" and settings is not None and settings.autodl_source == "market":
@@ -66,6 +69,9 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
                   "Matched against public package configurations and the provider's region/zone mapping; listings do not establish orderability.")
     else:
         reason = "Matched against explicit quote fields; capacity regions do not establish regional prices."
+    if provider == "lambda" and settings is not None and settings.lambda_source == "console":
+        reason = ("Matched against the selectable countries/regions sharing this exact SKU's standard "
+                  "console catalog price, after source-version verification; not an independent regional quotation.")
     return {
         name: {
             "requested": values,
@@ -81,15 +87,33 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
     }
 
 
+def price_location_values(quote: dict, dimension: str) -> list:
+    """Keep shared catalog applicability separate from independent price fields."""
+    if dimension in {"compute_countries", "regions"}:
+        locations = validated_applicability_locations(quote)
+        if locations is not None:
+            key = "country_code" if dimension == "compute_countries" else "region"
+            return list(dict.fromkeys(location[key] for location in locations))
+    return quote.get(dimension, [])
+
+
 def apply_filters(prices: list[dict], filters: dict[str, list]) -> list[dict]:
     result = []
     for quote in prices:
         match = True
+        locations = validated_applicability_locations(quote)
+        if locations is not None and filters.get("compute_countries") and filters.get("regions"):
+            # A country and region must refer to the same applicable location,
+            # rather than matching two unrelated entries of a multi-country SKU.
+            match = any(location["country_code"] in filters["compute_countries"]
+                        and location["region"] in filters["regions"] for location in locations)
+            if not match:
+                continue
         for name, values in filters.items():
             if not values:
                 continue
             if name in {"regions", "zones", "compute_countries", "sales_countries", "coverage_regions", "coverage_countries"}:
-                match = bool(set(values) & set(quote.get(name, [])))
+                match = bool(set(values) & set(price_location_values(quote, name)))
             elif name == "gpu_counts":
                 match = quote.get("gpu_count") in values
             else:

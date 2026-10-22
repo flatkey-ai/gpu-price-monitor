@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from decimal import Decimal, DecimalException
 
-from .filters import apply_filters, filter_support, normalize_filters
+from .filters import apply_filters, filter_support, normalize_filters, price_location_values
 from .geography import describe_geography, geography_summary
 from .csv_export import market_eligible_quote, publishable_quote
 from .providers import (autodl, azure, crusoe, digitalocean, lambda_cloud, lambda_public,
@@ -205,7 +205,8 @@ def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = F
     result.setdefault("source_contexts", []).append(context)
     for key in ("catalog_coverage", "coverage", "contract_records", "contract_record_count",
                 "pricing_limitations", "authentication_method", "api_endpoint_template",
-                "excluded_non_gpu_records", "excluded_non_gpu_record_count", "regions_catalog"):
+                "excluded_non_gpu_records", "excluded_non_gpu_record_count", "regions_catalog",
+                "country_region_catalog", "price_applicability_verification"):
         if key in outcome:
             result[key] = outcome[key]
     if "gaps" in outcome:
@@ -426,17 +427,20 @@ def collect_prices(
                 result["fetched_count"] = len(quotes)
                 candidates = quotes
                 if any(conditions[provider].get(k) for k in ("regions", "zones", "compute_countries")):
-                    # A requested price location never matches platform
-                    # coverage or a catalog without a price-region binding.
+                    # A requested price location never matches bare capacity.
+                    # A verified shared-SKU price flow can establish catalog
+                    # applicability without inventing independent region quotes.
                     # Region-bound rows with missing country evidence remain
                     # candidates, so the existing unverifiable check applies.
-                    candidates = [q for q in quotes if q["region_price_verified"]]
+                    candidates = [q for q in quotes if q["region_price_verified"]
+                                  or (price_location_values(q, "regions")
+                                      and price_location_values(q, "compute_countries"))]
                     result["excluded_unbound_geography_count"] = len(quotes) - len(candidates)
                 unverified = []
                 for dimension in ("regions", "zones", "compute_countries"):
                     other_conditions = {k: v for k, v in conditions[provider].items() if k != dimension}
                     relevant = apply_filters(candidates, other_conditions)
-                    if conditions[provider].get(dimension) and any(not q.get(dimension) for q in relevant):
+                    if conditions[provider].get(dimension) and any(not price_location_values(q, dimension) for q in relevant):
                         result["filters"][dimension]["status"] = "unverifiable"
                         result["filters"][dimension]["reason"] = "One or more relevant quotes lack verified source location metadata."
                         unverified.append(dimension)
@@ -500,6 +504,19 @@ def collect_prices(
             "providers_with_quotes": [source["provider"] for source in results if source["market_quote_count"]],
         },
     }
+    if "lambda" in selected and settings.lambda_source == "console":
+        from .providers.lambda_locations import validated_applicability_locations
+        catalog_locations = [locations for quote in prices
+                             if (locations := validated_applicability_locations(quote))]
+        result["catalog_applicability"] = {
+            "scope": "shared_catalog_currently_selectable_regions",
+            "quote_count": len(catalog_locations),
+            "country_codes": sorted({location["country_code"]
+                                      for locations in catalog_locations for location in locations}),
+            "region_codes": sorted({location["region"]
+                                     for locations in catalog_locations for location in locations}),
+            "independent_regional_quotes": False,
+        }
     if include_coverage:
         from .coverage import report_coverage
 

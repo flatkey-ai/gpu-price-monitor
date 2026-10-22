@@ -163,15 +163,8 @@ def publishable_quote(quote: object) -> bool:
     return True
 
 
-def market_eligible_quote(quote: object) -> bool:
-    """Whether a record supplies an actual per-GPU hourly rental price.
-
-    Public and authenticated catalogs can qualify without a regional price
-    claim. Their applicability is labeled separately from verified regional
-    quotes; coverage and capacity never establish a country or global tariff.
-    Floors, GPU-only components, monthly packages and explicitly unavailable
-    listings remain audit records in the full profile.
-    """
+def _hourly_catalog_price(quote: object) -> bool:
+    """Validate the rental rate independently of its displayable geography."""
     if not isinstance(quote, dict):
         return False
     if (quote.get("product_type") not in ("gpu_instance", "gpu_container", "gpu_cluster")
@@ -191,6 +184,35 @@ def market_eligible_quote(quote: object) -> bool:
     return True
 
 
+def _lambda_console_applicability_record(quote: dict) -> bool:
+    return (quote.get("provider") == "lambda"
+            and quote.get("source_type") == "official_internal_api"
+            and "price_applicability" in quote)
+
+
+def _lambda_shared_catalog_locations(quote: dict) -> list[dict] | None:
+    # One helper supplies the adapter, filtering and export contract. Capacity
+    # alone does not supply applicability, a country or a uniform price claim.
+    from .providers.lambda_locations import validated_applicability_locations
+    return validated_applicability_locations(quote)
+
+
+def market_eligible_quote(quote: object) -> bool:
+    """Whether a record supplies an actual per-GPU hourly rental price.
+
+    The Lambda console's explicit shared-catalog applicability needs complete
+    country and region metadata and at least one selectable standard location.
+    Other catalogs retain their existing, separately labeled geographic scope.
+    Floors, GPU-only components, monthly packages and explicitly unavailable
+    listings remain audit records in the full profile.
+    """
+    if not _hourly_catalog_price(quote):
+        return False
+    if _lambda_console_applicability_record(quote):
+        return bool(_lambda_shared_catalog_locations(quote))
+    return True
+
+
 def catalog_eligible_record(quote: object) -> bool:
     """Keep hourly GPU catalog entries, including explicit sales-only gaps.
 
@@ -202,6 +224,10 @@ def catalog_eligible_record(quote: object) -> bool:
         return True
     if not isinstance(quote, dict):
         return False
+    # An unavailable or unlocated Lambda SKU is still a genuine catalog rate.
+    # Preserve it here without relaxing numeric, period or status validation.
+    if _lambda_console_applicability_record(quote) and _hourly_catalog_price(quote):
+        return True
     if (quote.get("product_type") not in {"gpu_instance", "gpu_container", "gpu_cluster"}
             or not isinstance(quote.get("gpu_model"), str) or not quote["gpu_model"].strip()
             or quote.get("unit") != "gpu_hour"
@@ -274,6 +300,18 @@ def _compact_location(quote: dict) -> str:
 
 
 def _market_location(quote: dict) -> str:
+    if _lambda_console_applicability_record(quote):
+        locations = _lambda_shared_catalog_locations(quote)
+        if locations:
+            return "统一目录价｜" + "、".join(
+                location["country_name_zh"] + "·" + location["region_name_zh"]
+                + "（" + location["region"] + "）" for location in locations)
+        if locations == []:
+            applicability = quote["price_applicability"]
+            if applicability.get("excluded_dedicated_locations"):
+                return "统一目录价；当前无可选标准地区（私有地区价格待核实）"
+            return "统一目录价；当前无可选地区（无库存）"
+        return "账号目录报价；可选地区的国家与价格适用信息待核实"
     # Only an explicit price-region binding can put a location in this cell.
     # Full location evidence remains available in JSON and the full CSV.
     regions = quote.get("regions")
@@ -430,6 +468,10 @@ def _market_note_conditions(quote: dict) -> list[str]:
 
 def _market_conditions(quote: dict, *, collection_status: object) -> str:
     parts = []
+    shared_locations = (_lambda_shared_catalog_locations(quote)
+                        if _lambda_console_applicability_record(quote) else None)
+    if shared_locations is not None:
+        parts.append("同规格在所列可选地区共享目录价；非逐地区独立询价；不保证税费、合同与最终购买价")
     status = quote.get("quote_status")
     if status == "contact_sales":
         parts.append("需销售报价（官网无数值）")
@@ -562,7 +604,7 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
     parts.extend(_market_note_conditions(quote))
     if quote.get("price_scope") == "platform_coverage" or quote.get("coverage_regions"):
         parts.append("平台覆盖（非地区报价）")
-    if quote.get("capacity_regions"):
+    if quote.get("capacity_regions") and shared_locations is None:
         locations = quote.get("capacity_locations")
         if isinstance(locations, list) and locations:
             parts.append("可选容量地区=" + "、".join(
@@ -591,7 +633,10 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
 
     The default market profile has ten readable columns and includes actual
     per-GPU hourly catalog and regional quotes. Catalog applicability is labeled
-    explicitly, without inferring countries or a global price. Component-only,
+    explicitly, without inferring countries or a global price. Lambda console
+    records with shared-catalog metadata require complete selectable standard
+    locations; empty or unverified applicability stays in catalog/full output.
+    Component-only,
     starting-price, contact-sales, monthly and explicitly unavailable listings
     are excluded. ``profile="compact"`` retains the stricter requirement for
     verified country and region evidence. ``profile="full"`` retains every

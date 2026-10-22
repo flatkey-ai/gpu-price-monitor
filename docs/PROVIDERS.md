@@ -31,6 +31,8 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 ## Lambda：认证实例 API、公开页或免费登录态 JSON
 
+0.16 已进一步核实标准控制台的地区价格流程：同一 SKU 在其所列可选地区共用目录价。`price_applicability` 保留具体国家/中文地区/代码和证据，支持国家、地区筛选；无可选地区的规格不进入主表，但完整目录保留。每轮匿名核对当前控制台脚本指纹，HTML 只用于版本证据，不作价格源；价格仍取三个 JSON GET。[详细规则与实采样本](lambda-console.md)。
+
 有 `LAMBDA_API_KEY` 时，接口优先使用 [GET instance-types](https://cloud.lambda.ai/api/v1/instance-types)，文档见 [List instance types](https://docs.lambda.ai/api/cloud#listInstanceTypes)与 [OpenAPI](https://docs.lambda.ai/api/cloud/spec.json)。`price_cents_per_hour / 100` 是整实例 USD 小时价，再除 `specs.gpus` 分摊每卡；保留原实例价和卡数。
 
 无 key 时，接口优先在请求前选择[官网实例页](https://lambda.ai/instances)，Python HTTP / 固定 HTML 结构解析 1 / 2 / 4 / 8 卡配置、每 GPU 小时价及明确 CPU / RAM / 磁盘单位。API 和页面单位不同，不能把整机 API 总价直接与网页单卡价比较。

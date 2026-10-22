@@ -1,4 +1,4 @@
-"""Use an explicitly exported Lambda session for three read-only price routes.
+"""Use an explicitly exported Lambda session for read-only pricing evidence.
 
 Only Playwright's cookies array is used. Browser profiles, localStorage and
 saved origins are never used as credentials. A cookie-bearing request never
@@ -16,7 +16,7 @@ import re
 import stat
 from urllib.parse import urlsplit
 
-from .transport import FetchError, request_json
+from .transport import FetchError, _request_text, request_json
 
 
 BASE_URL = "https://cloud.lambda.ai/api/internal/dashboard/v1"
@@ -24,6 +24,8 @@ INSTANCE_TYPES_URL = BASE_URL + "/instance-types"
 RESERVED_CLUSTER_TYPES_URL = BASE_URL + "/cluster-types/reserved"
 REGIONS_URL = BASE_URL + "/regions"
 ALLOWED_URLS = frozenset({INSTANCE_TYPES_URL, RESERVED_CLUSTER_TYPES_URL, REGIONS_URL})
+CONSOLE_HTML_URL = "https://cloud.lambda.ai/instances"
+COOKIE_ALLOWED_URLS = ALLOWED_URLS | frozenset({CONSOLE_HTML_URL})
 MAX_SESSION_BYTES = 1024 * 1024
 MAX_COOKIE_COUNT = 512
 MAX_COOKIE_HEADER_BYTES = 32 * 1024
@@ -45,11 +47,12 @@ def _invalid() -> FetchError:
     return FetchError("lambda_session_invalid", "The exported Lambda session has an invalid cookie structure.")
 
 
-def _validate_url(url: str) -> str:
+def _validate_url(url: str, *, cookie_request: bool = False) -> str:
     # Exact comparison also rejects usernames, ports, queries, fragments,
     # alternate hosts, encoded paths and prefix/suffix lookalikes.
-    if not isinstance(url, str) or url not in ALLOWED_URLS:
-        raise FetchError("lambda_session_url_rejected", "Only the three fixed Lambda console pricing GET URLs are allowed.")
+    allowed = COOKIE_ALLOWED_URLS if cookie_request else ALLOWED_URLS
+    if not isinstance(url, str) or url not in allowed:
+        raise FetchError("lambda_session_url_rejected", "Only fixed Lambda console pricing evidence GET URLs are allowed.")
     return urlsplit(url).path
 
 
@@ -137,7 +140,7 @@ def load_session_cookie_header(path: str | os.PathLike, url: str,
     and malformed cookie fields reject the file without exposing its contents.
     Session cookies (expires=-1) require the server to validate the login.
     """
-    request_path, instant = _validate_url(url), _timestamp(now)
+    request_path, instant = _validate_url(url, cookie_request=True), _timestamp(now)
     cookies = _read_state(path)["cookies"]
     if not cookies or len(cookies) > MAX_COOKIE_COUNT:
         raise _invalid()
@@ -211,3 +214,17 @@ class LambdaConsoleSession:
 
     def get_regions(self) -> dict:
         return self.get_json(REGIONS_URL)
+
+    def get_console_html(self) -> str:
+        """Read the fixed console shell to identify its current public bundle.
+
+        This is evidence about the running frontend version, not a price or
+        provisioning endpoint. Redirects remain disabled and the exported
+        cookies are sent only to the fixed cloud.lambda.ai URL.
+        """
+        if not self._state_path:
+            raise FetchError("lambda_session_missing", "Lambda console collection requires an explicitly exported session file.")
+        cookie = load_session_cookie_header(self._state_path, CONSOLE_HTML_URL, self._now)
+        return _request_text(CONSOLE_HTML_URL, self._settings, method="GET",
+                             headers={"Cookie": cookie, "User-Agent": "Mozilla/5.0", "Accept": "text/html"},
+                             authenticated=True)

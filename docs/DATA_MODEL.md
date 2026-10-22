@@ -67,11 +67,15 @@ CLI stdout 只含所选 JSON / CSV，计数与诊断写 stderr。成功 `0`、�
 
 `regions` / `zones` 是价格绑定代码，`location` 保留可核对名称及国家，`compute_countries` 为部署国家 ISO 两字母代码。`unlocated_catalog` 表示已取到价格但无价格地区；`platform_coverage` 只有平台供给范围；`regional_quote` / `zone_quote` 为来源实际地区价；`requested_*_quote` 为完整请求配置在指定位置的询价，不表示响应独立回显全部部署条件。
 
+0.16 的 Lambda console 另有已核查的共享目录价范围：`price_applicability.locations` 给出该 SKU 当前可选国家、中文地区和 region code，`applicable_countries` / `applicable_regions` 供程序读取；`catalog_applicability` 汇总本批可选国家地区。官方标准控制台在这些地区共用同一 SKU 目录单价，不产生多条独立询价，`region_price_verified` 等严格字段保持原义。运行时控制台入口脚本指纹必须匹配已审版本；变更时不沿用共享结论，原价保留为审计，主表排除。空库存、未知国家和私有地区也只留完整目录。详见 [Lambda 说明](lambda-console.md)。
+
 Nebius 当前 Spot API 的 region 是价格位置；官网 JSON 目录没有价格地区，不拼接文档覆盖。Lambda `capacity_regions` 仅为容量；AutoDL 首页无位置，授权市场保留原始 region，不猜国家。UCloud CompShare 的配置位置和已核验国家映射随请求 / 来源保留，UHost 认证询价核对官方位置目录；不同产品的地区与配置不能互相套用。未知国家不按前缀、总部、币种或 IP 补齐，也不宣称全球统一。
 
 筛选字段包括数组 `gpu_models`、`gpu_counts`、`currencies`、`billing_modes`、`regions`、`zones`、`compute_countries`、`coverage_regions`、`coverage_countries`。国家 / region / zone 必须在同一条报价内成立；全局筛选逐字段覆盖每来源筛选。销售国家 `sales_countries` 当前不支持。
 
 `--country` / `--region` / `--zone` 仅筛实际价格位置，文档供给另用 `--coverage-country` / `--coverage-region`。来源整体不支持维度报 `unsupported_filter`；相关记录本应支持却缺证据报 `unverifiable_filter`；证据完整且无匹配为 `no_matches`。开启地区筛选后，未知地区目录不能被强行当成该地区价格。
+
+例外是上述已核查的 Lambda console 共享目录价：`--country` / `--region` 筛该价的可选适用位置，两项联合时必须属于同一个位置条目。筛选状态会标明共享目录适用范围，不把结果计入独立地区报价数量。`--zone` 仍不支持。
 
 ## 五家金额来源
 
