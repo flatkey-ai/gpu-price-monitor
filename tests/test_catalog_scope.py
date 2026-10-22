@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from gpu_price_monitor.collector import collect_prices, provider_source
 from gpu_price_monitor.providers import (
-    crusoe, crusoe_account, lambda_cloud, lambda_clusters, lambda_public,
+    crusoe, crusoe_account, crusoe_catalog, lambda_cloud, lambda_clusters, lambda_public,
     nebius, nebius_catalog_expanded, nebius_quote, nebius_spot,
 )
 from gpu_price_monitor.settings import Settings
@@ -62,6 +62,7 @@ class CompleteCatalogCollectionTests(unittest.TestCase):
         self.lambda_api = self.block("gpu_price_monitor.providers.lambda_cloud.collect_quotes")
         self.clusters = self.block("gpu_price_monitor.providers.lambda_clusters.collect_quotes")
         self.account = self.block("gpu_price_monitor.providers.crusoe_account.collect_result")
+        self.crusoe_catalog = self.block("gpu_price_monitor.providers.crusoe_catalog.collect_result")
         self.browser = self.block("gpu_price_monitor.browser.fetch_autodl_pages")
 
     def block(self, target):
@@ -221,37 +222,52 @@ class CompleteCatalogCollectionTests(unittest.TestCase):
         self.html.assert_not_called()
 
     def test_crusoe_combined_keeps_public_prices_and_separate_contract_records(self):
-        self.allow(self.html, "public prices")
+        self.allow(self.crusoe_catalog, {"prices": [quote("crusoe")], "errors": [], "status": "ok",
+                                         "catalog_coverage": {"availability_catalog": [{"raw_sku": "h100-80gb.8x"}]}})
         self.allow(self.account, audit_outcome())
-        with patch.object(crusoe, "parse_prices", return_value=[quote("crusoe")]):
-            result, source = self.collect("crusoe", crusoe_source="combined")
+        result, source = self.collect("crusoe", crusoe_source="combined")
         self.assertEqual(result["status"], "success")
         self.assertEqual(len(result["prices"]), 1)
         self.assertTrue(source["account_audit_only"])
         self.assertNotIn("audit_only", source)
         self.assertEqual(source["contract_record_count"], 1)
-        self.assertEqual(source["source_types"], ["public_page", "official_api"])
+        self.assertEqual(source["source_types"], ["public_page", "public_documentation", "official_api"])
+        self.assertEqual(source["catalog_coverage"]["availability_catalog"][0]["raw_sku"], "h100-80gb.8x")
+        self.html.assert_not_called()
 
     def test_crusoe_combined_missing_credentials_is_partial_and_does_not_hide_prices(self):
-        self.allow(self.html, "public prices")
+        self.allow(self.crusoe_catalog, {"prices": [quote("crusoe")], "errors": [], "status": "ok"})
         # Use the real credential gate, while every HTTP transport stays blocked.
         self.account.side_effect = None
         self.account.side_effect = lambda **kwargs: self.real_account(**kwargs)
-        with patch.object(crusoe, "parse_prices", return_value=[quote("crusoe")]):
-            result, source = self.collect("crusoe", crusoe_source="combined")
+        result, source = self.collect("crusoe", crusoe_source="combined")
         self.assertEqual(result["status"], "partial")
         self.assertEqual(len(result["prices"]), 1)
         self.assertEqual(source["source_errors"][0]["code"], "configuration_error")
         self.assertIn("CRUSOE_SECRET_KEY", source["source_errors"][0]["message"])
 
     def test_crusoe_combined_public_failure_retains_successful_audit(self):
-        self.html.side_effect = FetchError("http_503", "Public price page unavailable")
+        self.crusoe_catalog.side_effect = FetchError("http_503", "Public price page unavailable")
         self.allow(self.account, audit_outcome())
         result, source = self.collect("crusoe", crusoe_source="combined")
         self.assertEqual(result["status"], "partial")
         self.assertEqual(result["prices"], [])
         self.assertEqual(source["contract_record_count"], 1)
         self.assertEqual(source["source_errors"][0]["code"], "http_503")
+
+    def test_complete_crusoe_public_retains_deployment_catalog_without_region_prices(self):
+        catalog_quote = quote("crusoe", coverage_regions=["us-east1"], coverage_countries=["US"])
+        self.allow(self.crusoe_catalog, {"prices": [catalog_quote], "errors": [], "status": "ok",
+                                        "catalog_coverage": {"availability_catalog": [{"raw_sku": "h100-80gb.8x"}]}})
+        result, source = self.collect("crusoe", source_policy="api_preferred")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(source["source_type"], "official_public_sources")
+        self.assertEqual(source["additional_source_urls"], [crusoe_catalog.VM_TYPES_URL, crusoe_catalog.LOCATIONS_URL])
+        self.assertEqual(result["prices"][0]["regions"], [])
+        self.assertFalse(result["prices"][0]["region_price_verified"])
+        self.assertEqual(result["comparison"]["eligible_quote_count"], 0)
+        self.account.assert_not_called()
+        self.html.assert_not_called()
 
     def test_crusoe_account_rejects_any_attempt_to_emit_audit_as_quote(self):
         outcome = audit_outcome()

@@ -1,0 +1,18 @@
+﻿gpu_model（GPU型号）,raw_sku（实例规格）,gpu_count（GPU数量）,vram_gb（单GPU显存GB）,locations（文档部署地点，非价格适用地区）,source_url（官方规格来源）,observed_at（采集时间）
+MI355X,mi355x-288gb-roce.8x,8,288,美国 US / 俄亥俄州 (us-east2) / us-east2-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+B300,b300-288gb-sxm-ib.8x,8,288,冰岛 IS / 冰岛 (eu-iceland1) / eu-iceland1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+GB200,gb200-186gb-nvl-4x,4,186,冰岛 IS / 冰岛 (eu-iceland1) / eu-iceland1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+B200,b200-180gb-sxm-ib-8x,8,180,冰岛 IS / 冰岛 (eu-iceland1) / eu-iceland1-a; 挪威 NO / 挪威 (eu-norway1) / eu-norway1-a; 美国 US / 斯帕克斯（内华达州） (us-west1) / us-west1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+MI300X,mi300x-192gb-ib.8x,8,192,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+L40S,l40s-48gb.10x,10,48,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+L40S,l40s-48gb.8x,8,48,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+L40S,l40s-48gb.4x,4,48,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+L40S,l40s-48gb.2x,2,48,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+L40S,l40s-48gb.1x,1,48,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+H200,h200-141gb-sxm-ib.8x,8,141,冰岛 IS / 冰岛 (eu-iceland1) / eu-iceland1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+H100,h100-80gb-sxm-ib.8x,8,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a; 美国 US / 休斯敦（得克萨斯州） (us-southcentral1) / us-southcentral1-a; 冰岛 IS / 冰岛 (eu-iceland1) / eu-iceland1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+A100,a100-80gb-sxm-ib.8x,8,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+A100,a100-80gb.8x,8,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+A100,a100-80gb.4x,4,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+A100,a100-80gb.2x,2,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00
+A100,a100-80gb.1x,1,80,美国 US / 弗吉尼亚州 (us-east1) / us-east1-a,https://docs.crusoecloud.com/compute/virtual-machines/overview/,2026-10-22T03:53:15.088758+00:00

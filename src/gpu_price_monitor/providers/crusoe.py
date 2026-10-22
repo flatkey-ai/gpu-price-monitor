@@ -12,6 +12,7 @@ SOURCE_URL = "https://www.crusoe.ai/cloud/pricing"
 SOURCE_TYPE = "official_pricing_page"
 
 _MEMORY = re.compile(r"^(\d+)\s*GB$", re.IGNORECASE)
+_OTHER_MEMORY = re.compile(r"^(?:\d+(?:\.\d+)?)\s*(?:TB|TiB|GiB)$", re.IGNORECASE)
 _PRICE = re.compile(
     r"^(?:(starting\s+(?:at|from)|from|as\s+low\s+as)\s+)?"
     r"\$\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*/\s*GPU\s*[-/]\s*(?:hr|hour)$",
@@ -87,14 +88,16 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
         tags = [_text(tag) for tag in row.select(".pricing-tag")]
         parsed_prices = [_price(_text(price)) for price in prices]
         memories = [match for tag in tags if (match := _MEMORY.fullmatch(tag))]
-        # The public table includes forthcoming contact-sales products whose
-        # CMS memory and variant fields are empty. Preserve those as unknown;
-        # missing memory on a numeric quote still signals a malformed row.
+        # Contact-sales products can omit memory or publish an NVL system-level
+        # TB label. Retain the label, but never infer per-GPU GB from it; numeric
+        # quotes still require one explicit per-GPU GB memory label.
+        unpriced_memory_description = [tag for tag in tags if _OTHER_MEMORY.fullmatch(tag)]
         empty_contact_listing = (
             not memories
             and bool(tags)
-            and not any(tags)
             and all(status == "contact_sales" for _, status, _ in parsed_prices)
+            and len(unpriced_memory_description) <= 1
+            and all(not tag or _VARIANT.fullmatch(tag) or _OTHER_MEMORY.fullmatch(tag) for tag in tags)
         )
         if len(memories) != 1 and not empty_contact_listing:
             raise ValueError("Crusoe GPU instance row has no unique GB memory size")
@@ -102,7 +105,8 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
         if vram_gb is not None and vram_gb <= 0:
             raise ValueError("Crusoe GPU instance row has an invalid memory size")
         variant_parts = []
-        for value in heading_variants + [tag for tag in tags if tag and not _MEMORY.fullmatch(tag)]:
+        for value in heading_variants + [tag for tag in tags if tag and not _MEMORY.fullmatch(tag)
+                                         and not _OTHER_MEMORY.fullmatch(tag)]:
             canonical = "PCIe" if value.casefold() == "pcie" else value.upper()
             if canonical not in variant_parts:
                 variant_parts.append(canonical)
@@ -121,7 +125,9 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
             if status == "contact_sales":
                 notes.append("The source requests contacting sales and provides no numeric price.")
             if vram_gb is None:
-                notes.append("The source does not specify GPU memory capacity for this contact-sales listing.")
+                notes.append("The source does not specify GPU memory capacity in per-GPU GB for this contact-sales listing.")
+                if unpriced_memory_description:
+                    notes.append("The raw non-GB memory label is retained without converting a possible NVL system total to per-GPU memory.")
             result.append({
                 "provider": "crusoe",
                 "product_type": "gpu_instance",
@@ -130,6 +136,8 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
                 "raw_sku": None,
                 "gpu_variant": variant,
                 "vram_gb": vram_gb,
+                **({"gpu_memory_description": unpriced_memory_description[0]}
+                   if unpriced_memory_description else {}),
                 "gpu_count": None,
                 "amount": amount,
                 "currency": "USD",

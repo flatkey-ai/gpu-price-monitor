@@ -1,0 +1,25 @@
+﻿gpu_model（GPU型号及配置）,provider（平台）,location（报价适用范围）,amount（原币单GPU价格）,currency（原币币种）,unit（计费单位）,pricing_conditions（价格与资格条件）,availability（可用状态）,source_url（官方来源链接）,observed_at（报价采集时间）
+GB200 / NVL72 / 186GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=按需；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+GB200 / NVL72 / 186GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+B200 / HGX / 180GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+B200 / HGX / 180GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+H200 / HGX / 141GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,4.29,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+H200 / HGX / 141GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+H100 / HGX / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,3.90,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+H100 / HGX / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+A100 / SXM / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,2.30,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+A100 / SXM / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+A100 / PCIe / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,2.00,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+A100 / PCIe / 80GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+L40S / 48GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,1.50,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+L40S / 48GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+MI355X / 288GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+MI355X / 288GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+MI300X / 192GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,3.45,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+MI300X / 192GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+B300 / HGX / 288GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,9.90,USD,gpu_hour,计费=按需；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+B300 / HGX / 288GB/卡,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；平台覆盖（非地区报价）；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+GB300 / NVL72,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=按需；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+GB300 / NVL72,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+VERA RUBIN / NVL72,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=按需；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00
+VERA RUBIN / NVL72,crusoe,公开目录报价；适用地区未标明（不代表全球统一价）,,USD,gpu_hour,需销售报价（官网无数值）；计费=Spot（可中断）；口径=每GPU价；税费=税费未说明；来源=官网价目页,unknown,https://www.crusoe.ai/cloud/pricing,2026-10-22T03:53:12.592620+00:00

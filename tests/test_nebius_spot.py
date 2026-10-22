@@ -88,6 +88,19 @@ class NebiusSpotTests(unittest.TestCase):
         self.assertIsNone(quote["location_source"]["url"])
         self.assertIsNone(quote["location_source"]["verified_on"])
 
+    def test_new_model_and_platform_are_read_from_matching_api_identity_not_fixed_whitelist(self):
+        payload = source()
+        payload["items"] = [payload["items"][0]]
+        payload["items"][0].update(productTitle="Preemptible NVIDIA® B400 NVLink",
+                                   computeInstance={"platform": "gpu-b400-sxm-b"})
+        quote = parse(payload)[0]
+        self.assertEqual(quote["gpu_model"], "B400")
+        self.assertEqual(quote["raw_sku"], "gpu-b400-sxm-b")
+        self.assertEqual(quote["amount"], payload["items"][0]["price"]["value"])
+        payload["items"][0]["computeInstance"]["platform"] = "gpu-b300-sxm-b"
+        with self.assertRaises(ValueError):
+            parse(payload)
+
     def test_price_unit_currency_product_and_platform_drift_fail_closed(self):
         base = source()["items"][0]
         mutations = (

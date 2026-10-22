@@ -46,6 +46,12 @@ def _selected_module(provider: str, settings: Settings | None = None):
     if provider == "ucloud" and prefer_api:
         return ucloud_compshare
     if provider == "nebius":
+        if settings.nebius_source == "spot_api":
+            from .providers import nebius_spot_catalog
+            return nebius_spot_catalog
+        if settings.nebius_source == "catalog_api":
+            from .providers import nebius_account_catalog
+            return nebius_account_catalog
         if settings.nebius_source == "api":
             from .providers import nebius_quote
             return nebius_quote
@@ -59,6 +65,10 @@ def _selected_module(provider: str, settings: Settings | None = None):
             settings.crusoe_source == "combined" and settings.source_policy == "api_only")):
         from .providers import crusoe_account
         return crusoe_account
+    if (provider == "crusoe" and settings.catalog_scope == "complete"
+            and settings.source_policy != "api_only"):
+        from .providers import crusoe_catalog
+        return crusoe_catalog
     if provider == "autodl" and settings.autodl_source == "market":
         from .providers import autodl_market
         return autodl_market
@@ -76,10 +86,14 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
         return "official_api"
     if module is ucloud:
         return "official_quote_api"
-    if provider == "nebius" and settings is not None and settings.nebius_source == "api":
+    if provider == "nebius" and settings is not None and settings.nebius_source in {"api", "catalog_api"}:
         return "official_quote_api"
+    if provider == "nebius" and settings is not None and settings.nebius_source == "spot_api":
+        return "official_public_api"
     if provider == "crusoe" and settings is not None and settings.crusoe_source != "public":
         return "official_public_sources" if settings.crusoe_source == "combined" and settings.source_policy != "api_only" else "official_api"
+    if provider == "crusoe" and settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
+        return "official_public_sources"
     if provider == "nebius" and settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
         return "official_public_sources"
     if provider == "nebius" and settings is not None and settings.source_policy == "api_preferred":
@@ -93,6 +107,12 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
 
 def _source_selection(provider: str, settings: Settings, module) -> dict:
     source = provider_source(provider, settings)
+    if provider == "nebius" and settings.nebius_source == "spot_api":
+        from .providers import nebius_regions, nebius_spot
+        return {"collection_method": "http_json_with_documented_location_metadata",
+                "selection_reason": "anonymous_current_spot_api_with_live_country_verification",
+                "fallback_reason": None, "api_endpoint": nebius_spot.SOURCE_URL,
+                "additional_source_urls": [nebius_regions.REGIONS_URL]}
     if source == "official_internal_api":
         from .providers import lambda_console
         return {"collection_method": "authenticated_http_json",
@@ -109,6 +129,15 @@ def _source_selection(provider: str, settings: Settings, module) -> dict:
                     "additional_source_urls": [lambda_clusters.SOURCE_URL]}
         if provider == "crusoe":
             from .providers import crusoe_account
+            if settings.catalog_scope == "complete":
+                from .providers import crusoe_catalog
+                combined = settings.crusoe_source == "combined"
+                return {"collection_method": "http_html_documents_and_authenticated_json" if combined else "http_html_and_documents",
+                        "selection_reason": "public_catalog_locations_and_account_contract_audit" if combined else "public_price_and_deployment_catalogs",
+                        "fallback_reason": "no_verified_gpu_rental_price_api",
+                        "api_endpoint": crusoe_account.API_ENDPOINT_TEMPLATE if combined else None,
+                        "source_types": ["public_page", "public_documentation"] + (["official_api"] if combined else []),
+                        "additional_source_urls": [crusoe_catalog.VM_TYPES_URL, crusoe_catalog.LOCATIONS_URL] + ([crusoe_account.SOURCE_URL] if combined else [])}
             return {"collection_method": "http_html_and_authenticated_json",
                     "selection_reason": "public_prices_and_account_contract_audit",
                     "fallback_reason": None, "api_endpoint": crusoe_account.API_ENDPOINT_TEMPLATE,
@@ -199,6 +228,13 @@ def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = F
         raise ValueError("Invalid source outcome")
     if outcome.get("audit_only") and quotes:
         raise ValueError("Audit-only records cannot be admitted as GPU prices")
+    errors = list(errors)
+    if outcome.get("status") in {"partial", "failed"} and not errors:
+        # A discovered but unpriceable preset/project is a catalog gap even
+        # when every HTTP request succeeded. Do not turn that into success.
+        errors.append({"source_url": module.SOURCE_URL, "code": "incomplete_catalog",
+                       "message": "The selected source reported incomplete coverage; inspect its gaps.",
+                       "retryable": False})
     context = {key: value for key, value in outcome.items() if key not in {"prices", "contract_records"}}
     context.setdefault("source_url", module.SOURCE_URL)
     context.setdefault("source_type", getattr(module, "SOURCE_TYPE", None))
@@ -223,6 +259,8 @@ def _complete_mode_gaps(provider: str, settings: Settings) -> list[dict]:
     if settings.catalog_scope != "complete" or settings.source_policy != "api_only":
         return []
     if provider == "lambda" and settings.lambda_source == "console":
+        return []
+    if provider == "nebius" and settings.nebius_source in {"catalog_api", "spot_api"}:
         return []
     scope = {"nebius": "public_on_demand_preset_catalog", "lambda": "public_reserved_cluster_catalog",
              "crusoe": "public_gpu_price_catalog"}.get(provider)
@@ -309,21 +347,28 @@ def collect_prices(
                 source_errors = []
                 completed_sources = 0
                 uses_outcome = hasattr(module, "collect_result")
-                if provider == "crusoe" and settings.crusoe_source == "combined" and module is crusoe:
+                if (provider == "crusoe" and settings.crusoe_source == "combined"
+                        and settings.source_policy != "api_only"):
                     from .providers import crusoe_account
                     observed_at, quotes = _now(), []
                     # Public prices and account contracts are independent. A
                     # failure in either source must leave the other reviewable.
                     try:
-                        content = fetch_text(module.SOURCE_URL, settings)
-                        public_quotes = module.parse_prices(content, observed_at=observed_at,
-                                                            as_of=datetime.fromisoformat(observed_at).date())
-                        _check_prices(public_quotes, provider)
+                        if hasattr(module, "collect_result"):
+                            outcome = module.collect_result(settings=settings, observed_at=observed_at)
+                            public_quotes, errors = _record_outcome(result, outcome, module)
+                            source_errors.extend(errors)
+                            completed_sources += int(outcome.get("status") not in {"failed", "partial"})
+                        else:
+                            content = fetch_text(module.SOURCE_URL, settings)
+                            public_quotes = module.parse_prices(content, observed_at=observed_at,
+                                                                as_of=datetime.fromisoformat(observed_at).date())
+                            result.setdefault("source_contexts", []).append({"source_url": module.SOURCE_URL,
+                                                                             "source_type": "public_page", "status": "ok",
+                                                                             "record_count": len(public_quotes)})
+                            completed_sources += 1
+                        _check_prices(public_quotes, provider, allow_empty=True)
                         quotes.extend(public_quotes)
-                        result.setdefault("source_contexts", []).append({"source_url": module.SOURCE_URL,
-                                                                         "source_type": "public_page", "status": "ok",
-                                                                         "record_count": len(public_quotes)})
-                        completed_sources += 1
                     except (FetchError, ValueError, KeyError, TypeError, DecimalException) as exc:
                         source_errors.append(_source_error(module, exc))
                     try:

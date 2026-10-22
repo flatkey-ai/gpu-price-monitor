@@ -2,6 +2,10 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.17.0 扩展 Nebius 与 Crusoe**：`NEBIUS_SOURCE=spot_api` 免费取当前 Spot 地区价并核实国家；`catalog_api` 自动发现账号已有项目和 GPU 规格后逐项估价（需 token，尚待账号真实联调）。Crusoe 完整模式读取官网全部价格格，并补官方 GPU VM 规格与部署目录；部署地点不冒充报价地区，销售询价不填金额，也不宣称全球统一。[用法和证据边界](docs/nebius-crusoe.md) · [Nebius 配置](.env.nebius.example) · [Crusoe 配置](.env.crusoe.example)。
+
+**2026-10-22 11:53（北京时间）独立 Python 实采**：Nebius 12 条原始 Spot 地区价，覆盖 9 地区、6 国家；Crusoe 7 条明确价格、17 条销售询价记录，另有 17 个文档 GPU 规格和 7 可用区 / 3 国家部署目录。Crusoe 尚无价格地区绑定证据，未进入地区比价主表。[Nebius 地区 CSV](examples/nebius-regional-spot-2026-10-22.csv) · [Crusoe 官网目录 CSV](examples/crusoe-public-catalog-2026-10-22.csv) · [Crusoe 部署目录（非价格表）](examples/crusoe-deployment-catalog-2026-10-22.csv) · [来源与缺口](examples/nebius-crusoe-sources-2026-10-22.json)。这些是带时间的历史样本，程序不会用它们兜底实时采集。
+
 **0.16.0 补全 Lambda 登录目录的国家与地区**：显式 `LAMBDA_SOURCE=console`，免费读取实例、预留集群和地区 JSON；同规格的所列可选标准地区共享目录价，主表展示具体中文国家、地区与 region code，不重复计数，也不宣称全国统一。每次核对当前官方前端代码版本；版本变更或证据不足会保留 JSON 原价、标记 `partial`，不进入主表。无库存、私有或未知地区的目录记录留在 `catalog` / `full` / JSON。无需绑卡、启动 GPU 或调用大模型，Cookie 仅存本地。[配置和边界](docs/lambda-console.md) · [env 模板](.env.lambda.example)。
 
 2026-10-22 **11:21:12（北京时间）本轮实采通过**：36 条 GPU 目录记录中，19 条进入主表（5 个当前可选按需规格、14 个预留集群配置），其余 17 条无当前可选标准地区。该批可选报价均在美国；18 条平台地区元数据不扩展为各国报价。库存和行数随时间变化，集群期限与最终购买条件仍未核实。

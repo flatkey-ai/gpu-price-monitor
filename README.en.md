@@ -1,5 +1,25 @@
 # GPU Price Monitor
 
+Version 0.17 extends Nebius and Crusoe. `NEBIUS_SOURCE=spot_api` reads current
+regional Spot rates with live country verification. `catalog_api` discovers existing
+authorized projects and GPU presets, then requests configuration estimates (a token
+is required; authenticated live verification remains pending). Crusoe complete mode
+reads every public GPU price cell alongside official VM specifications and deployment
+locations. Deployment metadata is not a regional quote, sales-only amounts remain
+empty, and no worldwide uniform price is inferred. See [usage and evidence](docs/nebius-crusoe.md),
+[Nebius configuration](.env.nebius.example) and [Crusoe configuration](.env.crusoe.example).
+
+The standalone Python capture at **2026-10-22 11:53 Asia/Shanghai** returned 12
+original Nebius Spot rates across nine regions and six countries. Crusoe returned
+seven numeric prices and 17 sales-only cells, alongside 17 documented GPU VM
+configurations and seven deployment zones in three countries. Crusoe's price-region
+binding remains unverified, so those catalog rates are excluded from the regional
+comparison export. [Nebius CSV](examples/nebius-regional-spot-2026-10-22.csv),
+[Crusoe price catalog](examples/crusoe-public-catalog-2026-10-22.csv),
+[Crusoe deployment directory, not prices](examples/crusoe-deployment-catalog-2026-10-22.csv),
+and [source diagnostics](examples/nebius-crusoe-sources-2026-10-22.json) are historical
+samples, never runtime fallback data.
+
 Version 0.16 adds explicit country/region applicability to `LAMBDA_SOURCE=console`.
 For the same SKU, the listed selectable standard regions share one catalog rate;
 the main CSV names their countries and regions without duplicating the quote or
