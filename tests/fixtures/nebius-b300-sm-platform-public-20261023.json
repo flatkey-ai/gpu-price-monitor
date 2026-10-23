@@ -1,0 +1,34 @@
+{
+  "observed_at": "2026-10-23",
+  "source_url": "https://api.nebius.cloud/compute/v1/platforms",
+  "region": "eu-south1",
+  "platform": {
+    "metadata": {
+      "name": "gpu-b300-sxm-a"
+    },
+    "spec": {
+      "presets": [
+        {
+          "name": "1gpu-24vcpu-464gb",
+          "resources": {
+            "vcpuCount": 24,
+            "memoryGibibytes": 464,
+            "gpuCount": 1
+          }
+        },
+        {
+          "name": "8gpu-192vcpu-3712gb",
+          "resources": {
+            "vcpuCount": 192,
+            "memoryGibibytes": 3712,
+            "gpuCount": 8
+          }
+        }
+      ],
+      "gpuCountQuotaType": "compute.instance.gpu.b300-a",
+      "humanReadableName": "NVIDIA® B300 NVLink with Intel Granite Rapids SM",
+      "shortHumanReadableName": "NVIDIA® B300 NVLink SM",
+      "gpuMemoryGigabytes": 270
+    }
+  }
+}

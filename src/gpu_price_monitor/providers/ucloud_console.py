@@ -105,6 +105,8 @@ def parse_console_quote(payload, target, selected, *, availability, observed_at)
             "catalog_options": deepcopy(target.metadata["network_mode_options"]),
             "required_image_features": list(target.metadata["network_mode_required_image_features"]),
             "selection_basis": target.metadata["network_mode_selection_basis"],
+            **({"selection_source_url": target.metadata["network_mode_selection_source"]}
+               if "network_mode_selection_source" in target.metadata else {}),
         },
         "image_selection": deepcopy(selected.metadata) | {"image_license_price_verified": True},
         "price_scope": "requested_zone_quote", "region_price_verified": True,
@@ -229,6 +231,7 @@ def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=
         "prices": prices, "errors": errors, "gaps": gaps,
         "authentication_method": "local_console_session",
         "coverage": {**catalog.counts, "scope": "account_visible_uhost_on_demand_configurations_with_baseline_boot_disk",
+                     "console_scope_exclusions": deepcopy(catalog.exclusions),
                      "availability_check_requested": settings.ucloud_check_availability,
                      "account_project_scope": "configured_project" if settings.ucloud_project_id else "api_default_project",
                      "selected_targets": len(targets), "prepared_price_requests": len(prepared),

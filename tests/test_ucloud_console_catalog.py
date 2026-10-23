@@ -65,8 +65,8 @@ class UCloudConsoleCatalogTests(unittest.TestCase):
                 self.assertEqual(result.targets[0].metadata["network_mode_required_image_features"], ["NetEnhanced"])
 
     def test_missing_ambiguous_or_unverifiable_network_mode_excludes_row(self):
-        invalid_features = [None, [], [{"Name": "NetCapability", "Modes": None}],
-            [{"Name": "NetCapability", "Modes": []}],
+        invalid_features = [None, [], [{"Name": "NetCapability"}],
+            [{"Name": "NetCapability", "Modes": "Normal"}],
             [{"Name": "NetCapability", "Modes": [{"Name": "Super"}, {"Name": "Ultra"}]}],
             [{"Name": "NetCapability", "Modes": [{"Name": "FutureMode"}]}],
             [{"Name": "NetCapability", "Modes": [{"Name": "Normal"}, {"Name": "Normal"}]}],
@@ -80,6 +80,65 @@ class UCloudConsoleCatalogTests(unittest.TestCase):
                 self.assertEqual(result.targets, [])
                 self.assertEqual(result.counts["uhost_gpu_rows_excluded"], 1)
                 self.assertEqual(result.gaps[0]["code"], "invalid_gpu_configuration")
+
+    def test_explicit_null_or_empty_modes_follow_console_normal_default(self):
+        for modes in (None, []):
+            with self.subTest(modes=modes):
+                inputs = fixture()
+                row = inputs[2]["AvailableInstanceTypes"][0]
+                row["Name"] = "P40"
+                row["Features"][0]["Modes"] = modes
+                result = build_catalog_targets(*inputs)
+                self.assertEqual(len(result.targets), 4)
+                for target in result.targets:
+                    self.assertEqual(target.request["NetCapability"], "Normal")
+                    self.assertEqual(target.metadata["network_mode_options"], [])
+                    self.assertEqual(target.metadata["network_mode_required_image_features"], [])
+                    self.assertEqual(target.metadata["network_mode_selection_basis"],
+                                     "official_console_empty_modes_normal")
+                    self.assertTrue(target.metadata["network_mode_selection_source"].startswith("https://console-s2.ucloud.cn/"))
+
+    def test_small_a800_and_h20_use_normal_but_eight_gpus_keep_enhancement(self):
+        for model, mode in (("A800", "Extreme"), ("H20", "Infiniband")):
+            with self.subTest(model=model):
+                inputs = fixture()
+                row = inputs[2]["AvailableInstanceTypes"][0]
+                row["Name"] = model
+                row["Features"][0]["Modes"] = [{"Name": mode, "RelatedToImageFeature": ["NetEnhanced_" + mode]}]
+                row["MachineSizes"] = [{"Gpu": count, "Collection": [{"Cpu": count * 16, "Memory": [count * 128],
+                                          "MinimalCpuPlatform": ["Intel/IceLake"]}]} for count in (1, 2, 4, 8)]
+                result = build_catalog_targets(*inputs)
+                self.assertEqual(len(result.targets), 4)
+                self.assertFalse(result.gaps)
+                for target in result.targets:
+                    expected = mode if target.gpu_count == 8 else "Normal"
+                    self.assertEqual(target.request["NetCapability"], expected)
+                    self.assertEqual(target.metadata["network_mode_required_image_features"],
+                                     ["NetEnhanced_" + mode] if target.gpu_count == 8 else [])
+                    self.assertEqual(target.metadata["network_mode_options"], row["Features"][0]["Modes"])
+
+    def test_eight_gpu_console_rule_does_not_select_disabled_normal(self):
+        inputs = fixture()
+        row = inputs[2]["AvailableInstanceTypes"][0]
+        row["Name"] = "A800"
+        row["MachineSizes"][0]["Gpu"] = 8
+        row["Features"][0]["Modes"] = [{"Name": "Normal"}, {"Name": "Extreme"}]
+        result = build_catalog_targets(*inputs)
+        self.assertEqual({t.request["NetCapability"] for t in result.targets}, {"Extreme"})
+
+    def test_page_excluded_catalog_rows_are_audited_separately_from_failed_prices(self):
+        inputs = fixture()
+        soldout = {"Name": "T4", "Zone": "example-a-01", "ParentType": "G", "InstanceType": "uhost", "Status": "Soldout"}
+        outside = deepcopy(inputs[2]["AvailableInstanceTypes"][0])
+        outside["Zone"] = "outside-current-directory-01"
+        inputs[2]["AvailableInstanceTypes"].extend([soldout, outside])
+        result = build_catalog_targets(*inputs)
+        self.assertEqual(len(result.targets), 4)
+        self.assertFalse(result.gaps)
+        self.assertEqual(result.counts["uhost_gpu_rows_outside_console_scope"], 2)
+        self.assertEqual({item["code"] for item in result.exclusions},
+                         {"soldout_catalog_without_configurations", "outside_current_console_zone_directory"})
+        self.assertTrue(all("amount" not in item for item in result.exclusions))
 
     def test_never_crossproduct_specs_between_zones(self):
         regions, zones, data = fixture()

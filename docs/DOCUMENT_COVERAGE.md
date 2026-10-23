@@ -1,22 +1,37 @@
-# 原始 Word 需求与实现对照
+# 原始五家价格入口与采集范围
 
-对照版本：0.18.0，日期：2026-10-22。原始《GPU云算力_价格入口与API核查_2026-10-10.docx》核查 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 五家；本文以前五家为验收重点。文档中的接口示例、失败响应与接入建议是核查材料，不是直接复制的真实报价。
+核对日期：2026-10-23，版本：0.22.0。原始《GPU云算力_价格入口与API核查_2026-10-10.docx》指定 **Nebius、Lambda、Crusoe、AutoDL、UCloud**。验收范围是官网公开，以及调用者当前账号登录后能够读取的 GPU 小时报价。不包括未公布的销售合同价，也不通过创建云资源来取得价格。
 
-用户后续明确：免费公开采集、开源可 clone、独立 Python / CLI、接口优先、金额真实可追溯，不依赖 Codex / LLM 解析；允许没有合适市场价接口的 Crusoe / AutoDL 用代码解析官网。库只采集 / 返回，存储、换汇、上传、定时与网站更新由调用方负责。
+所有金额由独立 Python 程序读取官方接口或按固定规则解析官网。运行时不调用 Codex / LLM。库负责采集、校验和返回 JSON / CSV；定时、私有凭据存储、换汇、历史数据、上传与网站发布由调用方负责。
 
-## 五家按原文对照
+## 五家实际来源
 
-| 平台 / 原文事项 | 当前实现 | 真实验证与限制 |
+| 平台 | 入口与程序来源 | 本轮核对与边界 |
 | --- | --- | --- |
-| Nebius：Estimate Batch 需要完整资源及 Bearer token | 匿名 Spot；公开网站 JSON 目录；显式 `catalog_api` 自动发现已有项目与 GPU presets 后逐项只读估价 | 2026-10-22 账号实采 37 配置、36 条正数计算价、9 地区 / 6 国家；GB300 零计算费列缺口，SSD 另计。不是库存或全部账号合同 |
-| Lambda：instance-types 含美分整机价、卡数及容量位置 | 密钥 API、公开页，或显式 `console` 用本地会话读取官方 JSON | 免费登录态已由 Python / CLI 实采；当前前端证明同 SKU 所列可选标准地区共用目录价。密钥 API 仍未成功联调；容量本身不证明价格地区 |
-| Crusoe：VM types 无价；账单 / 托管模型不同于 GPU VM 租价 | 固定规则只解析官网 GPU instances 区块，数值、起价与 Contact sales 分开 | 官网已实采；登录账号可读 35 个规格但无价格字段，当前无配额且配置入口要求付款资料。未找到可验证的完整地区价 API；不补造全球统一价 |
-| AutoDL：已有 Pro 实例 / 部署价格不是全市场目录 | 固定 DOM 采首页普通 / 会员价；可选用户授权登录市场，核验分页 / 单位 / 位置 | 首页已真实采集；授权市场有测试但缺有效会话成功联调；不拿已有资源 API 冒充市场 |
-| UCloud：指定完整地区 / GPU / CPU / RAM / 磁盘配置后询价 | 接口优先无 key 走旗下 CompShare 匿名小时配置询价，普通原价分摊；有任一 key 要求完整签名 UHost 询价 | CompShare 已有真实匿名 API 成功响应；两条产品线分开。原文 UHost 签名路径仍缺有效账号成功联调，不将原报告 RetCode 错误当报价 |
+| Nebius | [AI Cloud pricing](https://nebius.com/prices)：官网 JSON 普通目录、地区 Spot API；`catalog_api` 登录后读取已有项目、平台和 presets，逐项调用 EstimateBatch | 公开目录与账号配置报价分开保留；账号估价有真实请求地区，不把官网目录价复制到各地区。计算费为零但磁盘有价的配置不当作免费 GPU。报价不证明库存 |
+| Lambda | [AI cloud pricing](https://lambda.ai/service/gpu-cloud)：`visible` 同时读取公开页和登录控制台目录 | 本轮公开 28 条、账号 36 条小时价均保留，合计是 64 条来源记录，不是去重 SKU。只有官方证实的可选地区 / 共享目录适用位置进入严格主表；官网无地区或当前无可选地区的记录仍保留原价 |
+| Crusoe | [GPU instances pricing](https://www.crusoe.ai/cloud/pricing)：按固定规则读取 GPU instances 区块 | 本轮 7 个数值价、17 个 Contact sales 单元格。后者不是漏抓的数值价。已查看账号规格接口但没有价格字段；无配额和付款资料导致不可进入的资源配置不扩展为私人合同采集 |
+| AutoDL | [算力市场](https://www.autodl.com/market/list)：`market` 读取自己的登录会话并调用市场 JSON 接口 | 本轮 3,383/3,383 条市场记录对账，3,290 个 GPU 资源的普通 / 会员两档价共 6,580 条。30 型号、17 地区代码；其中 3,372 条国家地区证据完整。其余有原始地区名称但国家未核实，不猜国家。已租完仍有展示价，不等于下线 |
+| UCloud UHost | [GPU 配置报价](https://console.ucloud.cn/uhost/uhost/gpu_create)：`console` 读取官方地区、可用区、GPU / CPU / 内存 / 镜像目录，再逐个调用小时询价 | 本轮 758 个基础硬件配置都有真实报价，22 型号、11 地区、13 可用区、5 国家代码。默认不核查库存。8 个当前页面范围排除项单列；不宣称包含所有磁盘、网络增强、Spot、套餐和私人折扣组合。UHost 不与 CompShare 混用 |
 
-本批逐平台成功状态与有效小时条数见实际 JSON `provider_results`，不把发现配置数、原始记录数、目录 / 地区有效价和可立即购买混成一个数字。
+UCloud 的 A800/H20 少卡配置原先因网络模式错误漏价，0.22.0 已按当前官网组件修复。新加坡 P40 的空网络选项按官网默认普通网络处理。A800 一卡、16 CPU、128 GiB、乌兰察布 A、Ubuntu 22.04 预装 NVIDIA 595.58.03/CUDA 13.2、40 GB RSSD、无数据盘及外网 IP，在官网和 API 均为 **28.83 CNY/实例小时**；一卡时等于每 GPU 小时。此为 2026-10-23 的核查证据，不是固定价或运行时默认值。
 
-## 推荐五家运行方式
+## 国家地区与计费口径
+
+- 地区报价必须有同一来源的实际请求位置或明确适用位置，不能用厂商覆盖区域补报价地区。
+- 官网只给一个金额，并不证明全国或全球统一价。只有官方明确说明共享价格及适用地区，才能作相应展示。
+- Lambda 的标准 SKU 共享目录证据只适用于其明确列出的可选地区；容量字段本身不证明地区价格。
+- AutoDL 的未知国家不按地区代码前缀、公司地址、币种或 IP 猜测。
+- 全部返回原币，小时价不由月价除以 720 得出。整机价按来源明确的 GPU 数分摊，同时保留 CPU、内存、磁盘等计费范围。
+- Nebius 账号计算报价与磁盘估价分开；UCloud 报价含明确的基础系统盘。这些配置条件必须随价格保留。
+
+## 输出与验收
+
+`collect_prices()` / CLI 返回价格和逐来源状态。`prices_to_csv()` 由库本身输出英中双语表头；默认 `market` 为 10 列小时表，`compact` 为严格地区小时表，`catalog` 保留来源目录信息，`full` 用于详细审计。Lambda `visible` 的 `market` 同样要求已证实的位置或适用地区。
+
+“有报价”“当前有库存”“地区已核实”和“全部配置覆盖”是不同状态，不能用一个总行数替代。所有报价保留自己的采集时间；合并同一天的不同实采批次不重写旧记录时间，也不冒充一次全新抓取。
+
+公开来源样例：
 
 ```bash
 cp .env.five.example .env.five.local
@@ -24,62 +39,10 @@ gpu-price-monitor collect --env-file .env.five.local --pretty > prices.json
 gpu-price-monitor collect --env-file .env.five.local --format csv > prices.csv
 ```
 
-Python：
+登录后来源需显式配置：参见 [Lambda](lambda-console.md)、[Nebius / Crusoe](nebius-crusoe.md)、[AutoDL](autodl-market.md) 和 [UCloud](ucloud-console.md)。选中的登录态失败会报告错误，不悄悄切换到公开页、另一产品线或历史价格。
 
-```python
-from gpu_price_monitor import Settings, collect_prices, prices_to_csv
+## 定时任务边界
 
-result = collect_prices(
-    ["nebius", "lambda", "crusoe", "autodl", "ucloud"],
-    settings=Settings(source_policy="api_preferred"),
-)
-csv_text = prices_to_csv(result)
-```
+服务器 / CI 可以使用相同 Python 程序和有效私有凭据运行，不需要个人电脑保持开机。但本地保存的 Cookie 不会自动进入云端；登录态采集接入、续期与失败告警必须由调用方部署。当前库复用导出会话，没有验证码自动登录或永久 Cookie 保证。Nebius 的短期 token 需要调用方续期或配置官方服务账号机制。详见[部署说明](DEPLOYMENT.md)。
 
-运行环境为 Python 3.11+，AutoDL 需 browser extra / 本地 Chromium。没有模型调用、模型 API Key 或 Codex 运行时。`.env` 只显式加载，已有 `.env` 可保留，独立五家 profile 为 `api_preferred`。
-
-## 三种来源策略
-
-- `api_preferred`：接口优先，允许明确标记的官网固定规则与网站 JSON。Nebius 合并 Spot + 网站普通目录；Lambda 依 key 选择；UCloud 无 key 为 CompShare、有任一 key 要求完整 UHost 账号配置；Crusoe / AutoDL 页面规则由程序运行。
-- `api_only`：仅允许价格 API，Nebius 保持 Spot only；Crusoe / AutoDL 直接报 `api_price_source_unavailable`。缺 key、不完整 targets、鉴权或格式错误不触发其他来源。
-- `configured`：兼容原 `*_SOURCE`；Nebius public 保留旧文档 + Spot，UCloud public 保留旧 UHost 促销月包。不能拿兼容月包当新的小时询价结果。
-
-JSON `execution` 明确 Python / 固定规则 / 不使用 LLM / 策略；逐来源返回实际 `source_type`、`collection_method`、选择原因和适用的 fallback 原因。页面或网站 JSON 不包装成正式 API，选中接口失败不换抓网页或旧样本。
-
-## 小时表与地区表分开验收
-
-0.13 默认 `market` 十列，纳入实际数值的 GPU 小时目录价及地区价。缺少地区的有效官方目录有明确适用范围，不再被隐藏；这**不代表全球统一价**，也不生成多个国家的重复价格。
-
-`compact` 十列继续要求实际价格国家与 region 均已核实；`full` 原 51 列保留所有原始来源审计。From、GPU 组件、Contact sales、月包、资格未核实的特殊优惠及明确下线 / 不可用项不进有效小时表。普通 / 会员、Spot、账号资格、税费、产品线、实例分摊和原始单位仍保留。
-
-`market_comparison` 与每来源 `market_quote_count` 表示有效小时报价，原 `comparison` 仍是严格地区统计。保留旧字段是兼容行为，不能拿旧地区计数当当前默认报价表的覆盖条数。库不换汇、不按 720 小时换算月价。
-
-## 国家与地区证据
-
-| 来源 | 能证明什么 | 不能证明什么 |
-| --- | --- | --- |
-| Nebius 当前 Spot | 接口实际 region、平台、币种和生效时间；国家按官方目录映射 | 不证明普通按需或可立即购得 |
-| Nebius 普通 JSON 目录 | 官方 GPU-hour 普通费率及列出的 CPU / RAM | 不证明价格地区、GPU 数量、显存或特定云 SKU |
-| Lambda API / 页面 | 实例规格 / 每卡费率；API 的容量位置单列 | 不证明独立逐地区费率 |
-| Crusoe / AutoDL 首页 | 公开目录每卡小时价；AutoDL 普通 / 会员资格分开 | 不证明目录适用的全部国家或全球统一价 |
-| AutoDL 授权市场 | 来源原始挂牌 region / 地区名 | 未核实国家 / zone，不根据大陆平台名称猜国家 |
-| UCloud CompShare | 原 ZoneId 精确映射、实时官方国家 / region / zone 目录核验的请求位置、完整配置询价 | 响应未独立回显位置；不证明库存 / 所有区域 SKU；未知 ZoneId 不借用已知区域 |
-| UCloud UHost 账号询价 | 完整目标及官方位置目录核验后的请求上下文 | 缺有效账号成功响应不能说真实联调完成 |
-
-筛选必须在同一条报价满足国家 / region / zone。缺失位置不填 global；容量、覆盖、币种、总部和 IP 不补价格地区。缺证据的支持维度报 `unverifiable_filter`，来源不支持报 `unsupported_filter`。
-
-## UCloud 产品线和原价验收
-
-CompShare（优云智算）是 UCloud 旗下产品线，输出必须明确标记。目录前端只发现 GPU / CPU / 内存 / 磁盘 / ZoneId 请求配置，嵌入金额丢弃；价格来自每次匿名 `POST https://api.compshare.cn/` 的 `GetCompShareInstancePrice` 响应。
-
-普通比较价为 `OriginalPriceDetails` 中实际返回小时分项之和，再按明确 GPU 数分摊；`PriceDetails` 的优惠资格未核实，仅保存审计，不标为通用会员价。请求明确 `ChargeType=Postpay` 与一台完整主机；计费单位核对官方说明，不从旧月套餐换算。地区只按官方精确映射，不替换原目录未知 ZoneId。来源、单位及证据链接见 [PROVIDERS.md](PROVIDERS.md)。
-
-## 仍需凭据的边界
-
-Nebius 账号 Estimate Batch、Lambda 认证目录、签名 UCloud UHost 询价及 AutoDL 登录市场仍需要调用者有效权限。现有离线测试证明配置 / 解析 / 失败行为，不等于这些账号接口真实成功。公开 CompShare 成功也不能证明签名 UHost 成功；不同平台接口是否收费激活由供应商决定，库不代办购买。
-
-## 历史样本与扩展
-
-[examples](../examples/README.md)保留旧五家 / 九家 JSON 与严格地区 CSV，均是当时的宽表或地区证据，不代表当前默认 market 范围，不进入运行时回退。旧截图的 Nebius 历史 Spot 数字不写成现价。
-
-RunPod、DigitalOcean、Verda、Azure 是后来新增的独立适配器；`all` 包含它们，但不是原 Word 已核查的五家事项。五家 profile 只运行本页范围，其余来源和限制见 [PROVIDERS.md](PROVIDERS.md)。
+[历史 examples](../examples/README.md)只是对应日期的审计样例，不作为现价或运行时回退。RunPod、DigitalOcean、Verda、Azure 可额外选择，但不属于本页五家验收范围。

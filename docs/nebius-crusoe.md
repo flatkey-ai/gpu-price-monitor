@@ -47,7 +47,16 @@ csv_text = prices_to_csv(result, profile="compact")
 
 B300 的账号 API 返回单卡 270 GB，GB300 NVL72 返回 279 GB。程序以[官方 B300 产品页](https://nebius.com/self-service)和[GB300 产品页](https://nebius.com/compute/gb300)、官方规格样例交叉核对。旧 VM types 表的 B300 288 GB 与 API 不一致，冲突记录在 `identity_evidence.documentation_discrepancy`，不静默覆盖。发现新型号或新字段不代表可以直接套用旧规格。
 
+**2026-10-23 14:11–14:19（北京时间）复核**：账号当前返回 39 个 GPU preset，已对全部 39 个配置执行估价，36 个得到正数计算报价。新增的西班牙 `eu-south1` 平台 `gpu-b300-sxm-a` 尚未列入公开规格表，但当前 [Platform API](https://docs.nebius.com/rest-api/compute/v1/platforms/list)明确返回 B300 NVLink SM、270 GB 显存和两档配置（1 卡 / 24 vCPU / 464 GiB RAM；8 卡 / 192 vCPU / 3712 GiB RAM）。采集器按 API 的明确身份和数量核验，不套用旧 B300 的 346 / 2768 GiB RAM，不以文档地区名单限制当前项目返回的配置；证据标记为 `official_project_platform_api`、`platform_variant_not_listed`。两档新配置的估价均返回零计算费，和 GB300 一样保留 `compute_tariff_unavailable`，不能填成零元价或套用其他地区价格。
+
 标准用户可用[官方 CLI 的 OAuth 流程](https://docs.nebius.com/cli/install)取得短期 access token，再通过 `nebius iam get-access-token` 刷新。[认证文档](https://docs.nebius.com/rest-api/authentication)列明用户 token 通常有效 12 小时；token 继承用户权限，本身不是只读凭证。token 刷新由调用方负责；库不保存浏览器 Cookie 或刷新凭据。实采只证明当次账号有权限访问的项目与费率，不证明库存、其他账号合同或全部私有地区。
+
+无人值守运行应由调度端取得新 token，而非把这次用户 token 当作永久密钥。官方提供两条可选路径：
+
+- 已配置服务账号的 [authorized key](https://docs.nebius.com/iam/service-accounts/authorized-keys)；[Python SDK](https://github.com/nebius/pysdk#initialize-with-the-private-key-file)支持私钥或 credentials 文件及自动续期。AWS 兼容服务的 access key 不是本接口所需的 authorized key。
+- 已配置 [OIDC federated credentials](https://docs.nebius.com/terraform-provider/reference/resources/iam_v1_federated_credentials) 的服务账号；信任关系把外部 issuer 和精确 JWT `sub` 绑定到服务账号。官方 [SDK 实现](https://github.com/nebius/gosdk/blob/main/auth/federated_credentials.go)使用服务账号 ID 作为 `subject_token`、外部 JWT 作为 `actor_token` 交换短期 token。CI 每次运行应取得新的 OIDC JWT；只配置工作流而没有云端信任绑定不能完成鉴权。
+
+[角色文档](https://docs.nebius.com/iam/authorization/roles)列出 `viewer` 的只读资源权限和价格查看权限，但没有明确逐项列出本工具所用租户 / 项目 / Platform / EstimateBatch 的最小授权组合。应将服务账号限定到目标项目并实测这些只读接口，不直接授予 `editor` 或 `admin`。上述机制尚未替当前账号创建任何服务账号、密钥或权限，也不代表云端自动续期已部署。
 
 ## Crusoe
 

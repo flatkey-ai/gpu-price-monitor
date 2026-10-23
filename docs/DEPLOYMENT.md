@@ -69,7 +69,21 @@ Nebius 账号估价、Lambda console 与 AutoDL market 已于 2026-10-22 通过�
 
 ## 调用方的云运行与发布
 
-任何普通云任务、容器或 CI 都可运行相同 CLI，不要求用户电脑开机。调用方自行安装 Python / AutoDL Chromium、配置网络和所需授权，安排其调度器；本库不内置 RackRate / Flatkey 上传地址、业务凭据或发布流程。
+任何普通云任务、容器或 CI 都可运行相同 CLI，不要求用户电脑开机。调用方自行安装 Python、配置网络和所需授权，安排其调度器；本库不内置 RackRate / Flatkey 上传地址、业务凭据或发布流程。AutoDL `market`、Lambda `console` / `visible`、UCloud `console` 均可使用保存的会话直接通过 HTTP 运行，不需要本机 Chrome 保持打开。只有 AutoDL 公开首页路径需要 browser extra / Chromium。
+
+### 登录态与无人值守的区别
+
+| 来源 | 定时任务需要什么 | 当前续期边界 |
+| --- | --- | --- |
+| Nebius 账号目录 | `NEBIUS_SOURCE=catalog_api` 与有效 `NEBIUS_ACCESS_TOKEN` | 库接收短期 token，不续期；长期任务应由调用方通过官方服务账号等可续期凭据取得新 token |
+| Lambda 登录目录 | `LAMBDA_SOURCE=visible` 与私有 `LAMBDA_STORAGE_STATE_PATH` | 会话有效时自动采集；失效需重新登录。API key 是另一个来源，不能未经对账就声称覆盖同一目录 |
+| AutoDL 算力市场 | `AUTODL_SOURCE=market` 与私有 `AUTODL_STORAGE_STATE_PATH` | 会话有效时直接读取市场 JSON；短信 / 人机验证出现时由账号持有人处理 |
+| UCloud UHost 配置页 | `UCLOUD_SOURCE=console` 与私有 `UCLOUD_SESSION_PATH` | 需要 Cookie 和 CSRF；失效时报错。签名 API 凭据是独立配置路径，不自动替换网页登录来源 |
+| Crusoe 官网报价 | `CRUSOE_SOURCE=public` | 不需登录；未公布金额的 Contact sales 保留为目录信息，不补造数值 |
+
+将个人电脑上的登录态复制到云端是单独的部署步骤。凭据只能进入调用方的私有密钥存储和运行时临时文件，不能进入仓库、构建产物或价格 CSV / JSON。会话文件应为 `0600`，任务退出时清理；不要在日志中打印环境或请求头。公开开源代码不包含任何人的登录态。
+
+目前这些网页登录适配器只复用导出的会话，并未实现刷新 Cookie 或无人参与的验证码登录。官方支持的长期凭据应优先用于可验证的同一报价范围；Nebius 的[服务账号授权密钥](https://docs.nebius.com/iam/service-accounts/authorized-keys)可用于取得短期令牌，调用方仍须实测所需只读和估价权限。
 
 发布前检查退出码、`provider_results`、`market_comparison` 和所需位置条件，决定是否接受部分结果。`comparison` 保持严格地区统计，不是默认 market 总行数。换汇应另记汇率来源 / 日期，原价与条件仍保留；不能把失败来源写成零价，也不能给旧价盖新采集时间。
 

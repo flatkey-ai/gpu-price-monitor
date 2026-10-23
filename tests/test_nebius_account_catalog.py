@@ -65,6 +65,46 @@ def estimate(amount="68.1"):
 
 
 class NebiusAccountCatalogTests(unittest.TestCase):
+    def test_live_b300_sm_variant_uses_api_resources_without_inheriting_old_docs(self):
+        fixture = json.loads((Path(__file__).parent / "fixtures/nebius-b300-sm-platform-public-20261023.json").read_text())
+        context = {"project_id": "project-private-example", "region": "eu-south1", "country_code": "ES"}
+        old_docs = published_platform("gpu-b300-sxm", "B300", "SXM", 288,
+            [("1gpu-24vcpu-346gb", 1, 24, 346), ("8gpu-192vcpu-2768gb", 8, 192, 2768)], "eu-west2")
+        result = account.discover_targets([fixture["platform"]], context, old_docs, boot_disk_gib=40, currency="usd")
+        self.assertEqual(result["gaps"], [])
+        self.assertEqual(len(result["targets"]), 2)
+        self.assertEqual({t["region"] for t in result["targets"]}, {"eu-south1"})
+        self.assertEqual({t["vram_gb"] for t in result["targets"]}, {270})
+        for index, (target, evidence) in enumerate(zip(result["targets"], result["target_evidence"])):
+            account.nebius_quote.validate_targets(json.dumps([target]), identity_catalog=result["identity_catalog"],
+                                                 region_countries={"eu-south1": "ES"})
+            raw = estimate("9.5" if index == 0 else "76")
+            for component in raw["resourceCosts"]:
+                component["metadata"]["name"] = component["metadata"]["name"].removesuffix("0") + str(index)
+            quote = account.split_compute_storage(raw, target, observed_at=OBSERVED,
+                identities=result["identity_catalog"], country_codes={"eu-south1": "ES"})[0]
+            self.assertEqual(quote["amount"], "9.5")
+            self.assertEqual(quote["resources"]["memory_gib"], 464 if index == 0 else 3712)
+            self.assertEqual(evidence["identity_basis"], "official_project_platform_api")
+            self.assertEqual(evidence["documentation_status"], "platform_variant_not_listed")
+            self.assertIsNone(evidence["documented_gpu_memory_gb"])
+            self.assertEqual(evidence["source_urls"], [account.PLATFORMS_URL])
+
+    def test_b300_sm_rejects_conflicting_model_vram_or_preset_resources(self):
+        fixture = json.loads((Path(__file__).parent / "fixtures/nebius-b300-sm-platform-public-20261023.json").read_text())
+        context = {"project_id": "project-private-example", "region": "eu-south1", "country_code": "ES"}
+        mutations = [lambda row: row["spec"].update(shortHumanReadableName="NVIDIA B200 NVLink SM"),
+                     lambda row: row["spec"].update(gpuMemoryGigabytes=288),
+                     lambda row: row["spec"]["presets"][0]["resources"].update(memoryGibibytes=346),
+                     lambda row: row["spec"]["presets"][0]["resources"].update(gpuCount=True)]
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                row = deepcopy(fixture["platform"])
+                mutate(row)
+                result = account.discover_targets([row], context, {}, boot_disk_gib=40, currency="usd")
+                self.assertEqual(result["targets"], [])
+                self.assertTrue(result["gaps"])
+
     def test_real_b300_api_memory_matches_product_pages_and_retains_vm_table_discrepancy(self):
         docs = published_platform("gpu-b300-sxm", "B300", "SXM", 288,
             [("1gpu-24vcpu-346gb", 1, 24, 346), ("8gpu-192vcpu-2768gb", 8, 192, 2768)], "eu-west2")

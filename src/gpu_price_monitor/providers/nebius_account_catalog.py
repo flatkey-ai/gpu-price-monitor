@@ -47,10 +47,33 @@ def _api_text(value) -> str:
 
 
 def _additional_platform(name: str, spec: dict, region: str) -> dict | None:
-    """Accept the exact provider-published GB300 configuration, not arbitrary
-    unfamiliar GPUs. The current authenticated project supplies its region;
-    the public product page alone establishes neither region nor availability.
+    """Validate provider identities missing from the public VM-types table.
+
+    Current project exposure establishes region, not stock or orderability.
+    The B300 SM variant's model and quantities come from explicit API fields;
+    it must not inherit the older B300 platform's RAM or region list.
     """
+    if (name == "gpu-b300-sxm-a"
+            and _api_text(spec.get("shortHumanReadableName")) == "NVIDIA B300 NVLink SM"
+            and _api_text(spec.get("humanReadableName")) == "NVIDIA B300 NVLink with Intel Granite Rapids SM"
+            and type(spec.get("gpuMemoryGigabytes")) is int and spec["gpuMemoryGigabytes"] == 270):
+        presets = []
+        for preset in spec["presets"]:
+            match = re.fullmatch(r"([1-9]\d*)gpu-([1-9]\d*)vcpu-([1-9]\d*)gb", preset.get("name", ""))
+            resources = preset.get("resources")
+            if (match is None or not isinstance(resources, dict)
+                    or any(type(resources.get(field)) is not int or resources[field] != int(value)
+                           for field, value in zip(("gpuCount", "vcpuCount", "memoryGibibytes"), match.groups()))):
+                return None
+            presets.append({"preset": preset["name"], "gpu_count": resources["gpuCount"],
+                            "vcpus": resources["vcpuCount"], "memory_gib": resources["memoryGibibytes"],
+                            "coverage_regions": [region]})
+        return {"platform_id": name, "gpu_model": "B300", "form_factor": "SXM", "vram_gb": 270,
+                "coverage_regions": [region], "presets": presets,
+                "identity_sources": [PLATFORMS_URL], "identity_basis": "official_project_platform_api",
+                "documentation_status": "platform_variant_not_listed",
+                "api_identity_fields": {key: spec[key] for key in
+                    ("humanReadableName", "shortHumanReadableName", "gpuMemoryGigabytes")}}
     if (name != "gpu-gb300" or _api_text(spec.get("shortHumanReadableName")) != "NVIDIA GB300 NVL72"
             or _api_text(spec.get("humanReadableName")) != "NVIDIA GB300 NVL72 with NVIDIA Grace"
             or type(spec.get("gpuMemoryGigabytes")) is not int or spec["gpuMemoryGigabytes"] != 279):
@@ -114,7 +137,7 @@ def identity_catalog(platforms: dict) -> dict:
 
 def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, *,
                      boot_disk_gib: int, currency: str) -> dict:
-    """Cross-check API presets with current documentation before estimating.
+    """Validate fresh API identities and cross-check current documentation.
 
     New or changed API presets are reported as gaps, not silently dropped or
     mapped to the nearest familiar GPU. CPU-only platforms are counted apart.
@@ -176,6 +199,11 @@ def discover_targets(platform_rows: list[dict], project: dict, platforms: dict, 
                         "source_urls": identity.get("identity_sources", [nebius_catalog_expanded.TYPES_URL.removesuffix(".md")]),
                         "api_gpu_memory_gb": spec.get("gpuMemoryGigabytes"),
                         "documented_gpu_memory_gb": documented["vram_gb"]}
+            if identity.get("documentation_status") == "platform_variant_not_listed":
+                evidence.update(documented_gpu_memory_gb=None,
+                                documentation_status=identity["documentation_status"],
+                                api_identity_fields=deepcopy(identity["api_identity_fields"]),
+                                api_preset_resources=deepcopy(resources))
             if (name == "gpu-b300-sxm" and documented["gpu_model"] == "B300"
                     and documented["vram_gb"] == 288 and spec.get("gpuMemoryGigabytes") == 270
                     and type(spec.get("gpuMemoryGigabytes")) is int
@@ -410,6 +438,8 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
                                            "不含本次未请求的网络及其他服务；库存、税项、最终订单价格未验证。"]
                     if "documentation_discrepancy" in identity_evidence:
                         quote["conditions"].append("显存按接口及产品页270 GB；VM类型文档仍写288 GB，保留此官方资料差异。")
+                    if identity_evidence.get("documentation_status") == "platform_variant_not_listed":
+                        quote["conditions"].append("该平台变体尚未列入公开VM规格表；型号、显存、卡数、CPU及内存均来自当前项目官方Platform接口，不套用其他平台配置。")
                     if resource["platform"] == "gpu-gb300":
                         quote["conditions"].append("GB300产品页要求联系销售；本次账号估价不证明自助可租或有库存。")
                     prices.append(quote)
