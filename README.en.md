@@ -1,5 +1,20 @@
 # GPU Price Monitor
 
+**Version 0.23.0 adds RunPod datacenter starting rates and opt-in member-first CSV.**
+RunPod uses anonymous official GraphQL queries without an API key or browser.
+Secure and Community are cloud tiers, not membership levels. Complete mode keeps
+datacenter minimum rates separate from unlocated catalog prices, with explicit
+country evidence. See [RunPod](docs/runpod.md) and [configuration](.env.runpod.example).
+Use `--format csv --prefer-member-prices` or `prices_to_csv(result, prefer_member=True)`
+to prefer a verified AutoDL member price over the matching ordinary price for
+the exact resource, configuration, region and capture. Eligibility remains labeled;
+ambiguous matches are unchanged. JSON retains both tiers for audit. The flag is CSV-only.
+
+Azure's anonymous Retail Prices API now covers 17 documented whole-GPU VM sizes
+across T4, A10, A100, H100, MI300X and GB200. Exact hardware specifications and
+regional retail rates are retained separately; fractional GPUs and undocumented
+sizes are excluded. This is not an exhaustive Azure catalog. See [Azure scope](docs/azure.md).
+
 **Version 0.22.0 fixes missing UCloud configuration quotes.** Small A800/H20
 configurations now follow the official console's Normal-network rule; eight-GPU
 configurations retain the enhanced mode. Explicitly empty P40 Singapore network

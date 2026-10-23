@@ -13,6 +13,7 @@ from . import __version__
 from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
 from .csv_export import market_eligible_quote, prices_to_csv, publishable_quote
 from .filters import normalize_filters
+from .member_prices import prefer_member_quotes
 from .settings import CATALOG_SCOPES, ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
 
 
@@ -85,12 +86,13 @@ def _print_json(result: dict, pretty: bool = False) -> None:
 
 
 def _print_collection(result: dict, output_format: str, pretty: bool = False, *, csv_headers: str = "bilingual",
-                      csv_profile: str = "market") -> None:
+                      csv_profile: str = "market", prefer_member: bool = False) -> None:
     if output_format == "csv":
         # Keep the promised encoding and CRLF bytes when redirected on Windows.
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", newline="")
-        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual", profile=csv_profile))
+        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual",
+                                      profile=csv_profile, prefer_member=prefer_member))
     else:
         _print_json(result, pretty)
 
@@ -122,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="CSV header labels: English identifiers with Chinese translations (default), or English only")
     collect.add_argument("--csv-profile", choices=("market", "catalog", "compact", "full"), default="market",
                          help="market: numeric GPU-hour quotes (default); catalog: hourly listings including floors and contact sales; compact: verified regional quotes only; full: all records for audit")
+    collect.add_argument("--prefer-member-prices", action="store_true",
+                         help="CSV only: prefer the explicitly labeled member tariff for exact AutoDL market API pairs; JSON retains all audit records")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
@@ -146,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
         collect.add_argument(f"--{option}", dest=name, action="append", type=int if name == "gpu_counts" else str)
     args = parser.parse_args(argv)
     try:
+        if (args.command == "collect" and args.prefer_member_prices and args.format != "csv"):
+            raise ConfigurationError("--prefer-member-prices requires --format csv; JSON retains all audit records.")
         if args.command == "lambda-login":
             from .lambda_login import save_lambda_session
             from .transport import FetchError
@@ -220,19 +226,26 @@ def main(argv: list[str] | None = None) -> int:
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
-        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers, csv_profile=args.csv_profile)
+        export_prices = (prefer_member_quotes(result["prices"])
+                         if args.prefer_member_prices else result["prices"])
+        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers,
+                          csv_profile=args.csv_profile, prefer_member=args.prefer_member_prices)
+        if args.prefer_member_prices:
+            print(f"CSV member preference: {len(result['prices']) - len(export_prices)} ordinary rows omitted "
+                  "for exact AutoDL member pairs; membership eligibility remains required. "
+                  "JSON collection results retain all audit records.", file=sys.stderr)
         if settings.catalog_scope == "complete":
             print("Complete mode covers the selected official rate catalogs and reservation conditions. "
                   "Inspect provider coverage and gaps for the actual collected scope.", file=sys.stderr)
         if args.format == "csv" and args.csv_profile == "market":
-            kept = sum(market_eligible_quote(q) for q in result["prices"])
-            regional = sum(publishable_quote(q) for q in result["prices"] if market_eligible_quote(q))
+            kept = sum(market_eligible_quote(q) for q in export_prices)
+            regional = sum(publishable_quote(q) for q in export_prices if market_eligible_quote(q))
             print(f"CSV market: {kept} numeric GPU-hour quotes ({regional} verified regional, "
                   f"{kept - regional} catalog); {len(result['prices']) - kept} records excluded. "
                   "Catalog prices do not establish regional or globally uniform pricing. "
                   "Use --csv-profile compact for regional quotes, full for audit.", file=sys.stderr)
         if args.format == "csv" and args.csv_profile == "compact":
-            kept = sum(publishable_quote(q) for q in result["prices"])
+            kept = sum(publishable_quote(q) for q in export_prices)
             print(f"CSV comparison: {kept} verified regional GPU-hour quotes; "
                   f"{len(result['prices']) - kept} collected records excluded. Use JSON or --csv-profile full for audit.", file=sys.stderr)
         for provider in result["provider_results"]:

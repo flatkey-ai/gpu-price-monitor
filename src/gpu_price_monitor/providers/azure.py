@@ -1,4 +1,4 @@
-"""Anonymous Azure retail rates for four explicitly documented GPU VM sizes.
+"""Anonymous Azure retail rates for explicitly documented whole-GPU VM sizes.
 
 Only base VM Consumption products are collected. Windows-license products,
 Low Priority, reservations, Dev/Test and savings-plan nested rates are outside
@@ -162,6 +162,81 @@ _SPECS = {
         "sku": "Standard_NC24ads_A100_v4",
         "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series",
     },
+    "Standard_NC8as_T4_v3": {
+        "gpu_model": "T4", "gpu_count": 1, "vram_gb": 16, "vcpus": 8, "memory_gib": 56,
+        "product": "Virtual Machines NCasT4 v3 Series", "meter": "NC8as T4 v3",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series",
+    },
+    "Standard_NC16as_T4_v3": {
+        "gpu_model": "T4", "gpu_count": 1, "vram_gb": 16, "vcpus": 16, "memory_gib": 110,
+        "product": "Virtual Machines NCasT4 v3 Series", "meter": "NC16asT4 v3",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series",
+    },
+    "Standard_NC64as_T4_v3": {
+        "gpu_model": "T4", "gpu_count": 4, "vram_gb": 16, "vcpus": 64, "memory_gib": 440,
+        "product": "Virtual Machines NCasT4 v3 Series", "meter": "NC64asT4 v3",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series",
+    },
+    "Standard_NC48ads_A100_v4": {
+        "gpu_model": "A100", "gpu_variant": "PCIe", "gpu_count": 2, "vram_gb": 80,
+        "vcpus": 48, "memory_gib": 440,
+        "product": "NCads A100 v4 Series Linux", "meter": "NC48ads_A100_v4",
+        "sku": "Standard_NC48ads_A100_v4",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series",
+    },
+    "Standard_NC96ads_A100_v4": {
+        "gpu_model": "A100", "gpu_variant": "PCIe", "gpu_count": 4, "vram_gb": 80,
+        "vcpus": 96, "memory_gib": 880,
+        "product": "NCads A100 v4 Series Linux", "meter": "NC96ads_A100_v4",
+        "sku": "Standard_NC96ads_A100_v4",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nca100v4-series",
+    },
+    "Standard_NC80adis_H100_v5": {
+        "gpu_model": "H100", "gpu_variant": "NVL", "gpu_count": 2, "vram_gb": 94,
+        "vcpus": 80, "memory_gib": 640,
+        "product": "Virtual Machines NCadsH100v5 Series", "meter": "NC80adisH100v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncadsh100v5-series",
+    },
+    "Standard_ND96asr_v4": {
+        "gpu_model": "A100", "gpu_count": 8, "vram_gb": 40, "vcpus": 96, "memory_gib": 900,
+        "product": "Virtual Machines NDasr A100 v4 Series", "meter": "ND96asr_A100_v4",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndasra100v4-series",
+    },
+    "Standard_ND96amsr_A100_v4": {
+        "gpu_model": "A100", "gpu_count": 8, "vram_gb": 80, "vcpus": 96, "memory_gib": 1900,
+        "product": "Virtual Machines NDamsr A100 v4 Series Linux", "meter": "ND96amsr A100 v4",
+        "sku": "Standard_ND96amsr_A100_v4",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndma100v4-series",
+    },
+    "Standard_ND96isr_H100_v5": {
+        "gpu_model": "H100", "gpu_count": 8, "vram_gb": 80, "vcpus": 96, "memory_gib": 1900,
+        "product": "Virtual Machines NDsr H100 v5 Series", "meter": "ND96isrH100v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndh100v5-series",
+    },
+    "Standard_ND96isr_MI300X_v5": {
+        "gpu_model": "MI300X", "gpu_vendor": "AMD", "gpu_count": 8, "vram_gb": 192,
+        "vcpus": 96, "memory_gib": 1850,
+        "product": "Virtual Machines NDMI300Xv5 Srs", "meter": "ND96isrMI300Xv5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndmi300xv5-series",
+    },
+    "Standard_NV36ads_A10_v5": {
+        "gpu_model": "A10", "gpu_count": 1, "vram_gb": 24, "vcpus": 36, "memory_gib": 440,
+        "product": "Virtual Machines NVadsA10v5 Series", "meter": "NV36ads A10 v5",
+        "sku": "Standard_NV36ads_A10_v5", "included_license": "NVIDIA GRID",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsa10v5-series",
+    },
+    "Standard_NV36adms_A10_v5": {
+        "gpu_model": "A10", "gpu_count": 1, "vram_gb": 24, "vcpus": 36, "memory_gib": 880,
+        "product": "Virtual Machines NVadsA10v5 Series", "meter": "NV36adms A10 v5",
+        "sku": "Standard_NV36adms_A10_v5", "included_license": "NVIDIA GRID",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsa10v5-series",
+    },
+    "Standard_NV72ads_A10_v5": {
+        "gpu_model": "A10", "gpu_count": 2, "vram_gb": 24, "vcpus": 72, "memory_gib": 880,
+        "product": "Virtual Machines NVadsA10v5 Series", "meter": "NV72ads A10 v5",
+        "sku": "Standard_NV72ads_A10_v5", "included_license": "NVIDIA GRID",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsa10v5-series",
+    },
 }
 
 
@@ -307,8 +382,13 @@ def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[di
         ]
         if mode == "spot":
             notes.append("Spot has separate interruption and capacity conditions; its published retail rate is not a guaranteed future price or available offer.")
+        if spec.get("included_license"):
+            notes.append("This NVadsA10 v5 instance includes a NVIDIA GRID license according to its hardware specification; fractional GPU sizes are excluded.")
+        if spec["gpu_model"] == "MI300X":
+            notes.append("192 GB is the documented nominal memory per MI300X accelerator; the specification lists 1,535 GB at VM level, not eight independently allocated memory amounts.")
         quote = {
             "provider": "azure", "product_type": "gpu_instance", "gpu_model": spec["gpu_model"],
+            "gpu_vendor": spec.get("gpu_vendor", "NVIDIA"),
             "gpu_variant": spec.get("gpu_variant"), "raw_name": meter, "raw_sku": arm_sku,
             "vram_gb": spec["vram_gb"], "gpu_count": spec["gpu_count"],
             "amount": format(amount, "f"), "currency": "USD", "unit": "gpu_hour",
@@ -330,6 +410,8 @@ def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[di
             "normalization": {"formula": "instance_price.amount / gpu_count", "rounding": "exact"},
             "notes": notes,
         }
+        if spec.get("included_license"):
+            quote["conditions"]["included_license"] = spec["included_license"]
         selected[identity] = (effective, quote)
     return [selected[key][1] for key in sorted(selected)]
 

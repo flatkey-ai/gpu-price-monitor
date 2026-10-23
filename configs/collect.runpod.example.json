@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "request": {"timeout_seconds": 30, "max_retries": 2},
+  "providers": [
+    {"id": "runpod", "enabled": true, "planned_source": "official_public_api", "filters": {}}
+  ]
+}

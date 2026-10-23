@@ -8,6 +8,8 @@ import io
 import json
 import re
 
+from .member_prices import prefer_member_quotes
+
 
 CSV_COLUMNS = (
     "provider", "product_type", "gpu_vendor", "gpu_model", "gpu_variant",
@@ -743,7 +745,8 @@ def _market_conditions(quote: dict, *, collection_status: object) -> str:
     return "；".join(parts)
 
 
-def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str = "market") -> str:
+def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str = "market",
+                  prefer_member: bool = False) -> str:
     """Return UTF-8-BOM CSV text with one row per returned quote and CRLF rows.
 
     The default market profile has ten readable columns and includes actual
@@ -755,9 +758,14 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     starting-price, contact-sales, monthly and explicitly unavailable listings
     are excluded. ``profile="compact"`` retains the stricter requirement for
     verified country and region evidence. ``profile="full"`` retains every
-    source record, the original 51-column schema and all metadata.
+    source record, the original 51-column schema and all metadata by default.
     ``profile="catalog"`` uses the same ten columns but also keeps explicitly
     labeled starting-price and contact-sales entries, with sales amounts blank.
+
+    ``prefer_member=True`` omits the ordinary row only for an unambiguous,
+    matching AutoDL market API member tariff. The member eligibility label is
+    retained. This applies to every CSV profile, including full when explicitly
+    requested; JSON collection results remain the complete audit record.
 
     Input order, native decimal strings, billing periods and source geography
     are retained. No currencies or month/hour units are converted. Null and
@@ -776,6 +784,8 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     ``MARKET_CSV_COLUMNS`` and ``MARKET_CSV_HEADERS`` describe the default;
     ``COMPACT_CSV_COLUMNS`` and ``COMPACT_CSV_HEADERS`` describe regional output.
     """
+    if type(prefer_member) is not bool:
+        raise ValueError("prefer_member must be boolean")
     if type(bilingual_headers) is not bool:
         raise ValueError("bilingual_headers must be boolean")
     if not isinstance(profile, str) or profile not in {"market", "compact", "full", "catalog"}:
@@ -789,7 +799,8 @@ def prices_to_csv(result: dict, *, bilingual_headers: bool = True, profile: str 
     headers = (CSV_HEADERS if profile == "full" else
                COMPACT_CSV_HEADERS if profile == "compact" else MARKET_CSV_HEADERS)
     writer.writerow(headers if bilingual_headers else columns)
-    for quote in result["prices"]:
+    quotes = prefer_member_quotes(result["prices"]) if prefer_member else result["prices"]
+    for quote in quotes:
         if not isinstance(quote, dict):
             raise ValueError("CSV price records must be objects")
         if profile in {"market", "compact", "catalog"}:
