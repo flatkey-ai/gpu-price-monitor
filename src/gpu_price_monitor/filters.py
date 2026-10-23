@@ -58,7 +58,7 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
                 supported.update({"coverage_regions", "coverage_countries"})
     if provider in {"lambda", "digitalocean", "verda", "azure"}:
         supported.add("gpu_counts")
-    if provider == "lambda" and settings is not None and settings.lambda_source == "console":
+    if provider == "lambda" and settings is not None and settings.lambda_source in {"console", "visible"}:
         supported.update({"regions", "compute_countries"})
     if provider == "azure":
         supported.update({"regions", "compute_countries"})
@@ -76,7 +76,7 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
     if (provider == "crusoe" and settings is not None and settings.catalog_scope == "complete"
             and settings.source_policy != "api_only" and settings.crusoe_source != "account"):
         supported.update({"coverage_regions", "coverage_countries"})
-    if provider == "lambda" and settings is not None and settings.lambda_source == "console":
+    if provider == "lambda" and settings is not None and settings.lambda_source in {"console", "visible"}:
         reason = ("Matched against the selectable countries/regions sharing this exact SKU's standard "
                   "console catalog price, after source-version verification; not an independent regional quotation.")
     return {

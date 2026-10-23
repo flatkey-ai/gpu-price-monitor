@@ -30,6 +30,9 @@ def _selected_module(provider: str, settings: Settings | None = None):
     if settings is None:
         return IMPLEMENTED_PROVIDERS.get(provider)
     prefer_api = settings.source_policy in {"api_preferred", "api_only"}
+    if provider == "lambda" and settings.lambda_source == "visible":
+        from .providers import lambda_visible
+        return lambda_visible
     if provider == "lambda" and settings.lambda_source == "console":
         from .providers import lambda_console_client
         return lambda_console_client
@@ -81,6 +84,8 @@ def _selected_module(provider: str, settings: Settings | None = None):
 def provider_source(provider: str, settings: Settings | None = None) -> str:
     """Return the selected source type without making any requests."""
     module = _selected_module(provider, settings)
+    if provider == "lambda" and settings is not None and settings.lambda_source == "visible":
+        return "mixed_official_sources"
     if provider == "lambda" and settings is not None and settings.lambda_source == "console":
         return "official_internal_api"
     if provider == "ucloud" and settings is not None and settings.ucloud_source == "console":
@@ -112,6 +117,15 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
 
 def _source_selection(provider: str, settings: Settings, module) -> dict:
     source = provider_source(provider, settings)
+    if provider == "lambda" and settings.lambda_source == "visible":
+        from .providers import lambda_console
+        return {"collection_method": "http_html_and_authenticated_http_json",
+                "selection_reason": "explicit_public_and_console_visible_catalogs",
+                "fallback_reason": None, "api_endpoint": lambda_console.INSTANCE_TYPES_URL,
+                "source_types": ["public_page", "official_internal_api"],
+                "additional_source_urls": [lambda_console.INSTANCE_TYPES_URL,
+                                           lambda_console.RESERVED_CLUSTER_TYPES_URL,
+                                           lambda_console.REGIONS_URL]}
     if provider == "nebius" and settings.nebius_source == "spot_api":
         from .providers import nebius_regions, nebius_spot
         return {"collection_method": "http_json_with_documented_location_metadata",
@@ -228,12 +242,22 @@ def _check_prices(prices: list[dict], provider: str, *, allow_empty: bool = Fals
 def _source_error(module, exc: Exception) -> dict:
     """Project safe source failures without exposing configuration values."""
     if isinstance(exc, FetchError):
-        error = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
+        error = _fetch_error(exc)
     elif isinstance(exc, ConfigurationError):
         error = {"code": "configuration_error", "message": str(exc), "retryable": False}
     else:
         error = {"code": "parse_failed", "message": "The source structure or price fields were not recognized.", "retryable": False}
     return {"source_url": module.SOURCE_URL, **error}
+
+
+def _fetch_error(exc: FetchError) -> dict:
+    error = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
+    # Only this explicitly bounded provider error carries public diagnostics.
+    # Never serialize arbitrary exception attributes or raw server responses.
+    from .providers.ucloud_console_session import UCloudAPIError
+    if isinstance(exc, UCloudAPIError):
+        error.update(exc.diagnostics)
+    return error
 
 
 def _record_outcome(result: dict, outcome: dict, module, *, supplement: bool = False) -> tuple[list[dict], list[dict]]:
@@ -484,7 +508,7 @@ def collect_prices(
                         q["unit"] == "gpu_hour" and q["quote_status"] == "quoted" and q["amount"] is not None
                         for q in quotes)
                     coverage["contact_sales_record_count"] = sum(q["quote_status"] == "contact_sales" for q in quotes)
-                    if provider == "lambda":
+                    if provider == "lambda" and settings.lambda_source != "visible":
                         result["gaps"].append({"scope": "negotiated_or_account_specific_prices",
                                                "status": "not_established_by_selected_catalog",
                                                "reason": "Public or API instance catalogs do not establish every account-specific agreement or sales-only price."})
@@ -533,7 +557,7 @@ def collect_prices(
             except ConfigurationError as exc:
                 result["error"] = {"code": "configuration_error", "message": str(exc), "retryable": False}
             except FetchError as exc:
-                result["error"] = {"code": exc.code, "message": str(exc), "retryable": exc.retryable}
+                result["error"] = _fetch_error(exc)
             except (ValueError, KeyError, TypeError, DecimalException):
                 result["error"] = {"code": "parse_failed", "message": "The source structure, dates or price fields were not recognized.", "retryable": False}
         # A filter was only applied if the source actually succeeded.
@@ -572,7 +596,7 @@ def collect_prices(
             "providers_with_quotes": [source["provider"] for source in results if source["market_quote_count"]],
         },
     }
-    if "lambda" in selected and settings.lambda_source == "console":
+    if "lambda" in selected and settings.lambda_source in {"console", "visible"}:
         from .providers.lambda_locations import validated_applicability_locations
         catalog_locations = [locations for quote in prices
                              if (locations := validated_applicability_locations(quote))]

@@ -43,6 +43,71 @@ def _price(text: str) -> tuple[str | None, str, str]:
     )
 
 
+def _table_rows(section) -> list[tuple]:
+    """Accept the observed row layout or the three-column CMS table.
+
+    The October 2026 CMS renders model, on-demand and spot as parallel lists.
+    Its public script sorts only lists with data-sort attributes. Require
+    explicit, unique model order values and unsorted price columns; never zip
+    unequal columns or borrow prices from adjacent inference sections.
+    """
+    rows = section.select(".pricing_gpu-item")
+    if not rows:
+        raise ValueError("Crusoe GPU instances pricing table contains no rows")
+    columns = rows[0].select(":scope > .w-dyn-list") if len(rows) == 1 else []
+    if not columns:
+        result = []
+        for row in rows:
+            names, prices = row.select(".pricing-item-heading"), row.select(".pricing-rich")
+            if len(names) != 1 or len(prices) != 2:
+                raise ValueError("Crusoe GPU instance row structure changed")
+            result.append((row, prices))
+        return result
+    if len(columns) != 3:
+        raise ValueError("Crusoe GPU CMS table must have model, on-demand and spot columns")
+    lists = []
+    for column in columns:
+        containers = column.select(":scope > .w-dyn-items")
+        if len(containers) != 1:
+            raise ValueError("Crusoe GPU CMS column structure changed")
+        items = containers[0].select(":scope > .w-dyn-item")
+        if not items or len(items) != len(containers[0].find_all(recursive=False)):
+            raise ValueError("Crusoe GPU CMS column contains missing or unrecognized rows")
+        lists.append(items)
+    if len({len(items) for items in lists}) != 1:
+        raise ValueError("Crusoe GPU CMS columns contain different row counts")
+    models, *price_columns = lists
+    ordered_models, seen_orders = [], set()
+    for model in models:
+        names = model.select(".pricing-item-heading")
+        order = model.get("data-sort-order", "")
+        if (len(names) != 1 or model.select(".pricing-rich")
+                or not re.fullmatch(r"[0-9]{1,8}(?:\.[0-9]{1,8})?", order)
+                or " ".join(model.get("data-sort-name", "").split()) != _text(names[0])):
+            raise ValueError("Crusoe GPU CMS model identity or sort order is unverified")
+        numeric_order = Decimal(order)
+        if numeric_order in seen_orders:
+            raise ValueError("Crusoe GPU CMS model order is ambiguous")
+        seen_orders.add(numeric_order)
+        ordered_models.append((numeric_order, model))
+    price_cells = []
+    for items in price_columns:
+        cells = []
+        for item in items:
+            prices = item.select(".pricing-rich")
+            if (len(prices) != 1 or item.select(".pricing-item-heading")
+                    or item.has_attr("data-sort-order") or item.has_attr("data-sort-name")):
+                raise ValueError("Crusoe GPU CMS price column identity or ordering changed")
+            cells.append(prices[0])
+        price_cells.append(cells)
+    # Also reject additional cells outside the validated three lists.
+    if (len(section.select(".pricing-item-heading")) != len(models)
+            or len(section.select(".pricing-rich")) != 2 * len(models)):
+        raise ValueError("Crusoe GPU CMS table contains unbound model or price cells")
+    return [(model, [price_cells[0][index], price_cells[1][index]])
+            for index, (_, model) in enumerate(sorted(ordered_models, key=lambda pair: pair[0]))]
+
+
 def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
     """Return public list prices, including explicit ``contact_sales`` entries.
 
@@ -68,17 +133,10 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
     columns = [_text(cell).casefold() for cell in header_rows[0].select(".pricing-heading")]
     if len(columns) != 3 or columns[0] != "gpu model" or set(columns[1:]) != set(_BILLING_MODES):
         raise ValueError("Crusoe GPU instances pricing columns changed")
-    rows = section.select(".pricing_gpu-item")
-    if not rows:
-        raise ValueError("Crusoe GPU instances pricing table contains no rows")
-
     result = []
     seen = set()
-    for row in rows:
+    for row, prices in _table_rows(section):
         names = row.select(".pricing-item-heading")
-        prices = row.select(".pricing-rich")
-        if len(names) != 1 or len(prices) != 2:
-            raise ValueError("Crusoe GPU instance row structure changed")
         raw_name = _text(names[0])
         model_name = re.sub(r"^(?:NVIDIA|AMD)\s+", "", raw_name, flags=re.IGNORECASE)
         heading_variants = [match.group() for match in _VARIANT.finditer(model_name)]

@@ -18,8 +18,8 @@ from . import transport
 from .lambda_session import CONSOLE_HTML_URL
 
 
-REVIEWED_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BYA5g9wz.js"
-REVIEWED_SHA256 = "e659ac4a2ead7c4002292657204d7f1341be99762c9157df3527fb2ef2e85a4f"
+REVIEWED_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js"
+REVIEWED_SHA256 = "becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c"
 _MAIN_PATH = re.compile(r"/static/cloud-app/assets/main-[A-Za-z0-9_-]+\.js\Z")
 
 

@@ -37,6 +37,40 @@ _HEADER_VALUE = re.compile(r"[\x21-\x7e]+\Z")
 _PARAMETER_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_.]*\Z")
 
 
+class UCloudAPIError(FetchError):
+    """A provider rejection with bounded, non-account-specific diagnostics.
+
+    RetCode identifies a rejection for later investigation; it does not prove
+    a particular cause such as quota, stock or an invalid configuration. Never
+    retain Message, request identifiers, request parameters or the response.
+    """
+
+    def __init__(self, action: str, retcode: int):
+        if (not isinstance(action, str) or action not in ALLOWED_ACTIONS
+                or not _valid_retcode(retcode) or retcode == 0):
+            raise ValueError("Invalid UCloud diagnostic fields.")
+        if retcode in {170, 172, 174}:
+            code = "authentication_error"
+            message = "UCloud rejected the exported session; sign in and export it again."
+        else:
+            code = "provider_rejected"
+            message = "UCloud rejected the catalog or price request."
+        super().__init__(code, message)
+        self.provider_action = action
+        self.provider_retcode = retcode
+
+    @property
+    def diagnostics(self) -> dict[str, str | int]:
+        return {"provider_action": self.provider_action,
+                "provider_retcode": self.provider_retcode}
+
+
+def _valid_retcode(value: object) -> bool:
+    # Preserve only a protocol-sized integer, not a string or arbitrary numeric
+    # payload that could carry account data under a misleading field name.
+    return type(value) is int and -(2 ** 31) <= value < 2 ** 31
+
+
 def _invalid_session() -> FetchError:
     return FetchError("session_invalid", "UCLOUD_SESSION_PATH must identify a private, minimal UCloud console session JSON file.")
 
@@ -185,14 +219,12 @@ class UCloudConsoleSession:
         payload = request_json(API_URL + "?Action=" + action, settings, method="POST",
                                headers=headers, data=data, authenticated=True,
                                max_response_bytes=MAX_RESPONSE_BYTES)
-        if not isinstance(payload, dict) or type(payload.get("RetCode")) is not int:
+        if not isinstance(payload, dict) or not _valid_retcode(payload.get("RetCode")):
             raise FetchError("invalid_response", "UCloud returned an unexpected response structure.")
         code = payload["RetCode"]
-        if code in {170, 172, 174}:
-            raise FetchError("authentication_error", "UCloud rejected the exported session; sign in and export it again.")
         if code != 0:
             # Provider messages may contain session or account data; do not echo.
-            raise FetchError("provider_rejected", "UCloud rejected the catalog or price request.")
+            raise UCloudAPIError(action, code)
         return payload
 
 

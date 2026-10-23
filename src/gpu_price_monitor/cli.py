@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--source-policy", choices=SOURCE_POLICIES, default=None,
                              help="configured sources (default), prefer available APIs, or require APIs only")
         command.add_argument("--catalog-scope", choices=CATALOG_SCOPES, default=None,
-                             help="standard (default), or complete: include official tariff calculations and reserved conditions; account and sales-only gaps remain")
+                             help="standard (default), or complete: include broader official rate catalogs and reservation conditions; inspect source coverage limits")
     collect.add_argument("--providers", "--provider", help="comma-separated provider names, or all; defaults to ENV")
     collect.add_argument("--config", type=Path, help="collection configuration; only enabled providers may run")
     collect.add_argument("--format", choices=("json", "csv"), default="json",
@@ -126,8 +126,8 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--coverage", action="store_true", help="include GPU family coverage in JSON output")
     collect.add_argument("--timeout", type=float, help="per-request timeout in seconds")
     collect.add_argument("--max-retries", type=int)
-    collect.add_argument("--lambda-source", choices=("public", "api", "console"),
-                         help="Lambda public page, keyed API, or read-only console JSON using your own saved login session")
+    collect.add_argument("--lambda-source", choices=("public", "api", "console", "visible"),
+                         help="Lambda public page, keyed API, console JSON, or visible: reconcile public and console catalogs with source labels")
     collect.add_argument("--ucloud-source", choices=("public", "api", "console"),
                          help="UCloud source: public promotions, keyed API targets, or UHost console catalog using UCLOUD_SESSION_PATH")
     collect.add_argument("--nebius-source", choices=("public", "api", "catalog_api", "spot_api"),
@@ -188,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             print("AutoDL source: " + settings.autodl_source)
             print("Crusoe source: " + settings.crusoe_source)
             if settings.catalog_scope == "complete":
-                print("Complete mode includes official tariff calculations and reserved conditions; account-specific and sales-only prices may remain unavailable.")
+                print("Complete mode covers the selected official rate catalogs and reservation conditions; inspect each source's coverage limits.")
             print(f"Request options: timeout={settings.timeout_seconds:g}s, max_retries={settings.max_retries}")
             print("No requests were made. Scheduling, storage and uploads belong to the caller.")
             return 0
@@ -222,8 +222,8 @@ def main(argv: list[str] | None = None) -> int:
                                 include_coverage=args.coverage)
         _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers, csv_profile=args.csv_profile)
         if settings.catalog_scope == "complete":
-            print("Complete mode includes official tariff calculations and reserved conditions. "
-                  "Inspect provider coverage and gaps; account-specific and sales-only prices may remain unavailable.", file=sys.stderr)
+            print("Complete mode covers the selected official rate catalogs and reservation conditions. "
+                  "Inspect provider coverage and gaps for the actual collected scope.", file=sys.stderr)
         if args.format == "csv" and args.csv_profile == "market":
             kept = sum(market_eligible_quote(q) for q in result["prices"])
             regional = sum(publishable_quote(q) for q in result["prices"] if market_eligible_quote(q))

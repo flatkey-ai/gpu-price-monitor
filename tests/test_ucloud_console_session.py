@@ -153,9 +153,40 @@ class UCloudConsoleSessionTests(TestCase):
                               ({"RetCode": 123, "Message": COOKIE}, "provider_rejected"),
                               ({"RetCode": False}, "invalid_response"),
                               ({"RetCode": "0"}, "invalid_response"),
+                              ({"RetCode": 2 ** 31}, "invalid_response"),
+                              ({"RetCode": -(2 ** 31) - 1}, "invalid_response"),
                               ({"Message": COOKIE}, "invalid_response")):
             transport.return_value = payload
             with self.subTest(code=code, retcode=payload.get("RetCode")), self.assertRaises(FetchError) as caught:
                 session.request("ListRegions", settings=Settings())
             self.assertEqual(caught.exception.code, code)
             self.assertNotIn("synthetic-private-session", str(caught.exception))
+
+    @patch.object(api, "request_json")
+    def test_provider_diagnostics_retain_only_action_and_numeric_retcode(self, transport):
+        secrets = (COOKIE, "account-private@example.test", "PRIVATE-KEY-SHOULD-NOT-ESCAPE")
+        session = api.UCloudConsoleSession(COOKIE)
+        for retcode, category in ((9999, "provider_rejected"), (172, "authentication_error")):
+            transport.return_value = {
+                "RetCode": retcode, "Message": " ".join(secrets),
+                "Action": " ".join(secrets), "request_uuid": secrets[1],
+                "Error": {"Details": secrets, "provider_action": secrets[1]},
+            }
+            with self.subTest(retcode=retcode), self.assertRaises(api.UCloudAPIError) as caught:
+                session.request("GetUHostInstancePrice", {"Region": "cn-bj2"}, settings=Settings())
+            error = caught.exception
+            self.assertEqual(error.code, category)
+            self.assertFalse(error.retryable)
+            self.assertEqual(error.diagnostics, {"provider_action": "GetUHostInstancePrice",
+                                                 "provider_retcode": retcode})
+            self.assertEqual(set(vars(error)), {"code", "retryable", "provider_action", "provider_retcode"})
+            exported = str(error) + repr(error) + json.dumps(vars(error)) + json.dumps(error.diagnostics)
+            for secret in secrets:
+                self.assertNotIn(secret, exported)
+
+    def test_api_diagnostic_error_rejects_unreviewed_actions_and_non_numeric_codes(self):
+        for action, retcode in (("CreateUHostInstance", 123), ("secret-action", 123),
+                                ([], 123), ("ListRegions", "123"), ("ListRegions", True),
+                                ("ListRegions", 0), ("ListRegions", 2 ** 31)):
+            with self.subTest(action=action, retcode=retcode), self.assertRaises(ValueError):
+                api.UCloudAPIError(action, retcode)

@@ -11,6 +11,7 @@ from unittest.mock import patch
 from gpu_price_monitor.providers import ucloud_console as provider
 from gpu_price_monitor.providers.ucloud_console_catalog import build_catalog_targets
 from gpu_price_monitor.providers.ucloud_console_image import select_image_and_disk
+from gpu_price_monitor.providers.ucloud_console_session import UCloudAPIError
 from gpu_price_monitor.settings import Settings
 from gpu_price_monitor.transport import FetchError
 
@@ -196,6 +197,44 @@ class UCloudConsoleTests(unittest.TestCase):
             self.assertEqual(quote["account_project_scope"], "api_default_project")
             self.assertTrue(any("Current stock was not verified" in note for note in quote["notes"]))
             self.assertFalse(any("Availability was checked" in note for note in quote["notes"]))
+
+    def test_provider_return_codes_survive_all_failed_stages_without_response_messages(self):
+        for stage, expected_action in (("image", "DescribeImage"), ("market_image", "DescribeImage"),
+                                       ("availability", "DescribeUHostMachineTypeAvailableZones"),
+                                       ("quote", "GetUHostInstancePrice")):
+            with self.subTest(stage=stage):
+                session = FakeSession()
+                original = session.request
+
+                def request(action, params=None, *, settings):
+                    reject = False
+                    if stage in {"image", "market_image"} and action == "DescribeImage" and params["Region"] == "region-us":
+                        if stage == "market_image" and params.get("ImageType") != "Business":
+                            return {"RetCode": 0, "ImageSet": [], "TotalCount": 0}
+                        reject = True
+                    if stage == "availability" and action == "DescribeUHostMachineTypeAvailableZones":
+                        reject = True
+                    if stage == "quote" and action == "GetUHostInstancePrice" and params["Zone"] == "region-cn-02":
+                        reject = True
+                    if reject:
+                        error = UCloudAPIError(action, 9999)
+                        # Even a changed exception message is never propagated
+                        # into the result; only the explicit diagnostics survive.
+                        error.args = (PRIVATE_MARKER,)
+                        raise error
+                    return original(action, params, settings=settings)
+
+                session.request = request
+                result = collect(session)
+                self.assertEqual(result["status"], "partial")
+                self.assertEqual(len(result["prices"]), 3 if stage == "availability" else 2)
+                self.assertGreater(len(result["gaps"]), 0)
+                for gap in result["gaps"]:
+                    self.assertEqual(gap["provider_retcode"], 9999)
+                    self.assertEqual(gap["provider_action"], expected_action)
+                    self.assertFalse(gap["retryable"])
+                    self.assertNotIn("message", gap)
+                self.assertNotIn(PRIVATE_MARKER, json.dumps(result))
 
     def test_real_zone_conditions_generate_independent_hourly_prices(self):
         session = FakeSession()
