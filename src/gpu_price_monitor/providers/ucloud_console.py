@@ -19,7 +19,7 @@ from ..transport import FetchError
 from . import ucloud
 from .ucloud_console_catalog import build_catalog_targets
 from .ucloud_console_image import select_image_and_disk
-from .ucloud_console_session import UCloudConsoleSession, PRICING_PAGE
+from .ucloud_console_session import UCloudAPIError, UCloudConsoleSession, PRICING_PAGE
 
 SOURCE_URL = "https://api.ucloud.cn?Action=GetUHostInstancePrice"
 SOURCE_TYPE = "official_internal_api"
@@ -155,7 +155,11 @@ def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=
             return payload, None, completed_at
         except (FetchError, ValueError, TypeError, KeyError) as exc:
             code = exc.code if isinstance(exc, FetchError) else "parse_failed"
-            return None, {"code": code, "message": "UCloud catalog/quote request did not produce verified data.", "retryable": getattr(exc, "retryable", False)}, None
+            error = {"code": code, "message": "UCloud catalog/quote request did not produce verified data.",
+                     "retryable": getattr(exc, "retryable", False)}
+            if isinstance(exc, UCloudAPIError):
+                error["diagnostics"] = exc.diagnostics
+            return None, error, None
     region_names = sorted({target.request["Region"] for target in targets})
     configs = {_identity(_availability_request(target)): _availability_request(target) for target in targets}
     # Bounded concurrency; each worker has an independent urllib request. The
@@ -169,7 +173,8 @@ def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=
         for target in targets:
             image_payload, image_error, _ = image_results[target.request["Region"]]
             if image_error:
-                gaps.append({**_scope(target), "status": image_error["code"], "retryable": bool(image_error.get("retryable"))})
+                gaps.append({**_scope(target), "status": image_error["code"], "retryable": bool(image_error.get("retryable")),
+                             **image_error.get("diagnostics", {})})
                 continue
             availability = "unknown"
             if settings.ucloud_check_availability:
@@ -181,7 +186,8 @@ def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=
                 except (ValueError, KeyError, TypeError):
                     gaps.append({**_scope(target), "status": "availability_not_verified",
                                  "retryable": bool(available_error and available_error.get("retryable")),
-                                 "reason": "Stock could not be verified; a valid catalog configuration may still be quoted."})
+                                 "reason": "Stock could not be verified; a valid catalog configuration may still be quoted.",
+                                 **((available_error or {}).get("diagnostics", {}))})
             configuration_error = None
             try:
                 try:
@@ -199,11 +205,13 @@ def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=
             except (ValueError, KeyError, TypeError):
                 gaps.append({**_scope(target), "status": "configuration_not_verified",
                              "retryable": bool(configuration_error and configuration_error.get("retryable")),
-                             "reason": "Compatible image/disk could not be verified."})
+                             "reason": "Compatible image/disk could not be verified.",
+                             **((configuration_error or {}).get("diagnostics", {}))})
         jobs = [("GetUHostInstancePrice", _wire(target.request | selected.request)) for target, selected, _ in prepared]
         for (target, selected, availability), (payload, error, completed_at) in zip(prepared, pool.map(safe_read, jobs)):
             if error:
-                gaps.append({**_scope(target), "status": error["code"], "retryable": bool(error.get("retryable"))})
+                gaps.append({**_scope(target), "status": error["code"], "retryable": bool(error.get("retryable")),
+                             **error.get("diagnostics", {})})
                 continue
             try:
                 quote = parse_console_quote(payload, target, selected, availability=availability,

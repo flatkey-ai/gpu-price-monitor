@@ -12,6 +12,7 @@ dist/
 !.env.five.example
 !.env.three.example
 !.env.lambda.example
+!.env.lambda-visible.example
 !.env.nebius.example
 !.env.crusoe.example
 configs/*.local.json

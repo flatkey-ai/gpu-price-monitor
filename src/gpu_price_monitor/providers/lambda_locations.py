@@ -11,9 +11,9 @@ from __future__ import annotations
 from copy import deepcopy
 
 
-FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BYA5g9wz.js"
-FRONTEND_SOURCE_SHA256 = "e659ac4a2ead7c4002292657204d7f1341be99762c9157df3527fb2ef2e85a4f"
-VERIFIED_ON = "2026-10-22"
+FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js"
+FRONTEND_SOURCE_SHA256 = "becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c"
+VERIFIED_ON = "2026-10-23"
 _CONSOLE_CATALOG_URLS = (
     "https://cloud.lambda.ai/api/internal/dashboard/v1/instance-types",
     "https://cloud.lambda.ai/api/internal/dashboard/v1/cluster-types/reserved",
@@ -95,9 +95,9 @@ def enrich_price_applicability(quote: dict) -> dict:
 
     product = quote.get("product_type")
     display_basis = (
-        "The cluster frontend VF selects price_cents_per_gpu_hour; region selection only updates selected-region state."
+        "The cluster frontend GF selects price_cents_per_gpu_hour; region selection only updates selected-region state."
         if product == "gpu_cluster" else
-        "The standard instance frontend $U displays the SKU price loaded by aW; Me changes the selected region without requesting a new regional price."
+        "The standard instance frontend rW displays the SKU price loaded by lW; uW's region selector only changes selected-region state without requesting a new regional price."
     )
     result = deepcopy(quote)
     result["price_applicability"] = {

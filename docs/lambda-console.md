@@ -4,7 +4,7 @@
 
 **0.16.0 补充国家、地区与统一目录价的适用范围**。同一 SKU 在控制台所列可选标准地区共享一个目录价，主表会写出具体国家、地区中文名及 region code。只描述该规格当前列出的地区，不扩大为全国或全球统一价，也不将一条目录价复制为多个独立地区报价。预留期限、税费、合同折扣与最终购买价仍须另行确认。
 
-本轮验证：2026-10-22 **11:21:12（北京时间，UTC+8）**，独立 Python / HTTP 采集为 `success`，当前官方前端版本核对通过。读取 36 条 GPU 目录报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）；主表为 **19 条：5 个当前可选按需规格、14 个集群配置**，其余 17 条当前无可选标准地区。另审计排除 2 个 CPU 规格。该批当前可选报价均在美国；地区元数据虽有 18 个地区、6 个国家，不能把无对应可选 SKU 的国家补成报价。库存和行数随采集时间变化，JSON 保留完整目录与排除原因。
+本轮验证：2026-10-23 **10:57:39（北京时间，UTC+8）**，独立 Python / HTTP 采集为 `success`，当前官方前端版本重新核对通过。读取 36 条 GPU 目录报价：22 个按需实例规格、14 个预留集群配置（6 个型号/费率档）；主表为 **17 条：3 个当前可选按需规格、14 个集群配置**，其余 19 条当前无可选标准地区。另审计排除 2 个 CPU 规格。该批当前可选报价覆盖美国和印度；A100 SXM4 单卡列有 `asia-south-1`（India）。地区元数据虽有 18 个地区、6 个国家，不能把无对应可选 SKU 的国家补成报价。库存和行数随采集时间变化，JSON 保留完整目录与排除原因。
 
 这些是控制台内部接口，可能变更，不是承诺稳定的公开云 API。价格和地区数据来自下列 GET：
 
@@ -52,6 +52,37 @@ print(result["status"])
 csv_text = prices_to_csv(result)  # UTF-8 BOM，中英双语 10 列
 ```
 
+## 官网与当前账号一起核对
+
+`LAMBDA_SOURCE=visible` 独立读取官网公开价格页以及上述三个登录目录，不需要新增密钥或购买资源。也可以保留原 `.env.lambda.local`，用 CLI 覆盖选择：
+
+```bash
+gpu-price-monitor collect --providers lambda --env-file .env.lambda.local --lambda-source visible --source-policy configured --pretty > lambda-visible.json
+gpu-price-monitor collect --providers lambda --env-file .env.lambda.local --lambda-source visible --source-policy configured --format csv > lambda-region-prices.csv
+gpu-price-monitor collect --providers lambda --env-file .env.lambda.local --lambda-source visible --source-policy configured --format csv --csv-profile catalog > lambda-visible-catalog.csv
+```
+
+Python 使用相同设置：
+
+```python
+from dataclasses import replace
+from gpu_price_monitor import Settings, collect_prices
+
+settings = replace(Settings.from_env(env_file=".env.lambda.local"),
+                   lambda_source="visible", source_policy="configured")
+result = collect_prices(["lambda"], settings=settings)
+coverage = result["provider_results"][0]["catalog_coverage"]
+print(coverage["reconciliation"])
+```
+
+这里显式使用 `configured`，因为原 `.env.lambda.local` 可能设置为 `api_only`；后者按设计禁止读取公开网页，与双来源模式不兼容。
+
+2026-10-23 10:57:39 本轮，官网共 30 行：**28 条有价记录（22 按需、6 预留）**，2 条只有销售询价、没有金额，排除出价格结果；登录目录为 **36 条**。合计 **64 条来源记录**，不是 64 种互不重复的配置。公开的 4×B200 **6.79 USD / GPU / 小时**已保留，当前账号目录没有同型号、同卡数的候选行；官网没有注明地区，因此不会借用其他 B200 卡数的地区补入主表。
+
+两个来源同时展示的价格不自动去重或覆盖。对账只用型号和卡数挑选候选，再逐项比较版本、显存、CPU、RAM、磁盘和单价；同价不代表同规格。例如本轮 H100 PCIe 单卡公开页为 225 GiB RAM，账号为 200 GiB RAM，程序将差异写入 `catalog_coverage.reconciliation.on_demand_checks`，各自的原值、来源及地区范围保持独立。磁盘仅按明确 GiB/TiB 单位做精确转换，不把近似展示值四舍五入成相同规格。公开集群的预留期限与卡数档位也保留，不能和未核实预留期限的账号集群合并。
+
+`visible_source` 和 `visible_record_id` 区分来源记录；`requested_sources_collected` 只说明本次指定页面/目录全部读取成功，不代表整个产品中所有可能页面、功能开关或账号权限都已核查。会话失效仍返回 `partial` 和明确错误，不会用官网成功掩盖账号失败。主表继续只收已核实适用国家地区的报价；完整来源目录通过 JSON、`catalog`、`full` 查看。没有公开金额的销售询价、私下合同、购买资源后才能看到的价格不属于此模式的采集范围。
+
 会话过期、权限不足或字段变化会明确报错，不换成旧快照或官网价冒充成功。三个目录分别处理，某一项失败时保留其他成功结果；尚有成功价格时状态为 `partial`，仅地区元数据成功而两个价格目录均失败时，价格采集仍为 `failed`。登录失效时，请重新登录并保存到新文件，再更新 env 路径。
 
 ## 如何读价格
@@ -74,6 +105,8 @@ csv_text = prices_to_csv(result)  # UTF-8 BOM，中英双语 10 列
 
 JSON 将共享目录价范围另存于 `price_applicability`、`applicable_regions` 与 `applicable_countries`。`regions`、`compute_countries` 仍为空，`region_price_verified=false`，因为没有取得逐地区独立报价。`--country` / `--region` 在 Lambda console 模式匹配该 SKU 经核实的共享价适用地区；联合筛选必须由同一个地区条目同时满足。筛选不会扩大范围或改变报价金额。`compact` 继续要求独立地区价格证据，因此不收录这些共享目录报价。
 
-公开页与登录目录会有差异：本轮公开页列出 4×B200，账号目录没有该配置；账号目录另外列出两个不同 V100 SKU。各自来源分别保留，不把公开页数据插入接口结果。`provider_results` 的目录覆盖仍标 `all_prices_complete=false`；所有合同折扣、容量预留或最终结算价不能宣称已全部获取。
+公开页与登录目录会有差异：本轮公开页列出 4×B200，账号目录没有该配置；账号目录另外列出两个不同 V100 SKU。`console` 只保留接口自身的记录；`visible` 同时保留两种来源及对账结果。`provider_results` 的目录覆盖仍标 `all_prices_complete=false`，不会把范围之外的销售询价或未证实账号可见的功能报价算作已完成。
+
+2026-10-23 前端证据复核：[当前主脚本](https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js) 的 SHA-256 为 `becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c`。`lW` 读取实例目录、`rW` 展示 `price_cents_per_hour` 及按卡数分摊的价格，`uW` 的标准地区选择不更新金额或另发地区询价；专用地区隐藏标准目录价格。集群 `GF` 读取 `price_cents_per_gpu_hour`，地区选择只改地区状态。[对应 common 脚本](https://cloud.lambda.ai/static/cloud-app/assets/common-DirxWaW8.js) 的 `Br` 导出仍按美分除以 100 展示美元。更新此证据前，新版本已被程序正确标记为地区未核实；以后未知版本仍会如此处理。
 
 官网对照：[公开价格](https://lambda.ai/pricing)、[1-Click Clusters](https://lambda.ai/1-click-clusters)、[计费说明](https://docs.lambda.ai/public-cloud/billing/)、[公开 API 文档](https://docs.lambda.ai/api/cloud)。

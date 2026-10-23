@@ -1,5 +1,27 @@
 # GPU Price Monitor
 
+**Version 0.21.0 adds public/account-visible Lambda reconciliation.** Select
+`LAMBDA_SOURCE=visible` with `configured` or `api_preferred` to collect both the
+official public price page and your own console catalogs. Every source observation
+is retained separately; model, GPU count, CPU, memory, storage and rates are compared
+without merging different configurations or borrowing geography. Record totals are
+not deduplicated offer counts. Unpriced sales inquiries are excluded. See the
+[configuration template](.env.lambda-visible.example) and [guide](docs/lambda-console.md).
+`api_only` rejects this mixed HTML/API mode before collection.
+In `visible` mode the default market CSV requires verified country/region
+applicability; public offers without that evidence remain in JSON and the
+catalog/full exports without borrowing locations from console offers.
+
+The current coverage audit targets only official public and current-account-visible
+GPU-hour rates, not unpublished sales or private contracts. Unknown geography is
+not made globally uniform, and historical snapshots never replace a failed live
+capture. UCloud errors now retain bounded official action/return codes for diagnosis
+without exposing raw account responses.
+
+Crusoe public collection now supports the official three-column CMS table,
+validating model and rate alignment and failing on unexpected structure instead
+of reusing historical prices.
+
 **Version 0.20.0 adds UCloud UHost console-session collection**, for the GPU configuration product in the supplied document: set `UCLOUD_SOURCE=console` and `UCLOUD_SESSION_PATH`. It reads official country, region, zone and GPU configuration directories and requests hourly configuration quotes using standalone Python HTTP. Stock remains unknown by default; set `UCLOUD_CHECK_AVAILABILITY=true` for an additional inventory check. Collection needs no browser or LLM. UHost remains distinct from CompShare. The baseline prefers Base Linux images, falling back to an officially compatible preinstalled GPU Linux image only with a verified zero image fee. See the [session, scope and price guide](docs/ucloud-console.md).
 
 Version 0.18 completes live verification of the Nebius account catalog.

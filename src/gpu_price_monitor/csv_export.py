@@ -190,6 +190,11 @@ def _lambda_console_applicability_record(quote: dict) -> bool:
             and "price_applicability" in quote)
 
 
+def _lambda_visible_record(quote: dict) -> bool:
+    return (quote.get("provider") == "lambda"
+            and quote.get("visible_source") in {"public", "console"})
+
+
 def _lambda_shared_catalog_locations(quote: dict) -> list[dict] | None:
     # One helper supplies the adapter, filtering and export contract. Capacity
     # alone does not supply applicability, a country or a uniform price claim.
@@ -208,6 +213,10 @@ def market_eligible_quote(quote: object) -> bool:
     """
     if not _hourly_catalog_price(quote):
         return False
+    if _lambda_visible_record(quote):
+        # Reconciliation may discover a public-only offer without location
+        # evidence. Keep it in the catalog, not the region comparison table.
+        return publishable_quote(quote) or bool(_lambda_shared_catalog_locations(quote))
     if _lambda_console_applicability_record(quote):
         return bool(_lambda_shared_catalog_locations(quote))
     return True
@@ -226,7 +235,7 @@ def catalog_eligible_record(quote: object) -> bool:
         return False
     # An unavailable or unlocated Lambda SKU is still a genuine catalog rate.
     # Preserve it here without relaxing numeric, period or status validation.
-    if _lambda_console_applicability_record(quote) and _hourly_catalog_price(quote):
+    if (_lambda_console_applicability_record(quote) or _lambda_visible_record(quote)) and _hourly_catalog_price(quote):
         return True
     if (quote.get("product_type") not in {"gpu_instance", "gpu_container", "gpu_cluster"}
             or not isinstance(quote.get("gpu_model"), str) or not quote["gpu_model"].strip()

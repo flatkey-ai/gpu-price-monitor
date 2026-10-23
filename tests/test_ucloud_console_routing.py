@@ -14,6 +14,7 @@ from gpu_price_monitor.collector import _selected_module, provider_source
 from gpu_price_monitor import providers
 from gpu_price_monitor.providers import ucloud, ucloud_compshare, ucloud_public
 from gpu_price_monitor.transport import FetchError
+from gpu_price_monitor.providers.ucloud_console_session import UCloudAPIError
 
 OBSERVED = "2026-10-22T10:00:00+00:00"
 SOURCE_URL = "https://api.ucloud.cn?Action=GetUHostInstancePrice"
@@ -123,6 +124,15 @@ class UCloudConsoleRoutingTests(TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["prices"], [])
         self.assertEqual(result["provider_results"][0]["source_errors"][0]["code"], "incomplete_catalog")
+
+    def test_top_level_directory_rejection_retains_only_safe_diagnostics(self):
+        self.adapter.collect_result.side_effect = UCloudAPIError("ListRegions", 170)
+        result = collect_prices(["ucloud"], settings=Settings(ucloud_source="console"))
+        error = result["provider_results"][0]["error"]
+        self.assertEqual(error["provider_action"], "ListRegions")
+        self.assertEqual(error["provider_retcode"], 170)
+        self.assertEqual(error["code"], "authentication_error")
+        self.assertEqual(set(error), {"provider_action", "provider_retcode", "code", "message", "retryable"})
 
     def test_cli_accepts_console_source_and_status_exposes_no_session_path(self):
         with patch.dict(os.environ, {"UCLOUD_SESSION_PATH": "/private/synthetic-session.json"}, clear=True), \

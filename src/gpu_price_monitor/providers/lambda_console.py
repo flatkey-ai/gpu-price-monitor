@@ -20,12 +20,12 @@ AUTH_KIND = "session"
 INSTANCE_TYPES_URL = SOURCE_URL + "/instance-types"
 RESERVED_CLUSTER_TYPES_URL = SOURCE_URL + "/cluster-types/reserved"
 REGIONS_URL = SOURCE_URL + "/regions"
-FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BYA5g9wz.js"
-FRONTEND_COMMON_URL = "https://cloud.lambda.ai/static/cloud-app/assets/common-G9MAKrEE.js"
+FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js"
+FRONTEND_COMMON_URL = "https://cloud.lambda.ai/static/cloud-app/assets/common-DirxWaW8.js"
 CLOUD_TERMS_URL = "https://lambda.ai/legal/terms-of-service"
 BILLING_URL = "https://docs.lambda.ai/public-cloud/billing/"
 AUTH_DOCUMENTATION_URL = "https://docs.lambda.ai/public-cloud/access-security/"
-SCHEMA_VERIFIED_ON = "2026-10-22"
+SCHEMA_VERIFIED_ON = "2026-10-23"
 _SAFE_INTEGER_MAX = 2**53 - 1
 
 

@@ -2,6 +2,14 @@
 
 面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.21.0 增加 Lambda 官网与登录目录对账**：`LAMBDA_SOURCE=visible` 同时读取公开价格页和本人登录后可见目录，保留两套来源，比较型号、卡数、CPU、内存、磁盘与金额。不同来源不自动合并，也不借用另一来源的地区；报价条数是来源记录数，不是去重后的配置数。无数值的销售询价不进入此模式价格结果。使用 [配置模板](.env.lambda-visible.example) 与 [说明](docs/lambda-console.md)，`--source-policy configured` 或 `api_preferred`；`api_only` 不允许混入公开 HTML。
+
+本轮核对范围仅为官网公开、当前登录账号可见的 GPU 小时报价，未公开销售价和私人合同不作为补全目标。价格与国家地区分别核实，未确认地区不填“统一价”；失败批次不读取历史样本充当当前报价。UCloud 请求失败现在保留安全的官方操作名和错误码，便于对照网页诊断。
+
+Crusoe 公开价解析已适配官网新的三列 CMS 表格，并校验型号与两类价格的对应关系；结构不匹配会报错，不使用旧报价。
+
+Lambda `visible` 的默认 `market` CSV 只显示国家地区有证据的报价；官网有价但未说明地区的条目保留在 JSON 和 `catalog` / `full` 中。不会为了让公开页新增型号进入地区表而复制登录目录中的地区。
+
 **0.20.0 新增 UCloud UHost 登录态接口采集**，对应原文档的 GPU 配置报价页：显式设置 `UCLOUD_SOURCE=console` 与 `UCLOUD_SESSION_PATH`，程序读取官方国家 / 地区 / 可用区和 GPU 配置目录，逐个配置调用每小时询价接口。默认只确认报价，库存为未知；设置 `UCLOUD_CHECK_AVAILABILITY=true` 可额外核查库存。运行时使用独立 Python HTTP，不需要浏览器或 LLM；UHost 与优云智算 CompShare 分开，不相互替代。优先使用基础 Linux 镜像；无兼容项时选择官方明确支持该 GPU 的预装 Linux 镜像，并核实镜像费用为零。[本地会话、采集范围与价格口径](docs/ucloud-console.md)。
 
 **AutoDL 市场接口已于 2026-10-22 完成实采**：`AUTODL_SOURCE=market` 使用自己从官网导出的最小登录会话，直接请求官方市场 JSON，不启动浏览器或 LLM，支持 `api_only`。本次一次读取 3,372 条市场记录，排除 93 条非 GPU 记录，取得 3,279 个 GPU 资源的普通 / 会员两档报价，共 6,558 行，覆盖 30 个型号、17 个地区代码。其中 3,358 行的国家地区证据完整；其余国家缺证据的地区保留原价与缺口，不猜国家。计费范围是明确的按量每 GPU 小时，不包含包日 / 包月价。[登录会话导出与用法](docs/autodl-market.md)。

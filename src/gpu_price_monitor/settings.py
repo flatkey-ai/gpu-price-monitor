@@ -14,6 +14,7 @@ from dotenv.parser import parse_stream
 PROVIDERS = frozenset({"lambda", "nebius", "crusoe", "ucloud", "autodl",
                        "runpod", "digitalocean", "verda", "azure"})
 SOURCES = frozenset({
+    "mixed_official_sources",
     "official_public_sources",
     "official_api", "public_documentation", "public_page",
     "official_quote_api", "official_public_api", "official_internal_api", "authorized_browser",
@@ -120,8 +121,8 @@ class Settings:
             raise ConfigurationError("GPU_PRICE_MONITOR_CATALOG_SCOPE must be standard or complete")
         if self.crusoe_source not in ("public", "account", "combined"):
             raise ConfigurationError("CRUSOE_SOURCE must be public, account or combined")
-        if self.lambda_source not in ("public", "api", "console"):
-            raise ConfigurationError("LAMBDA_SOURCE must be public, api or console")
+        if self.lambda_source not in ("public", "api", "console", "visible"):
+            raise ConfigurationError("LAMBDA_SOURCE must be public, api, console or visible")
         if self.ucloud_source not in ("public", "api", "console"):
             raise ConfigurationError("UCLOUD_SOURCE must be public, api or console")
         if type(self.ucloud_check_availability) is not bool:

@@ -4,6 +4,8 @@ from datetime import date
 from pathlib import Path
 import unittest
 
+from bs4 import BeautifulSoup
+
 from gpu_price_monitor.providers.crusoe import SOURCE_URL, parse_prices
 
 
@@ -132,6 +134,62 @@ class CrusoeParserTests(unittest.TestCase):
         rubin = next(q for q in prices if q["gpu_model"] == "VERA RUBIN")
         self.assertIsNone(rubin["vram_gb"])
         self.assertEqual(rubin["gpu_memory_description"], "20.7TB")
+
+    def test_october_23_parallel_cms_columns_match_official_gpu_prices(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261023.html").read_text()
+        prices = parse(content)
+        self.assertEqual(len(prices), 24)
+        self.assertEqual(
+            [(q["gpu_model"], q["gpu_variant"], q["amount"]) for q in prices if q["amount"] is not None],
+            [("B300", "HGX", "8.96"), ("H200", "HGX", "4.29"), ("H100", "HGX", "3.90"),
+             ("A100", "SXM", "2.30"), ("A100", "PCIe", "2.00"), ("L40S", None, "1.50"),
+             ("MI300X", None, "3.45")],
+        )
+        self.assertEqual(sum(q["quote_status"] == "contact_sales" for q in prices), 17)
+        self.assertTrue(all(q["amount"] is None for q in prices if q["billing_mode"] == "spot"))
+        self.assertEqual(next(q for q in prices if q["gpu_model"] == "VERA RUBIN")["vram_gb"], 288)
+        self.assertTrue(all(q["observed_at"] == OBSERVED_AT and q["regions"] == [] for q in prices))
+
+    def test_cms_model_column_uses_the_official_explicit_sort_order(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261023.html").read_text()
+        expected = parse(content)
+        soup = BeautifulSoup(content, "html.parser")
+        model_list = soup.select_one(".pricing_gpu-item > .w-dyn-list > .w-dyn-items")
+        for item in list(model_list.select(":scope > .w-dyn-item"))[::-1]:
+            model_list.append(item.extract())
+        self.assertEqual(parse(str(soup)), expected)
+
+    def test_cms_unequal_columns_and_ambiguous_model_order_cannot_shift_prices(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261023.html").read_text()
+        for corruption in ("missing_price", "missing_model", "duplicate_order", "missing_order",
+                           "changed_name", "sorted_price_column", "extra_price"):
+            with self.subTest(corruption=corruption):
+                soup = BeautifulSoup(content, "html.parser")
+                columns = soup.select(".pricing_gpu-item > .w-dyn-list > .w-dyn-items")
+                models = columns[0].select(":scope > .w-dyn-item")
+                if corruption == "missing_price":
+                    columns[1].select(":scope > .w-dyn-item")[0].decompose()
+                elif corruption == "missing_model":
+                    models[0].decompose()
+                elif corruption == "duplicate_order":
+                    models[1]["data-sort-order"] = models[0]["data-sort-order"]
+                elif corruption == "missing_order":
+                    del models[0]["data-sort-order"]
+                elif corruption == "changed_name":
+                    models[0]["data-sort-name"] = "Unmatched GPU"
+                elif corruption == "sorted_price_column":
+                    columns[1].select(":scope > .w-dyn-item")[0]["data-sort-order"] = "20"
+                else:
+                    soup.select_one(".pricing_gpu-item").append(BeautifulSoup('<div class="pricing-rich">$0.01/GPU-hr</div>', "html.parser"))
+                with self.assertRaises(ValueError):
+                    parse(str(soup))
+
+    def test_cms_price_columns_use_headers_and_still_reject_wrong_units(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261023.html").read_text()
+        swapped = content.replace("On-demand", "TEMP").replace("Current spot", "On-demand").replace("TEMP", "Current spot")
+        self.assertTrue(all(q["billing_mode"] == "spot" for q in parse(swapped) if q["amount"] is not None))
+        with self.assertRaises(ValueError):
+            parse(content.replace("GPU-hr", "GPU-month", 1))
 
     def test_missing_or_ambiguous_memory_still_rejected_for_numeric_quotes(self):
         variants = [
