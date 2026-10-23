@@ -36,3 +36,7 @@ jobs:
           PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.runpod.example.json
       - name: Check environment configuration and collection boundary
         run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Validate anonymous Vast configuration
+        run: |
+          PYTHONPATH=src python -m gpu_price_monitor status --env-file .env.vast.example
+          PYTHONPATH=src python -m gpu_price_monitor validate-config --config configs/collect.vast.example.json

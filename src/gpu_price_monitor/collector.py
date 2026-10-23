@@ -10,18 +10,18 @@ from .filters import apply_filters, filter_support, normalize_filters, price_loc
 from .geography import describe_geography, geography_summary
 from .csv_export import market_eligible_quote, publishable_quote
 from .providers import (autodl, azure, crusoe, digitalocean, lambda_cloud, lambda_public,
-                        nebius, runpod, ucloud, ucloud_compshare, ucloud_public, verda)
+                        nebius, runpod, ucloud, ucloud_compshare, ucloud_public, verda, vast)
 from .settings import ConfigurationError, PROVIDERS, Settings
 from .transport import FetchError, fetch_text
 
 IMPLEMENTED_PROVIDERS = {"nebius": nebius, "crusoe": crusoe, "lambda": lambda_public,
                          "ucloud": ucloud_public, "autodl": autodl,
                          "runpod": runpod, "digitalocean": digitalocean,
-                         "verda": verda, "azure": azure}
+                         "verda": verda, "azure": azure, "vast": vast}
 PROVIDER_SOURCES = {"nebius": "public_documentation", "crusoe": "public_page",
                     "lambda": "public_page", "ucloud": "official_public_api", "autodl": "public_page",
                     "runpod": "official_public_api", "digitalocean": "public_documentation",
-                    "verda": "public_page", "azure": "official_public_api"}
+                    "verda": "public_page", "azure": "official_public_api", "vast": "official_public_api"}
 API_SOURCE_TYPES = frozenset({"official_api", "official_quote_api", "official_public_api", "official_internal_api"})
 
 
@@ -526,7 +526,11 @@ def collect_prices(
                     # candidates, so the existing unverifiable check applies.
                     candidates = [q for q in quotes if q["region_price_verified"]
                                   or (price_location_values(q, "regions")
-                                      and price_location_values(q, "compute_countries"))]
+                                      and price_location_values(q, "compute_countries"))
+                                  or (q["price_scope"] == "country_quote"
+                                      and conditions[provider].get("compute_countries")
+                                      and not conditions[provider].get("regions")
+                                      and not conditions[provider].get("zones"))]
                     result["excluded_unbound_geography_count"] = len(quotes) - len(candidates)
                 unverified = []
                 for dimension in ("regions", "zones", "compute_countries"):
@@ -552,7 +556,7 @@ def collect_prices(
                     elif source_errors:
                         result["status"] = "partial" if matched or completed_sources else "failed"
                         result["error"] = {"code": "partial_collection",
-                                           "message": "One or more independent sources failed; successful quotes and audit records are retained. Inspect source_errors.",
+                                           "message": "One or more independent sources failed or reported incomplete coverage; available quotes and audit records are retained. Inspect source_errors.",
                                            "retryable": any(error.get("retryable") for error in source_errors)}
             except ConfigurationError as exc:
                 result["error"] = {"code": "configuration_error", "message": str(exc), "retryable": False}

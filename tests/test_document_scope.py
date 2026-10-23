@@ -54,7 +54,7 @@ class DocumentScopeTests(unittest.TestCase):
 
     def test_document_providers_and_public_expansion_are_registered(self):
         self.assertEqual(set(IMPLEMENTED_PROVIDERS), {"nebius", "lambda", "crusoe", "autodl", "ucloud",
-                                                    "runpod", "digitalocean", "verda", "azure"})
+                                                    "runpod", "digitalocean", "verda", "azure", "vast"})
         with patch("gpu_price_monitor.collector.fetch_text") as fetch:
             for retired in ("ebcloud", "suanli", "unknown"):
                 with self.subTest(provider=retired), self.assertRaises(ConfigurationError):

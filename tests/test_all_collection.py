@@ -17,7 +17,7 @@ from gpu_price_monitor.transport import FetchError
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = {"nebius", "crusoe", "lambda", "ucloud", "autodl",
-             "runpod", "digitalocean", "verda", "azure"}
+             "runpod", "digitalocean", "verda", "azure", "vast"}
 OBSERVED = "2026-10-21T08:40:00+00:00"
 
 
@@ -52,6 +52,10 @@ class AllCollectionTests(unittest.TestCase):
                           side_effect=lambda *, settings, observed_at: [spot_quote(observed_at)]).start()
         self.sources = {}
         for name, module in IMPLEMENTED_PROVIDERS.items():
+            if name == "vast":
+                self.sources[name] = patch.object(module, "collect_result", return_value={
+                    "prices": [quote(name)], "status": "success", "errors": []}).start()
+                continue
             method = "collect_quotes" if hasattr(module, "collect_quotes") else "parse_prices"
             self.sources[name] = patch.object(module, method, return_value=[quote(name)]).start()
 

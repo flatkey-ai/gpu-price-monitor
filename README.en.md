@@ -1,5 +1,11 @@
 # GPU Price Monitor
 
+**0.24.0: separate CSV schemas per provider.** Use `--format csv --csv-profile provider --output-dir exports/new-batch` to write one file per selected platform, with its own configuration columns. For a single provider, omit `--output-dir` to return CSV on stdout. Existing files are never overwritten. Headers are bilingual by default; exact member tariffs are preferred. Only eligible hourly prices with verified price locations are exported; empty files contain headers, never invented prices or worldwide scope.
+
+Python: `prices_to_provider_csvs(result)` returns a provider-to-CSV-string mapping without file I/O, and `provider_csv_coverage(result)` explains omissions. Monetary amounts retain their original currencies; conversion belongs to the caller. The existing common `market`, `compact`, `catalog`, and `full` profiles remain available.
+
+Vast.ai is now an optional anonymous offer collector (`--providers vast`, [scope](docs/vast.md)). It preserves specific machine configurations and explicit locations, but always reports partial coverage because pagination and market totals are not verified. `all` selects ten adapters, not all products in their markets.
+
 **Version 0.23.0 adds RunPod datacenter starting rates and opt-in member-first CSV.**
 RunPod uses anonymous official GraphQL queries without an API key or browser.
 Secure and Community are cloud tiers, not membership levels. Complete mode keeps
