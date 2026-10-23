@@ -18,13 +18,15 @@ T4 = "Standard_NC4as_T4_v3"
 GB200 = "Standard_ND128isr_NDR_GB200_v6"
 H100 = "Standard_NC40ads_H100_v5"
 A100 = "Standard_NC24ads_A100_v4"
-OBSERVED = "2026-10-20T10:00:00+00:00"
+OBSERVED = "2026-10-23T10:00:00+00:00"
 
 
 def source():
     original = json.loads(FIXTURE.read_text(), parse_float=Decimal)["skus"]
     extra = FIXTURE.with_name("azure-h100-a100-public-retail.json")
-    return {**original, **json.loads(extra.read_text(), parse_float=Decimal)["skus"]}
+    expanded = FIXTURE.with_name("azure-expanded-public-retail.json")
+    return {**original, **json.loads(extra.read_text(), parse_float=Decimal)["skus"],
+            **json.loads(expanded.read_text(), parse_float=Decimal)["skus"]}
 
 
 def parse(items=None, arm_sku=T4):
@@ -84,6 +86,54 @@ class AzureTests(unittest.TestCase):
                 self.assertEqual(quote["resources"], {"vcpus": cpu, "memory_gib": ram})
                 self.assertEqual(quote["amount"], quote["instance_price"]["amount"])
                 self.assertNotIn("Windows", quote["azure_meter"]["product_name"])
+
+    def test_expanded_whole_gpu_sizes_preserve_exact_specs_and_independent_retail_totals(self):
+        # Values are the Microsoft hardware tables, not formulas based on a
+        # GPU name or CPU count. Every input price is a captured public API row.
+        cases = (
+            ("Standard_NC8as_T4_v3", "T4", 1, 16, 8, 56),
+            ("Standard_NC16as_T4_v3", "T4", 1, 16, 16, 110),
+            ("Standard_NC64as_T4_v3", "T4", 4, 16, 64, 440),
+            ("Standard_NC48ads_A100_v4", "A100", 2, 80, 48, 440),
+            ("Standard_NC96ads_A100_v4", "A100", 4, 80, 96, 880),
+            ("Standard_NC80adis_H100_v5", "H100", 2, 94, 80, 640),
+            ("Standard_ND96asr_v4", "A100", 8, 40, 96, 900),
+            ("Standard_ND96amsr_A100_v4", "A100", 8, 80, 96, 1900),
+            ("Standard_ND96isr_H100_v5", "H100", 8, 80, 96, 1900),
+            ("Standard_ND96isr_MI300X_v5", "MI300X", 8, 192, 96, 1850),
+            ("Standard_NV36ads_A10_v5", "A10", 1, 24, 36, 440),
+            ("Standard_NV36adms_A10_v5", "A10", 1, 24, 36, 880),
+            ("Standard_NV72ads_A10_v5", "A10", 2, 24, 72, 880),
+        )
+        for sku, model, count, vram, cpu, ram in cases:
+            with self.subTest(sku=sku):
+                quotes = parse(arm_sku=sku)
+                self.assertEqual(len(quotes), 2)
+                by_meter = {r["meterId"]: r for r in source()[sku]["Items"]}
+                for quote in quotes:
+                    self.assertEqual((quote["gpu_model"], quote["gpu_count"], quote["vram_gb"]),
+                                     (model, count, vram))
+                    self.assertEqual(quote["resources"], {"vcpus": cpu, "memory_gib": ram})
+                    raw = by_meter[quote["azure_meter"]["meter_id"]]
+                    self.assertEqual(Decimal(quote["instance_price"]["amount"]), raw["retailPrice"])
+                    self.assertEqual(Decimal(quote["amount"]) * count, raw["retailPrice"])
+                    self.assertEqual(quote["regions"], [raw["armRegionName"]])
+                    self.assertEqual(quote["compute_countries"], ["US"])
+                    self.assertEqual(quote["gpu_vendor"], "AMD" if model == "MI300X" else "NVIDIA")
+                    if model == "A10":
+                        self.assertEqual(quote["conditions"]["included_license"], "NVIDIA GRID")
+        # The two 36-vCPU A10 sizes have distinct RAM and independently quoted
+        # totals. They must never collapse into one GPU-model-only record.
+        normal = next(q for q in parse(arm_sku="Standard_NV36ads_A10_v5") if q["billing_mode"] == "on_demand")
+        large = next(q for q in parse(arm_sku="Standard_NV36adms_A10_v5") if q["billing_mode"] == "on_demand")
+        self.assertNotEqual(normal["raw_sku"], large["raw_sku"])
+        self.assertNotEqual(normal["amount"], large["amount"])
+
+    def test_fractional_a10_and_unverified_b200_are_not_fabricated(self):
+        for sku in ("Standard_NV6ads_A10_v5", "Standard_NV12ads_A10_v5", "Standard_NV18ads_A10_v5",
+                    "Standard_ND_B200_v6"):
+            with self.subTest(sku=sku), self.assertRaises(ValueError):
+                azure.parse_items([], arm_sku=sku, observed_at=OBSERVED)
 
     def test_countries_use_only_explicit_official_region_directory_mapping(self):
         base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
@@ -212,7 +262,7 @@ class AzureTests(unittest.TestCase):
                 parse([base, duplicate])
 
     @patch("gpu_price_monitor.providers.azure.request_json")
-    def test_collection_is_four_fixed_anonymous_get_queries(self, request):
+    def test_collection_is_seventeen_fixed_anonymous_get_queries(self, request):
         pages = source()
         def respond(url, settings, **kwargs):
             self.assertEqual(kwargs, {"authenticated": False})
@@ -222,7 +272,7 @@ class AzureTests(unittest.TestCase):
             self.assertEqual(query["meterRegion"], ["'primary'"])
             self.assertEqual(query["api-version"], [azure.API_VERSION])
             self.assertNotIn("api_key", query)
-            sku = next(s for s in (T4, GB200, H100, A100) if s in query["$filter"][0])
+            sku = next(s for s in pages if "armSkuName eq '" + s + "'" in query["$filter"][0])
             self.assertIn("priceType eq 'Consumption'", query["$filter"][0])
             self.assertIn("productName eq '", query["$filter"][0])
             self.assertNotIn("Windows", query["$filter"][0])
@@ -230,8 +280,9 @@ class AzureTests(unittest.TestCase):
         request.side_effect = respond
         settings = Settings(lambda_api_key="unused-private-test-key")
         result = azure.collect_quotes(settings=settings, observed_at=OBSERVED)
-        self.assertEqual(request.call_count, 4)
-        self.assertEqual(len(result), 8)
+        self.assertEqual(request.call_count, 17)
+        self.assertEqual(len(result), 34)
+        self.assertEqual({q["raw_sku"] for q in result}, set(pages))
         self.assertNotIn("unused-private-test-key", json.dumps(result))
 
     @patch("gpu_price_monitor.providers.azure.request_json")
@@ -243,10 +294,11 @@ class AzureTests(unittest.TestCase):
         continuation = "https://prices.azure.com:443/api/retail/prices?" + urlencode({
             "$filter": parse_qs(urlsplit(azure.query_url(T4)).query)["$filter"][0], "$skip": "1",
         })
-        request.side_effect = [page(items[:1], continuation), page(items[1:]), pages[GB200], pages[H100], pages[A100]]
+        request.side_effect = [page(items[:1], continuation), page(items[1:]),
+                               *(pages[sku] for sku in azure._SPECS if sku != T4)]
         result = azure.collect_quotes(settings=Settings(), observed_at=OBSERVED)
-        self.assertEqual(len(result), 8)
-        self.assertEqual(request.call_count, 5)
+        self.assertEqual(len(result), 34)
+        self.assertEqual(request.call_count, 18)
         self.assertEqual(request.call_args_list[1].args[0], azure.query_url(T4, skip=1))
 
     @patch("gpu_price_monitor.providers.azure.request_json")

@@ -62,6 +62,8 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
         supported.update({"regions", "compute_countries"})
     if provider == "azure":
         supported.update({"regions", "compute_countries"})
+    if provider == "runpod" and settings is not None and settings.catalog_scope == "complete":
+        supported.update({"regions", "zones", "compute_countries", "gpu_counts"})
     if provider == "autodl" and settings is not None and settings.autodl_source == "market":
         supported.add("regions")
     if provider == "ucloud":

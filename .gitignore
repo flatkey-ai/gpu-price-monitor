@@ -15,6 +15,7 @@ dist/
 !.env.lambda-visible.example
 !.env.nebius.example
 !.env.crusoe.example
+!.env.runpod.example
 configs/*.local.json
 data/
 evidence/

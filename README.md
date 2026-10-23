@@ -1,6 +1,17 @@
 # GPU Price Monitor
 
-面向原文档五家 **Nebius、Lambda、Crusoe、AutoDL、UCloud** 的 GPU 价格采集库。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
+主要采集 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod** 的 GPU 价格。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
+
+**0.23.0 加入 RunPod 地区起价、会员价优先输出，并扩充 Azure 规格**。RunPod 直接读取官方匿名 GraphQL，不需要登录、密钥或浏览器，Secure / Community 两种云类型分开，不称为会员价。按机房的最低起价与无地区目录价也分开；来源不能证明国家的机房不会进入地区对比。[RunPod 配置](.env.runpod.example) · [范围说明](docs/runpod.md)。Azure 的官方公开 Retail Prices API 已扩为 17 个有硬件规格证据的整卡 SKU，覆盖六个 GPU 型号；不把分卡型号算作整卡，不声称覆盖 Azure 全部产品。[Azure 范围](docs/azure.md)。
+
+```bash
+gpu-price-monitor collect --env-file .env.runpod.example --pretty > runpod.json
+gpu-price-monitor collect --env-file .env.runpod.example --format csv --csv-profile catalog > runpod.csv
+# 使用已有五家配置时显式加上 RunPod；同一资源有会员价时优先输出。
+gpu-price-monitor collect --env-file .env.five.local --providers nebius,lambda,crusoe,autodl,ucloud,runpod --format csv --prefer-member-prices > prices.csv
+```
+
+会员偏好只删除同一次采集、同资源 ID、同型号配置和同地区的明确普通/会员配对中的普通行，会员条件保留。未配对或有冲突的行不合并；JSON 保留全部原始档位。Python 使用 `prices_to_csv(result, prefer_member=True)` 或 `prefer_member_quotes(result["prices"])`；`--prefer-member-prices` 仅用于 CSV。要排除未核实国家地区的目录价，再加 `--csv-profile compact`。
 
 **0.22.0 修复 UCloud 配置漏价**：按官网规则为 A800 / H20 的少卡配置选择普通网络，保留八卡增强网络；新加坡 P40 的显式空网络选项使用官网默认普通网络。未在当前账号地区目录中出现、或已售罄且没有配置的目录条目单独列为页面范围排除项，不伪造价格，也不当作采集请求失败。详见[五家覆盖与验收](docs/DOCUMENT_COVERAGE.md)。
 
@@ -145,7 +156,7 @@ JSON 的 `execution` 声明 Python、固定规则、不使用 LLM 及所选策�
 
 `--country` 使用 ISO 两字母代码；`--region` / `--zone` 匹配同一条价格的实际部署位置。Lambda console 的 `--country` / `--region` 则匹配经官方前端核实的共享目录价适用地区，联合条件须由同一个地区条目满足，不代表逐地区独立询价；JSON 的适用范围另存 `price_applicability` / `applicable_*`。平台覆盖、容量列表、公司总部、币种或访问 IP 本身不建立价格地区；缺少地区也不证明统一价。文档供给范围另用 `--coverage-country` / `--coverage-region`。来源不支持筛选时返回 `unsupported_filter`，本应支持却缺证据时返回 `unverifiable_filter`。
 
-本库还保留 RunPod、DigitalOcean、Verda、Azure 四家独立适配器，`--providers all` 会包含它们；五家模板只运行原文档范围。历史采样仅证明当时来源，见 [examples](examples/README.md)，不作为当前价格或运行时兜底。具体请求、单位、地区证据及认证边界见 [文档对照](docs/DOCUMENT_COVERAGE.md)。
+本库还保留 DigitalOcean、Verda、Azure 三家独立适配器，`--providers all` 会包含它们；五家模板只运行原文档范围，加入 RunPod 请显式设置六个平台。历史采样仅证明当时来源，见 [examples](examples/README.md)，不作为当前价格或运行时兜底。具体请求、单位、地区证据及认证边界见 [文档对照](docs/DOCUMENT_COVERAGE.md)。
 
 ```bash
 python -m unittest discover -s tests -v

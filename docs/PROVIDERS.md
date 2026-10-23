@@ -84,15 +84,18 @@ CompShare 已取得真实匿名询价成功响应，不需要供应商 key、充
 
 兼容 `configured` + `UCLOUD_SOURCE=public` 保留旧 [UHost 活动](https://www.ucloud.cn/site/active/gpu.html)匿名月套餐。月金额和下线状态只保留审计，不除以 720，不当当前每小时租价。
 
-## 历史证据与另四家扩展
+## RunPod：目录价与按机房最低起价
+
+匿名官方 GraphQL 读取整卡 Pods 的 Secure / Community 按需目录。两种云类型不是会员关系，目录价没有地区绑定。`--catalog-scope complete` 另外读取官方数据中心目录，并按国家信息明确的机房查询一张 GPU 的 `lowestPrice`；返回值保留为 `starting_at`，不是具体机器配置的确定报价，不能加入确定价最低榜。CPU / RAM 最小值不能拼成虚构机器。只有洲级地点的机房明确列为国家证据缺口，不猜代码对应国家。详见 [RunPod](runpod.md)。
+
+## 历史证据与其他扩展
 
 日期样本只证明当时来源，不作现价、可购承诺或运行时回退，见 [examples](../examples/README.md)。原先只数严格地区项的历史 CSV 不能代表 0.13 market 的目录覆盖。
 
 | 扩展适配器 | 来源与边界 |
 | --- | --- |
-| RunPod | [匿名 GraphQL](https://api.runpod.io/graphql) GPU Pods 目录，Secure / Community 分开；不把云档位当会员，不补地区，不采 Serverless |
 | DigitalOcean | [GPU Droplet 定价文档](https://docs.digitalocean.com/products/droplets/details/pricing/)，明确整实例卡数分摊；按需 / Spot 与硬件变体分开 |
 | Verda | [USD](https://verda.com/pricing?currency=usd) / [EUR](https://verda.com/pricing?currency=eur)分别读取，JSON-LD 核对整机单位，不在库内换汇，不猜部署国家 |
-| Azure | [Retail Prices API](https://prices.azure.com/api/retail/prices)，限四个已核验 GPU SKU，生效地区费率和官方国家映射；不代表全 SKU、订阅库存或配额 |
+| Azure | [Retail Prices API](https://prices.azure.com/api/retail/prices)，17 个已核验整卡 GPU SKU，包含 T4、A10、A100、H100、MI300X、GB200 的明确规格及地区费率；不代表全 SKU、订阅库存或配额，见[范围说明](azure.md) |
 
-`--providers all` 会包含这四家；原文档五家模板不会运行它们。
+`--providers all` 会包含这些扩展及 RunPod；原文档五家模板不会运行它们。
