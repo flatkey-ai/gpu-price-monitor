@@ -1,8 +1,10 @@
 """Reusable GPU price collection with JSON results and CSV serialization."""
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 from .member_prices import prefer_member_quotes
+from .provider_csv import (prices_to_provider_csvs, provider_csv_coverage,
+                           PROVIDER_CSV_COLUMNS, PROVIDER_CSV_HEADERS)
 from .settings import ConfigurationError, Settings
 from .collector import collect_prices
 from .coverage import MAINSTREAM_GPU_MODELS, gpu_family, report_coverage
@@ -16,4 +18,6 @@ __all__ = ["ConfigurationError", "Settings", "collect_prices", "MAINSTREAM_GPU_M
            "gpu_family", "report_coverage", "report_catalog_audit", "CSV_COLUMNS", "CSV_HEADERS", "COMPACT_CSV_COLUMNS",
            "COMPACT_CSV_HEADERS", "MARKET_CSV_COLUMNS", "MARKET_CSV_HEADERS",
            "CATALOG_CSV_COLUMNS", "CATALOG_CSV_HEADERS", "catalog_eligible_record",
-           "prices_to_csv", "prefer_member_quotes", "publishable_quote", "market_eligible_quote", "__version__"]
+           "prices_to_csv", "prices_to_provider_csvs", "provider_csv_coverage",
+           "PROVIDER_CSV_COLUMNS", "PROVIDER_CSV_HEADERS",
+           "prefer_member_quotes", "publishable_quote", "market_eligible_quote", "__version__"]

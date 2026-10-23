@@ -139,6 +139,12 @@
         "billing_modes": [],
         "currencies": []
       }
+    },
+    {
+      "id": "vast",
+      "enabled": true,
+      "planned_source": "official_public_api",
+      "filters": {}
     }
   ]
 }

@@ -14,6 +14,7 @@ from .collector import IMPLEMENTED_PROVIDERS, collect_prices, provider_source
 from .csv_export import market_eligible_quote, prices_to_csv, publishable_quote
 from .filters import normalize_filters
 from .member_prices import prefer_member_quotes
+from .provider_csv import prices_to_provider_csvs
 from .settings import CATALOG_SCOPES, ConfigurationError, PROVIDERS, SOURCE_POLICIES, SOURCES, Settings
 
 
@@ -91,10 +92,57 @@ def _print_collection(result: dict, output_format: str, pretty: bool = False, *,
         # Keep the promised encoding and CRLF bytes when redirected on Windows.
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", newline="")
-        sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual",
-                                      profile=csv_profile, prefer_member=prefer_member))
+        if csv_profile == "provider":
+            tables = prices_to_provider_csvs(result, bilingual_headers=csv_headers == "bilingual",
+                                            prefer_member=True)
+            if len(tables) > 1:
+                raise ConfigurationError("Multiple provider CSVs require --output-dir; use one provider for stdout.")
+            sys.stdout.write(next(iter(tables.values()), ""))
+        else:
+            sys.stdout.write(prices_to_csv(result, bilingual_headers=csv_headers == "bilingual",
+                                          profile=csv_profile, prefer_member=prefer_member))
     else:
         _print_json(result, pretty)
+
+
+def _check_csv_destination(directory: Path, providers: list[str]) -> None:
+    try:
+        if directory.exists() and not directory.is_dir():
+            raise ConfigurationError("--output-dir must name a directory.")
+        if any((directory / f"{provider}.csv").exists() or (directory / f"{provider}.csv").is_symlink()
+               for provider in providers):
+            raise ConfigurationError("A provider CSV already exists in --output-dir; select a new directory.")
+    except OSError:
+        raise ConfigurationError("Cannot inspect the CSV output directory; check its permissions.") from None
+
+
+def _write_provider_csvs(result: dict, directory: Path, *, bilingual_headers: bool) -> None:
+    tables = prices_to_provider_csvs(result, bilingual_headers=bilingual_headers, prefer_member=True)
+    _check_csv_destination(directory, list(tables))
+    created: list[Path] = []
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        for provider, content in tables.items():
+            path = directory / f"{provider}.csv"
+            # Never replace existing files, even if another process wrote one
+            # after the preflight check. The library itself performs no I/O.
+            with path.open("x", encoding="utf-8", newline="") as stream:
+                created.append(path)
+                stream.write(content)
+    except OSError:
+        cleanup_failed = False
+        for path in created:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                cleanup_failed = True
+        message = "Could not write provider CSV files; check the output directory and permissions."
+        if cleanup_failed:
+            message += " Some partial files could not be removed."
+        raise ConfigurationError(message) from None
+    print(f"Wrote {len(tables)} provider-specific CSV files to {directory}. "
+          "Exact member prices are preferred; quotes without verified price locations are excluded. "
+          "A header-only file means no qualifying quotes, not a zero price.", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -122,8 +170,10 @@ def main(argv: list[str] | None = None) -> int:
                          help="stdout format (default: json); csv is UTF-8 with a BOM")
     collect.add_argument("--csv-headers", choices=("bilingual", "english"), default="bilingual",
                          help="CSV header labels: English identifiers with Chinese translations (default), or English only")
-    collect.add_argument("--csv-profile", choices=("market", "catalog", "compact", "full"), default="market",
-                         help="market: numeric GPU-hour quotes (default); catalog: hourly listings including floors and contact sales; compact: verified regional quotes only; full: all records for audit")
+    collect.add_argument("--csv-profile", choices=("market", "catalog", "compact", "full", "provider"), default="market",
+                         help="market: numeric GPU-hour quotes (default); provider: platform-specific columns and verified locations, member preferred; catalog: floors and contact sales; compact: verified regional quotes; full: audit")
+    collect.add_argument("--output-dir", type=Path,
+                         help="with --format csv --csv-profile provider: write one CSV per provider; never overwrite files")
     collect.add_argument("--prefer-member-prices", action="store_true",
                          help="CSV only: prefer the explicitly labeled member tariff for exact AutoDL market API pairs; JSON retains all audit records")
     collect.add_argument("--pretty", action="store_true", help="indent JSON output; ignored for CSV")
@@ -152,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if (args.command == "collect" and args.prefer_member_prices and args.format != "csv"):
             raise ConfigurationError("--prefer-member-prices requires --format csv; JSON retains all audit records.")
+        if args.command == "collect" and args.output_dir is not None and (args.format != "csv" or args.csv_profile != "provider"):
+            raise ConfigurationError("--output-dir requires --format csv --csv-profile provider.")
         if args.command == "lambda-login":
             from .lambda_login import save_lambda_session
             from .transport import FetchError
@@ -223,13 +275,25 @@ def main(argv: list[str] | None = None) -> int:
         if args.max_retries is not None:
             overrides["max_retries"] = args.max_retries
         settings = replace(settings, **overrides)
+        selected_providers = list(settings.providers) if providers is None else providers
+        if args.format == "csv" and args.csv_profile == "provider":
+            if (not selected_providers or len(set(selected_providers)) != len(selected_providers)
+                    or any(provider not in PROVIDERS for provider in selected_providers)):
+                raise ConfigurationError("providers must contain unique supported provider names")
+            if len(selected_providers) != 1 and args.output_dir is None:
+                raise ConfigurationError("Multiple provider CSVs require --output-dir; use one provider for stdout.")
+            if args.output_dir is not None:
+                _check_csv_destination(args.output_dir, selected_providers)
         filters = {name: getattr(args, name) for name in options.values() if getattr(args, name) is not None}
         result = collect_prices(providers, filters, settings=settings, provider_filters=by_provider,
                                 include_coverage=args.coverage)
         export_prices = (prefer_member_quotes(result["prices"])
                          if args.prefer_member_prices else result["prices"])
-        _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers,
-                          csv_profile=args.csv_profile, prefer_member=args.prefer_member_prices)
+        if args.output_dir is not None:
+            _write_provider_csvs(result, args.output_dir, bilingual_headers=args.csv_headers == "bilingual")
+        else:
+            _print_collection(result, args.format, args.pretty, csv_headers=args.csv_headers,
+                              csv_profile=args.csv_profile, prefer_member=args.prefer_member_prices)
         if args.prefer_member_prices:
             print(f"CSV member preference: {len(result['prices']) - len(export_prices)} ordinary rows omitted "
                   "for exact AutoDL member pairs; membership eligibility remains required. "

@@ -16,6 +16,7 @@ dist/
 !.env.nebius.example
 !.env.crusoe.example
 !.env.runpod.example
+!.env.vast.example
 configs/*.local.json
 data/
 evidence/

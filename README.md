@@ -2,6 +2,28 @@
 
 主要采集 **Nebius、Lambda、Crusoe、AutoDL、UCloud、RunPod** 的 GPU 价格。支持独立 Python 调用及 CLI JSON / CSV；只负责采集、校验、筛选和返回价格，定时、存储、换汇、上传及网站发布由调用方处理。
 
+**0.24.0：每个平台独立 CSV，列随平台变化。** 新增 `provider` 输出，保留该平台真正有用的配置列，不再把不同平台塞进一张宽表。默认英中双语表头，同配置会员价优先；只纳入国家和报价地区有证据的有效小时报价。库保留原币金额，美元换算由调用方显式处理。没有合格地区报价的平台仍返回表头，缺口通过 `provider_csv_coverage(result)` 查看，不能当作零价或全国统一价。
+
+```bash
+# 一个来源直接返回专用表格，支持重定向。
+gpu-price-monitor collect --env-file .env.five.local --providers ucloud --format csv --csv-profile provider > ucloud.csv
+# 多来源各存一份 CSV；目录内已有同名文件时停止，不覆盖旧批次。
+gpu-price-monitor collect --env-file .env.five.local --format csv --csv-profile provider --output-dir exports/new-batch
+```
+
+```python
+from pathlib import Path
+from gpu_price_monitor import Settings, collect_prices, prices_to_provider_csvs, provider_csv_coverage
+
+result = collect_prices(settings=Settings.from_env(env_file=".env.five.local"))
+tables = prices_to_provider_csvs(result)  # dict[平台名称, CSV字符串]；不写文件、不上传
+for provider, content in tables.items():
+    Path(f"{provider}.csv").write_text(content, encoding="utf-8", newline="")
+print(provider_csv_coverage(result))
+```
+
+另新增 **Vast.ai** 官方市场接口的匿名具体机器报价，带卡数、CPU / RAM、8 单位存储和机器公布的地点。该接口暂无已核实的分页 / 全市场总量，所以始终标记 `partial`；只有国家、没有州省的机器不进入严格地区 CSV。[配置](.env.vast.example) · [来源及限制](docs/vast.md)。`--providers all` 目前为十个平台，不表示覆盖每个平台全部产品。
+
 **0.23.0 加入 RunPod 地区起价、会员价优先输出，并扩充 Azure 规格**。RunPod 直接读取官方匿名 GraphQL，不需要登录、密钥或浏览器，Secure / Community 两种云类型分开，不称为会员价。按机房的最低起价与无地区目录价也分开；来源不能证明国家的机房不会进入地区对比。[RunPod 配置](.env.runpod.example) · [范围说明](docs/runpod.md)。Azure 的官方公开 Retail Prices API 已扩为 17 个有硬件规格证据的整卡 SKU，覆盖六个 GPU 型号；不把分卡型号算作整卡，不声称覆盖 Azure 全部产品。[Azure 范围](docs/azure.md)。
 
 ```bash

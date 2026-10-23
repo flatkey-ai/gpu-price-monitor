@@ -44,13 +44,21 @@ def describe_geography(quote: dict) -> None:
         price_scope = "zone_quote"
     elif quote.get("regions"):
         price_scope = "regional_quote"
+    elif (quote["provider"] == "vast" and scope == "offer_country"
+          and quote.get("source_type") == "official_public_api"
+          and quote.get("source_url") == "https://console.vast.ai/api/v0/bundles"
+          and quote.get("location_source", {}).get("basis") == "offer_geolocation"
+          and quote["compute_countries"] == [quote.get("location_source", {}).get("country_code")]):
+        # A concrete offer's country remains evidence even if no subdivision is
+        # published. It still cannot pass the strict regional comparison gate.
+        price_scope = "country_quote"
     else:
         price_scope = "unlocated_catalog"
     quote["price_scope"] = price_scope
     quote["region_price_verified"] = price_scope in {
         "zone_quote", "regional_quote", "requested_zone_quote", "requested_region_quote",
     }
-    if not quote["region_price_verified"]:
+    if not quote["region_price_verified"] and price_scope != "country_quote":
         # Catalog or hardware coverage cannot establish a country price.
         quote["compute_countries"] = []
 

@@ -56,11 +56,11 @@ def filter_support(provider: str, filters: dict[str, list], *, settings: Setting
                 supported.add("gpu_counts")
             if settings is None or settings.source_policy == "configured" or complete_public:
                 supported.update({"coverage_regions", "coverage_countries"})
-    if provider in {"lambda", "digitalocean", "verda", "azure"}:
+    if provider in {"lambda", "digitalocean", "verda", "azure", "vast"}:
         supported.add("gpu_counts")
     if provider == "lambda" and settings is not None and settings.lambda_source in {"console", "visible"}:
         supported.update({"regions", "compute_countries"})
-    if provider == "azure":
+    if provider in {"azure", "vast"}:
         supported.update({"regions", "compute_countries"})
     if provider == "runpod" and settings is not None and settings.catalog_scope == "complete":
         supported.update({"regions", "zones", "compute_countries", "gpu_counts"})
