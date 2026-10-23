@@ -1,5 +1,16 @@
 # GPU Price Monitor
 
+**Version 0.22.0 fixes missing UCloud configuration quotes.** Small A800/H20
+configurations now follow the official console's Normal-network rule; eight-GPU
+configurations retain the enhanced mode. Explicitly empty P40 Singapore network
+options use the console's Normal default. Catalog rows outside the current
+account's zone directory, or sold-out rows without configurations, are reported
+separately from collection failures. See [coverage](docs/DOCUMENT_COVERAGE.md).
+
+Authenticated sources can run in a server or CI job with explicit valid credentials.
+The library does not automate login or promise permanent cookies. Authentication
+failures never silently fall back to public prices or historical snapshots.
+
 **Version 0.21.0 adds public/account-visible Lambda reconciliation.** Select
 `LAMBDA_SOURCE=visible` with `configured` or `api_preferred` to collect both the
 official public price page and your own console catalogs. Every source observation

@@ -15,6 +15,8 @@ import re
 
 _CODE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
 _COUNTRY = re.compile(r"[A-Z]{2}\Z")
+CONSOLE_NETWORK_RULE_SOURCE = "https://console-s2.ucloud.cn/uhost-components/20261021021640/main.26decb0f52dc886128fa.js"
+_EIGHT_GPU_NETWORK_MODELS = frozenset({"H100", "H20", "A800", "MetaX-C500"})
 
 
 @dataclass
@@ -44,6 +46,7 @@ class CatalogTargets:
     targets: list[ConsoleQuoteTarget]
     counts: dict[str, int]
     gaps: list[dict]
+    exclusions: list[dict] = field(default_factory=list)
 
 
 def _rows(payload: object, field_name: str) -> list[dict]:
@@ -148,8 +151,15 @@ def _disks(row: dict) -> list[dict]:
     return result
 
 
-def _network_mode(row: dict) -> tuple[str, list[dict], list[str]]:
-    """Select an explicit baseline without inferring missing network modes."""
+def _network_mode(row: dict, gpu_count: int) -> tuple[str, list[dict], list[str], str]:
+    """Apply the console's GPU-count rules before selecting a network baseline.
+
+    The published feature component disables Extreme/Infiniband below eight
+    GPUs for these four models, then falls back to Normal. An explicitly empty
+    Modes collection also falls back to Normal; a missing/malformed feature
+    directory remains an error. This is a frontend rule, not a retry that drops
+    an unsupported parameter after the API rejects a different configuration.
+    """
     features = row.get("Features")
     if not isinstance(features, list) or any(not isinstance(feature, dict) for feature in features):
         raise ValueError("Missing or invalid GPU network mode directory.")
@@ -157,6 +167,8 @@ def _network_mode(row: dict) -> tuple[str, list[dict], list[str]]:
     if len(network) != 1:
         raise ValueError("Missing or ambiguous GPU network mode directory.")
     modes = network[0].get("Modes")
+    if "Modes" in network[0] and (modes is None or modes == []):
+        return "Normal", [], [], "official_console_empty_modes_normal"
     if not isinstance(modes, list) or not modes:
         raise ValueError("No explicit GPU network modes.")
     seen = set()
@@ -167,7 +179,16 @@ def _network_mode(row: dict) -> tuple[str, list[dict], list[str]]:
         related = mode.get("RelatedToImageFeature", [])
         if not isinstance(related, list) or any(not _text(feature, code=True) for feature in related):
             raise ValueError("Invalid GPU network image requirements.")
-    selected = next((mode for mode in modes if mode["Name"] == "Normal"), None)
+    advanced = next((mode for name in ("Extreme", "Infiniband")
+                     for mode in modes if mode["Name"] == name), None)
+    if row.get("Name") in _EIGHT_GPU_NETWORK_MODELS and advanced is not None:
+        if gpu_count < 8:
+            return "Normal", deepcopy(modes), [], "official_console_gpu_count_normal"
+        selected = advanced
+        basis = "official_console_gpu_count_enhanced"
+    else:
+        selected = next((mode for mode in modes if mode["Name"] == "Normal"), None)
+        basis = "catalog_normal_or_only_mode"
     if selected is None:
         if len(modes) != 1:
             raise ValueError("GPU network baseline is ambiguous without Normal mode.")
@@ -176,7 +197,7 @@ def _network_mode(row: dict) -> tuple[str, list[dict], list[str]]:
         raise ValueError("Unsupported GPU network baseline mode.")
     if selected.get("MinimalCpuPlatform"):
         raise ValueError("GPU network baseline CPU restriction cannot be verified.")
-    return selected["Name"], deepcopy(modes), list(selected.get("RelatedToImageFeature", []))
+    return selected["Name"], deepcopy(modes), list(selected.get("RelatedToImageFeature", [])), basis
 
 
 def _row_targets(row: dict, geography: dict, row_index: int) -> list[ConsoleQuoteTarget]:
@@ -189,11 +210,11 @@ def _row_targets(row: dict, geography: dict, row_index: int) -> list[ConsoleQuot
     sizes = row.get("MachineSizes")
     if not isinstance(sizes, list) or not sizes:
         raise ValueError("No explicit GPU configurations.")
-    network_mode, network_options, network_image_features = _network_mode(row)
     targets = {}
     for size in sizes:
         if not isinstance(size, dict) or not _positive_int(size.get("Gpu")):
             raise ValueError("Invalid GPU count.")
+        network_mode, network_options, network_image_features, network_basis = _network_mode(row, size["Gpu"])
         collections = size.get("Collection")
         if not isinstance(collections, list) or not collections:
             raise ValueError("Missing CPU/memory configurations.")
@@ -232,7 +253,9 @@ def _row_targets(row: dict, geography: dict, row_index: int) -> list[ConsoleQuot
                                   "network_mode": network_mode,
                                   "network_mode_options": deepcopy(network_options),
                                   "network_mode_required_image_features": list(network_image_features),
-                                  "network_mode_selection_basis": "catalog_normal_or_only_mode",
+                                  "network_mode_selection_basis": network_basis,
+                                  **({"network_mode_selection_source": CONSOLE_NETWORK_RULE_SOURCE}
+                                     if network_basis.startswith("official_console_") else {}),
                                   "image_and_disks_selected": False})
     return list(targets.values())
 
@@ -252,8 +275,9 @@ def build_catalog_targets(regions_response: dict, zones_response: dict,
     counts = {"catalog_rows": len(rows), "gpu_catalog_rows": 0, "uhost_gpu_catalog_rows": 0,
               "spot_gpu_catalog_rows": 0, "other_gpu_catalog_rows": 0,
               "uhost_gpu_rows_with_targets": 0, "uhost_gpu_rows_excluded": 0,
-              "duplicate_gpu_catalog_rows": 0, "duplicate_quote_targets": 0}
-    targets, gaps, seen_rows, conflicts = {}, [], [], set()
+              "duplicate_gpu_catalog_rows": 0, "duplicate_quote_targets": 0,
+              "uhost_gpu_rows_outside_console_scope": 0}
+    targets, gaps, exclusions, seen_rows, conflicts = {}, [], [], [], set()
     for index, original in enumerate(rows):
         if original.get("ParentType") != "G":
             continue
@@ -274,6 +298,20 @@ def build_catalog_targets(regions_response: dict, zones_response: dict,
         for key in ("Name", "Zone"):
             if _text(row.get(key)):
                 gap[key.lower()] = row[key]
+        # The GPU page filters its catalog through the current official zone
+        # directory, then Status=Normal. Preserve known omissions separately
+        # from malformed visible data; neither is a quoted/offline GPU price.
+        exclusion = None
+        if _text(row.get("Zone"), code=True) and row["Zone"] not in zones:
+            exclusion = {**gap, "code": "outside_current_console_zone_directory",
+                         "reason": "The current console zone directory does not expose this catalog row."}
+        elif row.get("Status") == "Soldout" and not row.get("MachineSizes"):
+            exclusion = {**gap, "code": "soldout_catalog_without_configurations", "catalog_status": "Soldout",
+                         "reason": "The official catalog supplies no configurations and the GPU page excludes this Soldout row."}
+        if exclusion:
+            counts["uhost_gpu_rows_outside_console_scope"] += 1
+            exclusions.append(exclusion)
+            continue
         try:
             zone = zones.get(row.get("Zone"))
             region = regions.get(zone.get("Region")) if zone else None
@@ -315,4 +353,4 @@ def build_catalog_targets(regions_response: dict, zones_response: dict,
                                     target.request["CpuPlatform"]))
     counts.update(quote_targets=len(targets), gpu_models=len({t.gpu_model for t in targets}),
                   regions=len({t.request["Region"] for t in targets}), zones=len({t.request["Zone"] for t in targets}))
-    return CatalogTargets(targets, counts, gaps)
+    return CatalogTargets(targets, counts, gaps, exclusions)

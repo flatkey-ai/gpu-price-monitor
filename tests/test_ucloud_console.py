@@ -111,6 +111,48 @@ def parsed_inputs():
 
 
 class UCloudConsoleTests(unittest.TestCase):
+    def test_small_a800_quotes_use_console_normal_mode_on_first_request(self):
+        session = FakeSession()
+        for row in session.instances["AvailableInstanceTypes"]:
+            row["Name"] = "A800"
+            row["Features"][0]["Modes"] = [{"Name": "Extreme"}]
+        original = session.request
+
+        def request(action, params=None, *, settings):
+            if action == "GetUHostInstancePrice" and params["NetCapability"] != "Normal":
+                raise UCloudAPIError(action, 8059)
+            payload = original(action, params, settings=settings)
+            if action == "DescribeImage":
+                payload["ImageSet"][0]["Features"].append("NetEnhanced_Extreme")
+            return payload
+
+        session.request = request
+        result = collect(session, check_availability=False)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(result["prices"]), 3)
+        self.assertEqual(len([call for call in session.calls if call[0] == "GetUHostInstancePrice"]), 3)
+        for quote in result["prices"]:
+            self.assertEqual(quote["requested_configuration"]["NetCapability"], "Normal")
+            self.assertEqual(quote["network_selection"]["selection_basis"], "official_console_gpu_count_normal")
+            self.assertTrue(quote["network_selection"]["selection_source_url"].startswith("https://console-s2.ucloud.cn/"))
+
+    def test_null_network_modes_are_quoted_and_page_exclusions_do_not_fake_failures(self):
+        session = FakeSession()
+        for row in session.instances["AvailableInstanceTypes"]:
+            row["Name"] = "P40"
+            row["Features"][0]["Modes"] = None
+        session.instances["AvailableInstanceTypes"].extend([
+            {"Name": "T4", "ParentType": "G", "InstanceType": "uhost", "Zone": "region-cn-01", "Status": "Soldout"},
+            {"Name": "T4", "ParentType": "G", "InstanceType": "uhost", "Zone": "outside-directory-01", "Status": "Normal"}])
+        result = collect(session, check_availability=False)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(result["prices"]), 3)
+        self.assertFalse(result["gaps"])
+        self.assertFalse(result["errors"])
+        self.assertEqual(len(result["coverage"]["console_scope_exclusions"]), 2)
+        self.assertEqual(result["coverage"]["quote_gap_count"], 0)
+        self.assertTrue(all(q["requested_configuration"]["NetCapability"] == "Normal" for q in result["prices"]))
+
     def test_filtered_empty_catalog_is_no_matches_not_failed_collection(self):
         from gpu_price_monitor import collect_prices
 
