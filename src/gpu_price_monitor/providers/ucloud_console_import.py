@@ -178,11 +178,17 @@ def import_curl_session(curl_file: str | Path, output: str | Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Import a saved UCloud Chrome Copy as cURL request as data; no command execution or network.")
-    parser.add_argument("--curl-file", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--curl-file", type=Path)
+    source.add_argument("--serve", action="store_true", help="one-use localhost form; paste your official read-only request manually")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
-        import_curl_session(args.curl_file, args.output)
+        if args.serve:
+            from .ucloud_session_form import serve_import
+            serve_import(args.output, ready=lambda value: print(value, flush=True))
+        else:
+            import_curl_session(args.curl_file, args.output)
     except FetchError as exc:
         print(f"UCloud session import: {exc.code}: {exc}", file=sys.stderr)
         return 1

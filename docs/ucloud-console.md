@@ -22,6 +22,15 @@ python -m gpu_price_monitor.providers.ucloud_console_import \
 
 导入器只解析文本，不执行其中的 shell 命令、不联网。它只接受官方 API 域上的指定目录 / 询价请求，提取 Cookie 并丢弃其他请求字段，保存最小 JSON；新文件权限为 `0600`，已有输出文件不会被覆盖。也可使用官方 `GetUHostInstancePrice` 请求的 **Copy as cURL**，但不能复制创建实例或订单请求。
 
+不想保存完整请求文本时，可以使用一次性本机表单：
+
+```bash
+python -m gpu_price_monitor.providers.ucloud_console_import \
+  --serve --output playwright/.auth/ucloud.console-session-new.json
+```
+
+打开命令打印的 `http://127.0.0.1:端口/`，在本机表单粘贴上述 **Copy as cURL** 请求并保存。表单十分钟后关闭，只接受同源提交并校验随机标识；成功后立即退出。它不会执行请求，不会发送到供应商或其他服务器。保存后仍须运行真实采集验证；本地保存成功不代表会话有效。
+
 只从页面 JavaScript 导出 `document.cookie` 可能缺少 HttpOnly 登录 Cookie，无法代表完整有效会话。请使用上述官网请求导出方式，不读取浏览器个人配置目录或 Cookie 数据库。导入完成后清空剪贴板，移除不再需要的请求文本副本；保留最小会话文件供 Python 采集。会话过期时重新导出到新文件并更新配置。
 
 ## 本地配置
