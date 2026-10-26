@@ -2,6 +2,7 @@
 import http.client
 import json
 import re
+import socket
 import tempfile
 import threading
 from pathlib import Path
@@ -41,9 +42,13 @@ class SessionFormTests(TestCase):
                     result = response.status, dict(response.getheaders()), response.read().decode()
                     connection.close()
                     return result
+                # A browser preconnect must not block the real form request.
+                idle = socket.create_connection(("127.0.0.1", port), timeout=2)
+                self.addCleanup(idle.close)
                 status, headers, html = request("GET")
                 self.assertEqual(status, 200)
                 self.assertEqual(headers["Cache-Control"], "no-store")
+                self.assertEqual(headers["Referrer-Policy"], "same-origin")
                 self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
                 nonce = re.search('name="nonce" value="([^"]+)"', html).group(1)
                 form = urlencode({"nonce": nonce, "request": REQUEST})

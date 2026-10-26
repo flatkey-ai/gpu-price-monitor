@@ -5,7 +5,7 @@ the existing data-only importer extracts the minimum credential. Nothing is
 sent to a provider, executed as shell code, echoed, or logged by the server.
 """
 from __future__ import annotations
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import secrets
 import time
 from urllib.parse import parse_qs
@@ -23,6 +23,12 @@ def serve_import(output, *, timeout_seconds=600, ready=print):
     origin = ""
 
     class Handler(BaseHTTPRequestHandler):
+        def setup(self):
+            super().setup()
+            # Chrome can open speculative idle connections. Bound each client
+            # before reading headers so it cannot hold the one-use form open.
+            self.connection.settimeout(5)
+
         def log_message(self, *_args):
             pass
 
@@ -32,7 +38,7 @@ def serve_import(output, *, timeout_seconds=600, ready=print):
                     "textarea{width:100%;height:230px;font:14px monospace}button{padding:12px 24px;font:inherit}</style>" + message).encode()
             self.send_response(status)
             for key, value in {"Content-Type": "text/html; charset=utf-8", "Content-Length": str(len(body)),
-                               "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
+                               "Cache-Control": "no-store", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff",
                                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}.items():
                 self.send_header(key, value)
             self.end_headers()
@@ -73,12 +79,12 @@ def serve_import(output, *, timeout_seconds=600, ready=print):
                     raise ValueError
                 state = _parse_curl(form["request"][0])
                 _save_session(state, output)
-                completed = True
                 self.reply(200, "<h1>已保存到本机</h1><p>最小会话文件权限为 0600；原请求没有保存。接下来由 Python 验证官方接口是否接受该会话。</p><p>可以关闭此页，并清空剪贴板。</p>")
+                completed = True
             except (ValueError, OSError, UnicodeError, FetchError):
                 self.reply(400, "<h1>未保存</h1><p>请复制官方 api.ucloud.cn 上的 GetDataForConsoleVersion 或 GetUHostInstancePrice 请求；已有输出文件不会覆盖。凭据或请求内容未记录。</p>")
 
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.timeout = 1
     origin = f"http://127.0.0.1:{server.server_port}"
     ready(f"Local UCloud import: {origin}/")
