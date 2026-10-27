@@ -190,6 +190,50 @@ class VastTests(unittest.TestCase):
         self.assertEqual(result["coverage"]["models_queried"], 1)
         self.assertEqual(result["errors"][0]["gpu_name"], "Tesla T4")
 
+    @patch("gpu_price_monitor.providers.vast.time.sleep")
+    @patch("gpu_price_monitor.providers.vast.request_json")
+    def test_only_failed_models_retry_after_cooldown_and_keep_actual_request_count(self, request, sleep):
+        row = source()["offers"][0]
+        model = row["gpu_name"]
+        attempts = {model: 0, "Tesla T4": 0}
+        def respond(url, settings, **kwargs):
+            if url == vast.GPU_DIRECTORY_URL:
+                return {"gpu_names": [model, "Tesla T4"]}
+            name = json.loads(kwargs["data"])["gpu_name"]["eq"]
+            attempts[name] += 1
+            if name == "Tesla T4" and attempts[name] == 1:
+                raise FetchError("rate_limited", "The public source is temporarily rate limited.", True)
+            copy = dict(row, gpu_name=name, id=row["id"] + (1 if name == "Tesla T4" else 0))
+            return {"offers": [copy], "truncated": False}
+        request.side_effect = respond
+        result = vast.collect_result(settings=Settings(max_retries=2), observed_at=OBSERVED)
+        self.assertEqual(attempts, {model: 1, "Tesla T4": 2})
+        self.assertEqual(result["coverage"]["request_count"], 4)
+        self.assertEqual(result["coverage"]["retry_request_count"], 1)
+        self.assertEqual(result["coverage"]["models_queried"], 2)
+        self.assertEqual(result["errors"], [])
+        self.assertFalse(result["coverage"]["complete"])
+        sleep.assert_called_once_with(60)
+        self.assertTrue(all(q["observed_at"] != OBSERVED for q in result["prices"]))
+
+    @patch("gpu_price_monitor.providers.vast.time.sleep")
+    @patch("gpu_price_monitor.providers.vast.request_json")
+    def test_persistent_limit_is_bounded_and_zero_retry_setting_is_honored(self, request, sleep):
+        def respond(url, settings, **kwargs):
+            if url == vast.GPU_DIRECTORY_URL:
+                return {"gpu_names": ["Tesla T4"]}
+            raise FetchError("rate_limited", "The public source remains limited.", True)
+        request.side_effect = respond
+        for budget, expected in ((0, 2), (2, 4), (10, 4)):
+            request.reset_mock()
+            sleep.reset_mock()
+            result = vast.collect_result(settings=Settings(max_retries=budget), observed_at=OBSERVED)
+            self.assertEqual(request.call_count, expected)
+            self.assertEqual(result["coverage"]["request_count"], expected)
+            self.assertEqual(result["coverage"]["models_queried"], 0)
+            self.assertEqual(result["errors"][0]["code"], "rate_limited")
+            self.assertEqual(sleep.call_count, min(budget, 2))
+
     @patch("gpu_price_monitor.providers.vast.request_json")
     def test_directory_invalid_or_cross_model_response_never_claims_coverage(self, request):
         for directory in ({"gpu_names": ["Tesla T4", "Tesla T4"]}, {"gpu_names": []}, {"success": False, "gpu_names": ["T4"]}):

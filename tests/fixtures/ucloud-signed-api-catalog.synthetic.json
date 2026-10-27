@@ -1,0 +1,315 @@
+{
+  "synthetic": true,
+  "source_documents": [
+    "https://docs.ucloud.cn/api/uaccount-api/get_region",
+    "https://github.com/UCloudDoc-Team/api/blob/master/uhost-api/describe_available_instance_types.md",
+    "https://docs.ucloud.cn/api/uhost-api/describe_image",
+    "https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price"
+  ],
+  "account_regions": {
+    "Action": "GetRegionResponse",
+    "RetCode": 0,
+    "Regions": [
+      {
+        "RegionId": 1,
+        "RegionName": "Synthetic China A",
+        "IsDefault": true,
+        "BitMaps": "synthetic",
+        "Region": "region-cn",
+        "Zone": "region-cn-01"
+      },
+      {
+        "RegionId": 2,
+        "RegionName": "Synthetic China B",
+        "IsDefault": false,
+        "BitMaps": "synthetic",
+        "Region": "region-cn",
+        "Zone": "region-cn-02"
+      },
+      {
+        "RegionId": 3,
+        "RegionName": "Synthetic US A",
+        "IsDefault": false,
+        "BitMaps": "synthetic",
+        "Region": "region-us",
+        "Zone": "region-us-01"
+      }
+    ]
+  },
+  "public_regions": {
+    "Action": "ListAllRegionsResponse",
+    "RetCode": 0,
+    "Regions": [
+      {
+        "Region": "region-cn",
+        "CountryCode": "CN",
+        "LocalName": "Synthetic China region"
+      },
+      {
+        "Region": "region-us",
+        "CountryCode": "US",
+        "LocalName": "Synthetic US region"
+      }
+    ]
+  },
+  "public_zones": {
+    "Action": "ListAllZonesResponse",
+    "RetCode": 0,
+    "Zones": [
+      {
+        "Region": "region-cn",
+        "Zone": "region-cn-01",
+        "LocalName": "Synthetic China A"
+      },
+      {
+        "Region": "region-cn",
+        "Zone": "region-cn-02",
+        "LocalName": "Synthetic China B"
+      },
+      {
+        "Region": "region-us",
+        "Zone": "region-us-01",
+        "LocalName": "Synthetic US A"
+      }
+    ]
+  },
+  "instance_catalogs": {
+    "region-cn": {
+      "Action": "DescribeAvailableInstanceTypesResponse",
+      "RetCode": 0,
+      "AvailableInstanceTypes": [
+        {
+          "Zone": "region-cn-01",
+          "InstanceType": "uhost",
+          "Name": "T4",
+          "Status": "Normal",
+          "ParentType": "G",
+          "MachineClass": "GPU",
+          "GraphicsMemory": {
+            "Value": 16,
+            "Rate": 1
+          },
+          "Performance": {
+            "Value": 1,
+            "Rate": 1
+          },
+          "Description": "Synthetic test GPU catalog row",
+          "CpuPlatforms": {
+            "Amd": [
+              "Amd/Epyc5"
+            ]
+          },
+          "UHostFamilies": [],
+          "Disks": [
+            {
+              "Name": "cloudDisk",
+              "BootDisk": [
+                {
+                  "Name": "CLOUD_SSD",
+                  "InstantResize": true,
+                  "MaximalSize": 500,
+                  "Features": []
+                }
+              ],
+              "DataDisk": []
+            }
+          ],
+          "MachineSizes": [
+            {
+              "Gpu": 2,
+              "Collection": [
+                {
+                  "Cpu": 8,
+                  "Memory": [
+                    32
+                  ],
+                  "MinimalCpuPlatform": [
+                    "Amd/Epyc5"
+                  ]
+                }
+              ]
+            }
+          ],
+          "Features": [
+            {
+              "Name": "NetCapability",
+              "Modes": [
+                {
+                  "Name": "Normal",
+                  "RelatedToImageFeature": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Zone": "region-cn-02",
+          "InstanceType": "uhost",
+          "Name": "T4",
+          "Status": "Normal",
+          "ParentType": "G",
+          "MachineClass": "GPU",
+          "GraphicsMemory": {
+            "Value": 16,
+            "Rate": 1
+          },
+          "Performance": {
+            "Value": 1,
+            "Rate": 1
+          },
+          "Description": "Synthetic test GPU catalog row",
+          "CpuPlatforms": {
+            "Amd": [
+              "Amd/Epyc5"
+            ]
+          },
+          "UHostFamilies": [],
+          "Disks": [
+            {
+              "Name": "cloudDisk",
+              "BootDisk": [
+                {
+                  "Name": "CLOUD_SSD",
+                  "InstantResize": true,
+                  "MaximalSize": 500,
+                  "Features": []
+                }
+              ],
+              "DataDisk": []
+            }
+          ],
+          "MachineSizes": [
+            {
+              "Gpu": 2,
+              "Collection": [
+                {
+                  "Cpu": 8,
+                  "Memory": [
+                    32
+                  ],
+                  "MinimalCpuPlatform": [
+                    "Amd/Epyc5"
+                  ]
+                }
+              ]
+            }
+          ],
+          "Features": [
+            {
+              "Name": "NetCapability",
+              "Modes": [
+                {
+                  "Name": "Normal",
+                  "RelatedToImageFeature": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "region-us": {
+      "Action": "DescribeAvailableInstanceTypesResponse",
+      "RetCode": 0,
+      "AvailableInstanceTypes": [
+        {
+          "Zone": "region-us-01",
+          "InstanceType": "uhost",
+          "Name": "5090Pro",
+          "Status": "Normal",
+          "ParentType": "G",
+          "MachineClass": "GPU",
+          "GraphicsMemory": {
+            "Value": 32,
+            "Rate": 1
+          },
+          "Performance": {
+            "Value": 1,
+            "Rate": 1
+          },
+          "Description": "Synthetic test GPU catalog row",
+          "CpuPlatforms": {
+            "Amd": [
+              "Amd/Epyc5"
+            ]
+          },
+          "UHostFamilies": [],
+          "Disks": [
+            {
+              "Name": "cloudDisk",
+              "BootDisk": [
+                {
+                  "Name": "CLOUD_SSD",
+                  "InstantResize": true,
+                  "MaximalSize": 500,
+                  "Features": []
+                }
+              ],
+              "DataDisk": []
+            }
+          ],
+          "MachineSizes": [
+            {
+              "Gpu": 2,
+              "Collection": [
+                {
+                  "Cpu": 8,
+                  "Memory": [
+                    32
+                  ],
+                  "MinimalCpuPlatform": [
+                    "Amd/Epyc5"
+                  ]
+                }
+              ]
+            }
+          ],
+          "Features": [
+            {
+              "Name": "NetCapability",
+              "Modes": [
+                {
+                  "Name": "Normal",
+                  "RelatedToImageFeature": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "image_template": {
+    "ImageId": "base-synthetic",
+    "ImageName": "Synthetic Ubuntu Base",
+    "OsName": "Ubuntu Base",
+    "ImageType": "Base",
+    "OsType": "Linux",
+    "State": "Available",
+    "Zone": "region-cn-01",
+    "Features": [
+      "StandardKernel",
+      "RssdAttachable"
+    ],
+    "ImageSize": 20,
+    "CreateTime": 100
+  },
+  "quote": {
+    "Action": "GetUHostInstancePriceResponse",
+    "RetCode": 0,
+    "PriceSet": [
+      {
+        "ChargeType": "Dynamic",
+        "Price": "8.4",
+        "PriceDetail": {
+          "UHost": "8.0",
+          "UDisk": "0.4",
+          "Snapshot": 0,
+          "Volume": 0,
+          "UImage": 0,
+          "UMkt": 0
+        }
+      }
+    ]
+  }
+}

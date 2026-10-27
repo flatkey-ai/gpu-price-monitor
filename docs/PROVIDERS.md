@@ -10,7 +10,7 @@
 | `api_only` | 仅允许价格 API，包含显式选择的 Lambda console 与 AutoDL market `official_internal_api`；Nebius 公开来源只取 Spot，显式 `catalog_api` / `api` 可用账号估价，不加网站目录；Crusoe / AutoDL 首页页面来源明确报 `api_price_source_unavailable` |
 | `configured` | 默认兼容行为，遵循各 `*_SOURCE`；Nebius public 保持旧文档 + Spot，UCloud public 保持旧 UHost 活动月包 |
 
-有任一 UCloud 账号 key 时，接口优先策略要求完整签名 UHost 询价配置，不能悄悄改成 CompShare；显式 API 认证失败、请求失败、结构变化都直接报错。选择页面 / 网站 JSON 是请求前的规则，不是接口报错后的兜底。实际 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 随结果返回；混合源不冒充单一 API。
+有任一 UCloud 账号 key 时，接口优先策略选择签名 UHost 询价；完整目录模式自动发现配置，标准模式要求显式目标，不能悄悄改成 CompShare；显式 API 认证失败、请求失败、结构变化都直接报错。选择页面 / 网站 JSON 是请求前的规则，不是接口报错后的兜底。实际 `source_type`、`collection_method`、`selection_reason`、`fallback_reason` 随结果返回；混合源不冒充单一 API。
 
 默认 `market` CSV 接受实际每 GPU 小时目录 / 地区价；`compact` 额外要求已核实国家和 region；`full` 为所有原始来源记录。起步价、组件、月包、询价、资格未核实的特殊优惠和明确下线项不进入有效小时表。库保留原币，不除以 720，不补造地区。
 
@@ -80,7 +80,7 @@ Spot 核对平台、SKU、region、金额、币种、`GPU hour`、`effectiveTime
 
 CompShare 已取得真实匿名询价成功响应，不需要供应商 key、充值或创建 GPU。最终本批范围以 `provider_results` 的发现 / 请求 / 成功 / 失败及未核验区域诊断为准，不把目录配置数当成功报价数。
 
-有任一 UCloud key 时，接口优先要求完整 `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY` 和 targets，走原 [GetUHostInstancePrice](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price)签名 UHost 询价；显式 `UCLOUD_SOURCE=api` 同样如此。只读核验完整位置 / GPU / CPU / RAM / 磁盘目标，私钥本地签名，不创建实例。该认证分支仍缺有效账号成功联调证据，失败不回退 CompShare。
+有任一 UCloud key 时，接口优先要求完整 `UCLOUD_PUBLIC_KEY`、`UCLOUD_PRIVATE_KEY`，使用 [GetUHostInstancePrice](https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_price) 签名 UHost 询价；显式 `UCLOUD_SOURCE=api` 同样如此。`catalog_scope=complete` 每轮通过官方只读 API 自动发现账号地区和 GPU 配置，再逐项询价，不需要 targets 或浏览器 Cookie；标准模式仍要求显式 targets。私钥本地签名，不创建实例。认证失败不回退 CompShare；真实联调状态见 [签名目录验收记录](ucloud-api-catalog.md)。
 
 兼容 `configured` + `UCLOUD_SOURCE=public` 保留旧 [UHost 活动](https://www.ucloud.cn/site/active/gpu.html)匿名月套餐。月金额和下线状态只保留审计，不除以 720，不当当前每小时租价。
 
@@ -99,3 +99,9 @@ CompShare 已取得真实匿名询价成功响应，不需要供应商 key、充
 | Azure | [Retail Prices API](https://prices.azure.com/api/retail/prices)，26 个已核验整卡 GPU SKU，包含 T4、A10、A100、H100、H200、V100、RTX PRO 6000、V710、MI300X、GB200 的明确规格及地区费率；不代表全 SKU、订阅库存或配额，见[范围说明](azure.md) |
 
 `--providers all` 会包含这些扩展及 RunPod；原文档五家模板不会运行它们。
+
+### UCloud 无浏览器签名目录采集
+
+`UCLOUD_SOURCE=api` 与 `catalog_scope=complete` 使用签名 `GetRegion`、`DescribeAvailableInstanceTypes` 和分页 `DescribeImage` 发现当前账号 GPU 配置，再对每个精确配置请求 `GetUHostInstancePrice`。配置公私钥及已授权项目 ID 即可，采集不读取或续期浏览器 Cookie。仅需四个只读动作。详见 [目录范围与真实验收步骤](ucloud-api-catalog.md)；合成响应测试与真实授权验收分别记录。
+
+Vast 逐型号搜索只对限流、网络或超时失败做冷却后的串行重试，最多两轮（或调用者更低的重试预算）。已成功的型号不会重复抓取；记录实际重试请求数，耗尽预算仍保留明确缺口。受响应上限约束，不宣称抓到全市场机器。

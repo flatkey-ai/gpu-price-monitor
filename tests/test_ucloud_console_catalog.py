@@ -180,11 +180,24 @@ class UCloudConsoleCatalogTests(unittest.TestCase):
                 inputs = fixture()
                 inputs[0]["Regions"][0]["CountryCode"] = country
                 result = build_catalog_targets(*inputs)
-                self.assertEqual(result.targets, [])
-                self.assertEqual(result.gaps[0]["code"], "unverified_country_or_region")
+                self.assertEqual(len(result.targets), 4)
+                self.assertTrue(all(t.country_code is None and t.location["country_code"] is None for t in result.targets))
+                self.assertTrue(all(t.request["Region"] == "example-a" and t.request["Zone"] == "example-a-01" for t in result.targets))
+                self.assertTrue(all(t.metadata["country_basis"] is None for t in result.targets))
+                self.assertEqual(result.gaps[0]["code"], "country_not_verified")
+                self.assertEqual(result.counts["uhost_gpu_rows_excluded"], 0)
         inputs = fixture()
         inputs[1]["Zones"][0]["Region"] = "missing"
         self.assertFalse(build_catalog_targets(*inputs).targets)
+
+    def test_missing_display_names_do_not_erase_exact_price_request_locations(self):
+        inputs = fixture()
+        inputs[0]["Regions"][0].pop("LocalName")
+        inputs[1]["Zones"][0].pop("LocalName")
+        result = build_catalog_targets(*inputs)
+        self.assertEqual(len(result.targets), 4)
+        self.assertFalse(result.gaps)
+        self.assertTrue(all(t.country_code == "US" and t.region_name is None and t.zone_name is None for t in result.targets))
 
     def test_scope_counts_exclude_spot_and_cpu_and_report_no_shapes(self):
         inputs = fixture()

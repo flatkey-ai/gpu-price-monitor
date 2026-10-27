@@ -27,9 +27,9 @@ class ConsoleQuoteTarget:
     gpu_memory_gb: int | float | None
     memory_gb: int | float
     cpu_platform_options: list[str]
-    country_code: str
-    region_name: str
-    zone_name: str
+    country_code: str | None
+    region_name: str | None
+    zone_name: str | None
     disk_options: list[dict]
     catalog_status: str
     metadata: dict = field(default_factory=dict)
@@ -248,7 +248,7 @@ def _row_targets(row: dict, geography: dict, row_index: int) -> list[ConsoleQuot
                         zone_name=geography["zone_name"], disk_options=deepcopy(disks), catalog_status=status,
                         metadata={"catalog_row_index": row_index, "instance_type": "uhost",
                                   "billing_scope": "on_demand_only", "availability_verified": False,
-                                  "country_basis": "ListRegions.CountryCode",
+                                  "country_basis": "ListRegions.CountryCode" if geography["country_code"] else None,
                                   "cpu_platform_price_scope": "vendor",
                                   "network_mode": network_mode,
                                   "network_mode_options": deepcopy(network_options),
@@ -316,12 +316,21 @@ def build_catalog_targets(regions_response: dict, zones_response: dict,
             zone = zones.get(row.get("Zone"))
             region = regions.get(zone.get("Region")) if zone else None
             country = region.get("CountryCode") if region else None
-            if (not zone or not region or not isinstance(country, str) or not _COUNTRY.fullmatch(country)
-                    or not _text(zone.get("LocalName")) or not _text(region.get("LocalName"))):
+            if not zone or not region:
                 gap["code"] = "unverified_country_or_region"
-                raise ValueError("Complete official country, region and zone information is required.")
+                raise ValueError("An exact official region and zone binding is required.")
+            # A signed reader may know a region/zone pair absent from the
+            # separate anonymous country directory. This marker can only
+            # withhold a country, never promote or guess one from a prefix.
+            if (zone.get("CountryCodeVerified") is False or not isinstance(country, str)
+                    or not _COUNTRY.fullmatch(country)):
+                country = None
+            if country is None:
+                gaps.append({**gap, "scope": "catalog_region_country", "code": "country_not_verified",
+                             "region": region["Region"], "zone": zone["Zone"]})
             geography = {"country_code": country, "region": region["Region"], "zone": zone["Zone"],
-                         "region_name": region["LocalName"], "zone_name": zone["LocalName"]}
+                         "region_name": region.get("LocalName") if _text(region.get("LocalName")) else None,
+                         "zone_name": zone.get("LocalName") if _text(zone.get("LocalName")) else None}
             candidates = _row_targets(row, geography, index)
             for candidate in candidates:
                 identity = tuple(candidate.request.items())

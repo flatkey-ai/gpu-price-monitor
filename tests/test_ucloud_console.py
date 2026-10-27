@@ -335,15 +335,21 @@ class UCloudConsoleTests(unittest.TestCase):
                 self.assertEqual([params["Zone"] for action, params in session.calls
                                   if action == "GetUHostInstancePrice"], [expected])
 
-    def test_missing_official_country_is_excluded_instead_of_inferred_from_code(self):
+    def test_missing_official_country_keeps_exact_quote_without_inference(self):
         session = FakeSession()
         session.regions["Regions"][1].pop("CountryCode")
         result = collect(session)
         self.assertEqual(result["status"], "partial")
-        self.assertEqual(len(result["prices"]), 2)
-        self.assertIn("unverified_country_or_region", {gap.get("code") for gap in result["gaps"]})
-        self.assertFalse(any(params.get("Region") == "region-us" for action, params in session.calls
-                             if action == "GetUHostInstancePrice"))
+        self.assertEqual(len(result["prices"]), 3)
+        self.assertIn("country_not_verified", {gap.get("code") for gap in result["gaps"]})
+        unknown = next(q for q in result["prices"] if q["regions"] == ["region-us"])
+        self.assertEqual(unknown["compute_countries"], [])
+        self.assertIsNone(unknown["location"]["country_code"])
+        self.assertEqual(unknown["zones"], ["region-us-01"])
+        self.assertEqual(unknown["amount"], "10.4")
+        self.assertTrue(any(params.get("Region") == "region-us" and params.get("Zone") == "region-us-01"
+                            for action, params in session.calls if action == "GetUHostInstancePrice"))
+        self.assertTrue(any("country is not verified" in note for note in unknown["notes"]))
 
     def test_partial_quote_errors_keep_other_zones_and_never_expose_exception(self):
         session = FakeSession()

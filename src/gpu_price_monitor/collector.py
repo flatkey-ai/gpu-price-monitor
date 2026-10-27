@@ -46,6 +46,11 @@ def _selected_module(provider: str, settings: Settings | None = None):
     if provider == "ucloud" and (settings.ucloud_source == "api" or (
         prefer_api and (settings.ucloud_public_key or settings.ucloud_private_key)
     )):
+        # Complete API collection discovers current regions and GPU shapes on
+        # every run; selected mode keeps the explicit-target quote contract.
+        if settings.catalog_scope == "complete":
+            from .providers import ucloud_api_catalog
+            return ucloud_api_catalog
         # Partial account configuration must fail visibly, rather than returning
         # unrelated monthly promotions when the caller intended hourly quotes.
         return ucloud
@@ -94,7 +99,7 @@ def provider_source(provider: str, settings: Settings | None = None) -> str:
         if settings is not None and settings.catalog_scope == "complete" and settings.source_policy != "api_only":
             return "official_public_sources"
         return "official_api"
-    if module is ucloud:
+    if module is ucloud or (provider == "ucloud" and getattr(module, "SOURCE_TYPE", None) == "official_quote_api"):
         return "official_quote_api"
     if provider == "nebius" and settings is not None and settings.nebius_source in {"api", "catalog_api"}:
         return "official_quote_api"
@@ -431,7 +436,8 @@ def collect_prices(
                     result["discovery"] = outcome["discovery"]
                     result["target_errors"] = target_errors
                     result["product_line"] = module.PRODUCT_LINE
-                elif provider == "ucloud" and settings.ucloud_source == "console":
+                elif provider == "ucloud" and (settings.ucloud_source == "console" or
+                        settings.catalog_scope == "complete" and getattr(module, "SOURCE_TYPE", None) == "official_quote_api"):
                     observed_at = _now()
                     outcome = module.collect_result(settings=settings, observed_at=observed_at,
                                                     regions=conditions[provider].get("regions"),

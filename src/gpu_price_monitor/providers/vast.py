@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from decimal import Context, Decimal, localcontext
 import json
 import re
+import time
 
 from ..settings import Settings
 from ..transport import FetchError, request_json
@@ -265,27 +266,42 @@ def collect_result(*, settings: Settings, observed_at: str, limit: int = MAX_OFF
             return model, None, {"source_url": API_URL, "gpu_name": model,
                                  "code": exc.code if isinstance(exc, FetchError) else "invalid_model_response",
                                  "message": "The public model price search did not produce verified data."}
-    prices, seen, model_results, errors, exclusions = [], set(), [], [], []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        for model, result, error in pool.map(search, sorted(models)):
-            if error:
-                errors.append(error)
-                model_results.append({"gpu_name": model, "status": "failed"})
-                continue
-            coverage = result["coverage"]
-            model_results.append({"gpu_name": model, "status": "queried", "source_offer_count": coverage["source_offer_count"],
-                                  "quote_count": coverage["quote_count"], "api_truncated": coverage["api_truncated"],
-                                  "limit_reached": coverage["source_offer_count"] >= limit})
-            exclusions.extend(coverage["exclusions"])
-            for quote in result["prices"]:
-                identifier = quote["conditions"]["offer_id"]
-                if identifier not in seen:
-                    prices.append(quote)
-                    seen.add(identifier)
+        results = list(pool.map(search, sorted(models)))
+    requests = len(models) + 1
+    # Retry only transient failures, after a bounded provider cooldown. A
+    # serial retry round avoids amplifying 429s with another directory scan.
+    for _ in range(min(settings.max_retries, 2)):
+        pending = [index for index, (_, _, error) in enumerate(results)
+                   if error and error["code"] in {"rate_limited", "timeout", "network_error"}]
+        if not pending:
+            break
+        time.sleep(60)
+        for position, index in enumerate(pending):
+            if position:
+                time.sleep(2)
+            results[index] = search(results[index][0])
+            requests += 1
+    prices, seen, model_results, errors, exclusions = [], set(), [], [], []
+    for model, result, error in results:
+        if error:
+            errors.append(error)
+            model_results.append({"gpu_name": model, "status": "failed"})
+            continue
+        coverage = result["coverage"]
+        model_results.append({"gpu_name": model, "status": "queried", "source_offer_count": coverage["source_offer_count"],
+                              "quote_count": coverage["quote_count"], "api_truncated": coverage["api_truncated"],
+                              "limit_reached": coverage["source_offer_count"] >= limit})
+        exclusions.extend(coverage["exclusions"])
+        for quote in result["prices"]:
+            identifier = quote["conditions"]["offer_id"]
+            if identifier not in seen:
+                prices.append(quote)
+                seen.add(identifier)
     coverage = {"scope": "official_gpu_directory_per_model_on_demand_search", "complete": False,
                 "status": "partial", "directory_source_url": GPU_DIRECTORY_URL,
                 "directory_model_count": len(models), "models_queried": len(models) - len(errors),
-                "request_count": len(models) + 1, "request_limit_per_model": limit,
+                "request_count": requests, "retry_request_count": requests - len(models) - 1, "request_limit_per_model": limit,
                 "model_results": model_results, "source_offer_count": sum(row.get("source_offer_count", 0) for row in model_results),
                 "quote_count": len(prices), "excluded_count": len(exclusions), "exclusions": exclusions,
                 "exclusion_counts": dict(sorted(Counter(e["code"] for e in exclusions).items())),

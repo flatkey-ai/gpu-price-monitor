@@ -19,7 +19,7 @@ coverage = result["coverage"]
 
 该模块也已接入共享 provider 注册表，可用 `--providers vast` 运行。
 
-先读取官方 `GET https://console.vast.ai/api/v0/gpu_names/unique/` 型号目录，再对每个型号固定请求 `POST https://console.vast.ai/api/v0/bundles`，用 `gpu_name.eq` 查询该型号的 `on-demand` offer。显式传 `allocated_storage: 8`，按 ID 升序，每个型号最多 1000 条；最多并发 4 个型号，每次请求超时上限 20 秒、响应上限 5 MiB、不自动重试。`limit` 可向下调，不能超过上限。2026-10-27 起不再用可租状态或验证状态筛除已有数字价格；这两项来源字段与每个型号的成功、失败、限额状态分别保留。型号目录异常时失败，不猜型号或复用历史结果。
+先读取官方 `GET https://console.vast.ai/api/v0/gpu_names/unique/` 型号目录，再对每个型号固定请求 `POST https://console.vast.ai/api/v0/bundles`，用 `gpu_name.eq` 查询该型号的 `on-demand` offer。显式传 `allocated_storage: 8`，按 ID 升序，每个型号最多 1000 条；最多并发 4 个型号，每次请求超时上限 20 秒、响应上限 5 MiB。仅对限流、网络中断和超时的失败型号做有界重试：每轮先冷却 60 秒，再逐项串行重试，最多两轮（也受调用者更低的 `max_retries` 限制），不重新请求已成功的型号。实际请求数与重试数分别记录，耗尽预算仍明确留缺口。`limit` 可向下调，不能超过上限。2026-10-27 起不再用可租状态或验证状态筛除已有数字价格；这两项来源字段与每个型号的成功、失败、限额状态分别保留。型号目录异常时失败，不猜型号或复用历史结果。
 
 ## 费用与配置
 

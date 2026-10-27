@@ -90,7 +90,7 @@ def parse_console_quote(payload, target, selected, *, availability, observed_at)
         "raw_name": "UHost " + target.request["GpuType"],
         "raw_sku": None,
         "configuration_id": hashlib.sha256(_identity(request).encode()).hexdigest()[:20],
-        "compute_countries": [target.country_code], "location": target.location,
+        "compute_countries": [target.country_code] if target.country_code else [], "location": target.location,
         "location_source": {"regions_url": "https://api.ucloud.cn?Action=ListRegions",
                             "zones_url": "https://api.ucloud.cn?Action=ListZones",
                             "basis": "official_directory_exact_requested_region_zone"},
@@ -114,7 +114,8 @@ def parse_console_quote(payload, target, selected, *, availability, observed_at)
             "Account-scoped UHost Dynamic hourly quote for the exact catalog GPU/CPU/RAM/vendor/network/region/zone configuration.",
             "Per-GPU price is the configured instance total divided by its GPU count; CPU, RAM and the requested boot disk are included.",
             "Baseline uses a compatible official Linux image with no image charge and a minimum boot disk; it excludes extra data disks, EIP/bandwidth, paid images and snapshots.",
-            "Country and zone are joined through the official directories; each zone is separately quoted, never copied from another region.",
+            ("Country and zone are joined through the official directories; each zone is separately quoted, never copied from another region." if target.country_code else
+             "The official region/zone pair was separately quoted; its country is not verified, and no uniform country or global price is implied."),
             ("Availability was checked for this GPU/CPU/RAM/vendor/zone combination; network/image orderability and quota were not checked. Sold out does not mean discontinued." if availability != "unknown" else
              "Current stock was not verified; the official catalog validates this configuration, not immediate orderability."),
             "Catalog coverage excludes spot, monthly/yearly packages, custom storage/images and unpublished contracts.",
@@ -128,6 +129,12 @@ def parse_console_quote(payload, target, selected, *, availability, observed_at)
 
 def collect_result(*, settings: Settings, observed_at: str, regions=None, zones=None, gpu_models=None):
     session = UCloudConsoleSession.from_settings(settings)
+    return collect_catalog(session, settings=settings, observed_at=observed_at,
+                           regions=regions, zones=zones, gpu_models=gpu_models)
+
+
+def collect_catalog(session, *, settings: Settings, observed_at: str, regions=None, zones=None, gpu_models=None):
+    """Shared catalog projection; the supplied reader owns authentication."""
     if settings.ucloud_project_id is not None and not ucloud._label(settings.ucloud_project_id):
         raise FetchError("invalid_project", "UCLOUD_PROJECT_ID must be a valid project identifier.")
     def read(action, params=None):
