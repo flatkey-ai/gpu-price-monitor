@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 from gpu_price_monitor import lambda_frontend as frontend
 from gpu_price_monitor import lambda_session
+from gpu_price_monitor.providers import lambda_console, lambda_locations
 from gpu_price_monitor.transport import FetchError
 
 
@@ -23,6 +24,27 @@ SECRET = "synthetic-private-cookie"
 
 
 class LambdaFrontendTests(unittest.TestCase):
+    def test_current_fingerprint_matches_reviewed_shared_sku_flow_record(self):
+        review = json.loads((Path(__file__).parent / "fixtures" /
+                             "lambda-console-frontend-review-20261027.json").read_text())
+        self.assertEqual(frontend.REVIEWED_SOURCE_URL, review["source_url"])
+        self.assertEqual(frontend.REVIEWED_SHA256, review["source_sha256"])
+        self.assertEqual(lambda_console.FRONTEND_SOURCE_URL, review["source_url"])
+        self.assertEqual(lambda_locations.FRONTEND_SOURCE_URL, review["source_url"])
+        self.assertEqual(lambda_locations.FRONTEND_SOURCE_SHA256, review["source_sha256"])
+        self.assertEqual(lambda_locations.VERIFIED_ON, review["verified_on"])
+        self.assertEqual(review["reviewed_scope"], "currently_selectable_standard_regions")
+        self.assertFalse(review["independent_region_quotes"])
+        self.assertFalse(review["final_checkout_verified"])
+        fragments = review["reviewed_fragments"]
+        # The reviewed region callbacks only change selected configuration state.
+        # They contain no new catalog/price request or SKU-price mutation.
+        for name in ("instance_region_selection", "cluster_region_selection"):
+            self.assertIn("region=e", fragments[name])
+            self.assertNotIn("price_cents", fragments[name])
+            self.assertNotIn("getInstanceTypes", fragments[name])
+            self.assertNotIn("getReservedClusterTypes", fragments[name])
+
     def setUp(self):
         self.session = Mock(spec=["get_console_html"])
         self.session.get_console_html.return_value = HTML

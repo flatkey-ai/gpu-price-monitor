@@ -94,6 +94,28 @@ class LambdaLocationsTests(unittest.TestCase):
         self.assertFalse(metadata["independent_region_quotes"])
         self.assertFalse(metadata["final_checkout_verified"])
 
+    def test_each_reviewed_snapshot_needs_its_exact_url_hash_and_date(self):
+        quote = lambda_locations.enrich_price_applicability(self.quote([
+            {"name": "us-east-2", "description": "Washington DC, USA"}]))
+        original = deepcopy(quote["price_applicability"]["evidence"])
+        historical = {
+            **original,
+            "source_url": "https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js",
+            "source_sha256": "becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c",
+            "verified_on": "2026-10-23",
+        }
+        for evidence in (original, historical):
+            quote["price_applicability"]["evidence"] = evidence
+            self.assertEqual(len(lambda_locations.validated_applicability_locations(quote)), 1)
+        for evidence in (
+            {**original, "source_sha256": historical["source_sha256"]},
+            {**original, "verified_on": historical["verified_on"]},
+            {**original, "source_url": "https://cloud.lambda.ai/static/cloud-app/assets/main-Unknown.js"},
+            {**original, "source_sha256": []},
+        ):
+            quote["price_applicability"]["evidence"] = evidence
+            self.assertIsNone(lambda_locations.validated_applicability_locations(quote))
+
     def test_enrichment_does_not_change_prices_or_independent_geography(self):
         quote = self.quote(
             [{"name": "us-east-2", "description": "Washington DC, USA"}],

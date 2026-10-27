@@ -25,8 +25,10 @@ def source():
     original = json.loads(FIXTURE.read_text(), parse_float=Decimal)["skus"]
     extra = FIXTURE.with_name("azure-h100-a100-public-retail.json")
     expanded = FIXTURE.with_name("azure-expanded-public-retail.json")
+    additional = FIXTURE.with_name("azure-additional-whole-gpu-20261027.json")
     return {**original, **json.loads(extra.read_text(), parse_float=Decimal)["skus"],
-            **json.loads(expanded.read_text(), parse_float=Decimal)["skus"]}
+            **json.loads(expanded.read_text(), parse_float=Decimal)["skus"],
+            **json.loads(additional.read_text(), parse_float=Decimal)["skus"]}
 
 
 def parse(items=None, arm_sku=T4):
@@ -131,9 +133,49 @@ class AzureTests(unittest.TestCase):
 
     def test_fractional_a10_and_unverified_b200_are_not_fabricated(self):
         for sku in ("Standard_NV6ads_A10_v5", "Standard_NV12ads_A10_v5", "Standard_NV18ads_A10_v5",
-                    "Standard_ND_B200_v6"):
+                    "Standard_ND_B200_v6", "Standard_ND128isr_GB300_v6", "Standard_ND128isrG5_GB300_v6",
+                    "Standard_NC72ds_xl_RTXPRO6000BSE_v6", "Standard_NV12ads_V710_v5"):
             with self.subTest(sku=sku), self.assertRaises(ValueError):
                 azure.parse_items([], arm_sku=sku, observed_at=OBSERVED)
+
+    def test_additional_priced_whole_gpu_families_keep_documented_specs_and_raw_rates(self):
+        # Hardware values were reviewed in the exact Microsoft size tables.
+        # Tariffs are reduced real retail rows captured 2026-10-27, not prices
+        # calculated from another size or provider.
+        cases = (
+            ("Standard_ND96isr_H200_v5", "H200", None, "NVIDIA", 8, 141, 96, 1850),
+            ("Standard_NCC40ads_H100_v5", "H100", "NVL", "NVIDIA", 1, 94, 40, 320),
+            ("Standard_ND40rs_v2", "V100", "NVLink", "NVIDIA", 8, 32, 40, 672),
+            ("Standard_NC144ds_xl_RTXPRO6000BSE_v6", "RTX PRO 6000", "Blackwell Server Edition", "NVIDIA", 1, 96, 144, 516),
+            ("Standard_NC288ds_xl_RTXPRO6000BSE_v6", "RTX PRO 6000", "Blackwell Server Edition", "NVIDIA", 2, 96, 288, 1032),
+            ("Standard_NC144lds_xl_RTXPRO6000BSE_v6", "RTX PRO 6000", "Blackwell Server Edition", "NVIDIA", 1, 96, 144, 264),
+            ("Standard_NC288lds_xl_RTXPRO6000BSE_v6", "RTX PRO 6000", "Blackwell Server Edition", "NVIDIA", 2, 96, 288, 516),
+            ("Standard_NV24ads_V710_v5", "RADEON PRO V710", None, "AMD", 1, 24, 24, 128),
+            ("Standard_NV28adms_V710_v5", "RADEON PRO V710", None, "AMD", 1, 24, 28, 160),
+        )
+        for sku, model, variant, vendor, count, memory, cpu, ram in cases:
+            with self.subTest(sku=sku):
+                quotes = parse(arm_sku=sku)
+                self.assertEqual({q["billing_mode"] for q in quotes}, {"on_demand", "spot"})
+                self.assertEqual(len(quotes), 2)
+                by_meter = {row["meterId"]: row for row in source()[sku]["Items"]}
+                for quote in quotes:
+                    self.assertEqual((quote["gpu_model"], quote["gpu_variant"], quote["gpu_vendor"],
+                                      quote["gpu_count"], quote["vram_gb"]), (model, variant, vendor, count, memory))
+                    self.assertEqual(quote["resources"], {"vcpus": cpu, "memory_gib": ram})
+                    original = by_meter[quote["azure_meter"]["meter_id"]]
+                    self.assertEqual(Decimal(quote["instance_price"]["amount"]), original["retailPrice"])
+                    self.assertEqual(Decimal(quote["amount"]) * count, original["retailPrice"])
+                    self.assertEqual(quote["regions"], [original["armRegionName"]])
+                    self.assertEqual(quote["availability"], "unknown")
+                    self.assertEqual(quote["conditions"].get("confidential_vm"), True if sku.startswith("Standard_NCC") else None)
+        h200 = next(q for q in parse(arm_sku=cases[0][0]) if q["billing_mode"] == "on_demand")
+        self.assertEqual(h200["amount"], "15.37")
+        # Same GPU and CPU, different RAM: preserve separate instance SKUs.
+        normal = parse(arm_sku="Standard_NC144ds_xl_RTXPRO6000BSE_v6")[0]
+        optimized = parse(arm_sku="Standard_NC144lds_xl_RTXPRO6000BSE_v6")[0]
+        self.assertNotEqual(normal["raw_sku"], optimized["raw_sku"])
+        self.assertNotEqual(normal["resources"], optimized["resources"])
 
     def test_countries_use_only_explicit_official_region_directory_mapping(self):
         base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
@@ -188,6 +230,16 @@ class AzureTests(unittest.TestCase):
                 self.assertIsNone(quote["location_source"]["url"])
                 self.assertIsNone(quote["location_source"]["verified_on"])
                 self.assertEqual(quote["location_source"]["country_basis"], "unverified_region")
+
+    def test_eastus3_country_uses_microsoft_explicit_geography_list(self):
+        row = next(r for r in source()["Standard_NC144ds_xl_RTXPRO6000BSE_v6"]["Items"]
+                   if r["meterName"] == "NC144dsxlRTX6kv6")
+        quote = parse([{**row, "armRegionName": "eastus3"}], arm_sku=row["armSkuName"])[0]
+        self.assertEqual(quote["regions"], ["eastus3"])
+        self.assertEqual(quote["compute_countries"], ["US"])
+        self.assertEqual(quote["location_source"]["url"], azure.PIPELINES_GEOGRAPHY_DOCUMENTATION_URL)
+        self.assertEqual(quote["location_source"]["region_field"], "USGeographyRegions")
+        self.assertEqual(quote["location_source"]["verified_on"], "2026-10-27")
 
     def test_country_filter_uses_verified_mappings_and_preserves_unknown_failure(self):
         base = next(r for r in source()[T4]["Items"] if r["meterName"] == "NC4as T4 v3")
@@ -262,7 +314,7 @@ class AzureTests(unittest.TestCase):
                 parse([base, duplicate])
 
     @patch("gpu_price_monitor.providers.azure.request_json")
-    def test_collection_is_seventeen_fixed_anonymous_get_queries(self, request):
+    def test_collection_is_twenty_six_fixed_anonymous_get_queries(self, request):
         pages = source()
         def respond(url, settings, **kwargs):
             self.assertEqual(kwargs, {"authenticated": False})
@@ -280,8 +332,8 @@ class AzureTests(unittest.TestCase):
         request.side_effect = respond
         settings = Settings(lambda_api_key="unused-private-test-key")
         result = azure.collect_quotes(settings=settings, observed_at=OBSERVED)
-        self.assertEqual(request.call_count, 17)
-        self.assertEqual(len(result), 34)
+        self.assertEqual(request.call_count, 26)
+        self.assertEqual(len(result), 52)
         self.assertEqual({q["raw_sku"] for q in result}, set(pages))
         self.assertNotIn("unused-private-test-key", json.dumps(result))
 
@@ -297,8 +349,8 @@ class AzureTests(unittest.TestCase):
         request.side_effect = [page(items[:1], continuation), page(items[1:]),
                                *(pages[sku] for sku in azure._SPECS if sku != T4)]
         result = azure.collect_quotes(settings=Settings(), observed_at=OBSERVED)
-        self.assertEqual(len(result), 34)
-        self.assertEqual(request.call_count, 18)
+        self.assertEqual(len(result), 52)
+        self.assertEqual(request.call_count, 27)
         self.assertEqual(request.call_args_list[1].args[0], azure.query_url(T4, skip=1))
 
     @patch("gpu_price_monitor.providers.azure.request_json")

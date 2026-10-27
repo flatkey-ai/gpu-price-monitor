@@ -1,4 +1,4 @@
-"""Official region names/DCs establish country only for eleven reviewed cases."""
+"""Exact country mappings distinguish official place evidence from operator review."""
 
 from copy import deepcopy
 import unittest
@@ -28,8 +28,9 @@ PUBLIC_ROWS = [
     ("west-X", "西北企业区", "westDC2"),
     ("sh-A1", "摩尔线程专区", "shanghaiDC1"),
 ]
-VERIFIED = {"bj-B1", "bj-B2", "bj-B3", "cq-A1", "nm-B1", "nm-B2",
-            "beijing-A", "beijing-B", "beijing-D", "beijing-E", "foshan-A"}
+OFFICIALLY_VERIFIED = {"bj-B1", "bj-B2", "bj-B3", "cq-A1", "nm-B1", "nm-B2",
+                      "beijing-A", "beijing-B", "beijing-D", "beijing-E", "foshan-A"}
+OPERATOR_REVIEWED = {"west-B", "west-C", "west-D", "west-E", "west-X", "sh-A1", "beijing-C", "nm-A1"}
 
 
 def payload():
@@ -53,28 +54,30 @@ def market_quote(code="bj-B1", name="北京B区"):
 
 
 class AutoDLRegionsTests(unittest.TestCase):
-    def test_exact_public_identities_enrich_eleven_rows_and_leave_eight_unverified(self):
+    def test_all_nineteen_exact_public_identities_keep_distinct_country_evidence(self):
         metadata = directory()
         supplied = [market_quote(code, name) for code, name, _ in PUBLIC_ROWS]
         output, gaps = regions.enrich_market_quotes(supplied, region_directory=metadata)
         self.assertEqual(len(output), 19)
-        self.assertEqual(len(gaps), 8)
+        self.assertEqual(gaps, [])
         verified = {q["regions"][0] for q in output if q["compute_countries"]}
-        self.assertEqual(verified, VERIFIED)
-        self.assertEqual(len(verified), 11)
+        self.assertEqual(verified, OFFICIALLY_VERIFIED | OPERATOR_REVIEWED)
+        self.assertEqual(len(verified), 19)
         for quote in output:
             with self.subTest(code=quote["regions"][0]):
-                if quote["regions"][0] in VERIFIED:
-                    self.assertEqual(quote["compute_countries"], ["CN"])
-                    self.assertEqual(quote["location"]["country_name_zh"], "中国")
+                self.assertEqual(quote["compute_countries"], ["CN"])
+                self.assertEqual(quote["location"]["country_name_zh"], "中国")
+                self.assertFalse(quote["location_source"]["country_field_provided_by_api"])
+                self.assertEqual(quote["location_source"]["directory_observed_at"], OBSERVED)
+                if quote["regions"][0] in OFFICIALLY_VERIFIED:
                     self.assertEqual(quote["location_source"]["country_basis"], "official_named_place_and_data_center_crossreference")
-                    self.assertFalse(quote["location_source"]["country_field_provided_by_api"])
                     self.assertEqual(quote["location_source"]["documentation_url"], regions.DOCUMENTATION_URL)
-                    self.assertEqual(quote["location_source"]["directory_observed_at"], OBSERVED)
                 else:
-                    self.assertEqual(quote["compute_countries"], [])
-                    self.assertNotIn("country_code", quote["location"])
-                    self.assertEqual(quote["location_source"]["country_status"], "not_verified")
+                    self.assertEqual(quote["location_source"]["country_basis"], "operator_reviewed_provider_region_country_mapping")
+                    self.assertEqual(quote["location_source"]["source_type"], "operator_reviewed_region_country_mapping")
+                    self.assertEqual(quote["location_source"]["verified_on"], "2026-10-27")
+                    self.assertIsNone(quote["location_source"]["documentation_url"])
+                    self.assertIsNone(quote["location_source"]["documentation_verified_on"])
 
     def test_prices_tiers_region_scope_and_source_records_do_not_change(self):
         original = market_quote()
@@ -87,15 +90,35 @@ class AutoDLRegionsTests(unittest.TestCase):
             self.assertEqual(output[field], before[field])
         self.assertNotIn("统一", str(output))
 
-    def test_region_code_prefixes_and_special_gpu_zones_never_determine_country(self):
+    def test_operator_review_keeps_special_zone_labels_without_inferring_a_city(self):
         for code, name in (("beijing-C", "V100专区"), ("nm-A1", "A800专区"),
                            ("sh-A1", "摩尔线程专区"), ("west-B", "西北B区")):
             with self.subTest(code=code):
                 output = regions.enrich_market_quote(market_quote(code, name), region_directory=directory())
-                self.assertEqual(output["compute_countries"], [])
-                self.assertNotIn("country_code", output["location"])
-                self.assertIn("No reviewed explicit country evidence", output["location_source"]["reason"])
+                self.assertEqual(output["compute_countries"], ["CN"])
+                self.assertEqual(output["location"]["country_code"], "CN")
                 self.assertEqual(output["location"]["region_name"], name)
+                self.assertNotIn("city", output["location"])
+                self.assertEqual(output["regions"], [code])
+                self.assertEqual(output["location_source"]["country_basis"], "operator_reviewed_provider_region_country_mapping")
+
+    def test_operator_mapping_requires_the_exact_current_code_name_and_dc_triple(self):
+        for code, name, _ in PUBLIC_ROWS:
+            if code not in OPERATOR_REVIEWED:
+                continue
+            for changed in ("region_name", "data_center", "market_name"):
+                with self.subTest(code=code, changed=changed):
+                    metadata, supplied = directory(), market_quote(code, name)
+                    supplied["compute_countries"] = ["CN"]
+                    supplied["location"]["country_code"] = "CN"
+                    if changed == "market_name":
+                        supplied["location"]["region_name"] = name + "（改名）"
+                    else:
+                        metadata[code][changed] = "changed"
+                    output = regions.enrich_market_quote(supplied, region_directory=metadata)
+                    self.assertEqual(output["compute_countries"], [])
+                    self.assertNotIn("country_code", output["location"])
+                    self.assertEqual(output["location_source"]["country_status"], "not_verified")
 
     def test_changed_dc_name_or_market_directory_mismatch_clears_stale_country(self):
         for changed in ("data_center", "region_name", "market_name"):
@@ -122,6 +145,12 @@ class AutoDLRegionsTests(unittest.TestCase):
         body["data"].append(dict(region_sign="beijing-future", region_name="北京A区", data_center="beijingDC1"))
         metadata = regions.parse_region_directory(body, observed_at=OBSERVED)
         output = regions.enrich_market_quote(market_quote("beijing-future", "北京A区"), region_directory=metadata)
+        self.assertEqual(output["compute_countries"], [])
+        # A familiar DC prefix and an API-supplied extra country field still do
+        # not extend the finite operator-reviewed identity list automatically.
+        body["data"].append(dict(region_sign="west-future", region_name="西北B区", data_center="westDC3", country_code="CN"))
+        metadata = regions.parse_region_directory(body, observed_at=OBSERVED)
+        output = regions.enrich_market_quote(market_quote("west-future", "西北B区"), region_directory=metadata)
         self.assertEqual(output["compute_countries"], [])
 
     def test_unlocated_homepage_or_multi_region_country_inference_is_rejected(self):

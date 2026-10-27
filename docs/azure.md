@@ -4,7 +4,7 @@
 
 ## 当前规格范围
 
-程序支持下列 17 个整卡 VM 规格。CPU、内存、卡数取自链接中的微软规格表；不同 CPU / 内存配置保持独立记录。所有价格均每次请求 API 获取，没有将单卡价格乘算成未知多卡报价。
+程序支持下列 26 个整卡 VM 规格。CPU、内存、卡数取自链接中的微软规格表；不同 CPU / 内存配置保持独立记录。所有价格均每次请求 API 获取，没有将单卡价格乘算成未知多卡报价。这是已核实的整卡目录，不代表 Azure 所有历史、分卡和未公开计价规格。
 
 | 官方系列与来源 | 精确 VM 规格（均以 `Standard_` 开头） | GPU 数量 | vCPU | RAM GiB |
 | --- | --- | ---: | ---: | ---: |
@@ -25,8 +25,21 @@
 | 同上 | NV36adms_A10_v5 | 1 | 36 | 880 |
 | 同上 | NV72ads_A10_v5 | 2 | 72 | 880 |
 | [GB200 ND GB200 v6](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb200-v6-series) | ND128isr_NDR_GB200_v6 | 4 | 128 | 900 |
+| [H200 141 GB ND H200 v5](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-h200-v5-series) | ND96isr_H200_v5 | 8 | 96 | 1,850 |
+| [H100 NVL 94 GB 机密 VM](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nccadsh100v5-series) | NCC40ads_H100_v5 | 1 | 40 | 320 |
+| [V100 NVLink 32 GB NDv2](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndv2-series) | ND40rs_v2 | 8 | 40 | 672 |
+| [RTX PRO 6000 Blackwell Server Edition 96 GB](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nc-rtxpro6000-bse-v6-series) | NC144ds_xl_RTXPRO6000BSE_v6 | 1 | 144 | 516 |
+| 同上 | NC288ds_xl_RTXPRO6000BSE_v6 | 2 | 288 | 1,032 |
+| 同上，计算优化配置 | NC144lds_xl_RTXPRO6000BSE_v6 | 1 | 144 | 264 |
+| 同上，计算优化配置 | NC288lds_xl_RTXPRO6000BSE_v6 | 2 | 288 | 516 |
+| [AMD Radeon PRO V710 24 GB](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsv710-v5-series) | NV24ads_V710_v5 | 1 | 24 | 128 |
+| 同上 | NV28adms_V710_v5 | 1 | 28 | 160 |
 
 A10 的 1/6、1/3、1/2 分卡规格不混入整卡对比；整卡 A10 记录标明包含 NVIDIA GRID 许可证。MI300X 的 `vram_gb=192` 来自官方单加速器标称规格，官方 VM 总量表另列 1,535 GB，程序不把这两个不同口径混算。当前没有核实 Azure B200 的精确 VM SKU 与公开零售计价记录，未将 GB200 冒充 B200。
+
+2026-10-27 核查发现此前的 17 个规格白名单漏了上述 9 个已有公开零售价的规格，现已补入。H200、V100、RTX PRO 6000 和 Radeon PRO V710 保留各自型号，不与 H100、RTX 6000 Ada 或 GB200 合并。机密 H100 的 `conditions.confidential_vm=true` 与精确 SKU 一起保留。RTX PRO 6000 BSE、V710 的分卡配置仍不作为整卡报价。
+
+[GB300 官方规格页](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-gb300-v6-series)已经列出 `Standard_ND128isr_GB300_v6`、`Standard_ND128isrG5_GB300_v6`；本次分别按精确 `armSkuName` 请求及按 `productName` 含 GB300 搜索，公开 Retail Prices API 均返回 `Count=0`、`NextPageLink=null`。因此没有生成 GB300 数字报价，也没有借用 GB200/B300 的价格。该结果只证明本次公开零售目录未返回这两项，不代表登录订阅或销售渠道一定没有价格。
 
 ## 地区、计费与可靠性
 
@@ -41,6 +54,12 @@ A10 的 1/6、1/3、1/2 分卡规格不混入整卡对比；整卡 A10 记录标
 17 个 SKU 均请求成功，共 954 条小时报价：485 条按需、469 条 Spot，覆盖 54 个地区。其中 950 条具备国家证据，覆盖 27 个国家/地区；`sgxsingapore1` 的 4 条报价缺少已经核实的国家映射，严格地区表排除。实采验证使用最多 3 并发、180 秒预算，实际约 6.5 秒完成；这仅描述本次运行，不是后续数量或延迟保证。
 
 例如美国 `westus3`：8 卡 MI300X 整机 $48 / 小时、分摊 $6 / GPU-hour；8 卡 H100 整机 $98.32 / 小时、分摊 $12.29 / GPU-hour。这些只是本次 API 观测，不是代码中的备用价格。
+
+## 2026-10-27 扩容后的实际验证
+
+26 个精确 SKU 均完成固定查询和分页校验，取得 1,266 条小时报价（641 条按需、625 条 Spot），覆盖 56 个地区；其中新增 9 个 SKU 带来 312 条报价。新增型号包括 H200、V100、RTX PRO 6000 Blackwell Server Edition、AMD Radeon PRO V710，另补了机密 H100 配置。并发数为 3，本次用时约 18 秒。`eastus3` 已由微软托管代理文档中的 `USGeographyRegions` 精确列表确认属于美国。`southcentralus2`、`sgxsingapore1` 保留 API 原始地区代码，国家未核实，因此不冒填国家。
+
+本次 H200 的澳大利亚 `australiaeast` 按需记录为 8 卡 VM 整机 $122.96 / 小时，分摊 $15.37 / GPU-hour；这条价格来自该 SKU 自己的零售记录。回归测试保留新增 SKU 的真实公开响应片段；运行时仍重新请求官网 API，不读取测试响应兜底。
 
 ```sh
 gpu-price-monitor collect --providers azure --pretty > azure.json

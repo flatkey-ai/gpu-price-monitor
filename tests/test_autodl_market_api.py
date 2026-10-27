@@ -73,6 +73,25 @@ class AutoDLMarketApiTests(TestCase):
         item["on_line"] = 6
         self.assertTrue(all(q["availability"] == "out_of_stock" for q in parse(item)))
 
+    def test_negative_native_idle_counter_does_not_discard_hourly_tariffs(self):
+        # The reviewed market frontend uses gpu_idle_num <= 0 to disable rent;
+        # pricing comes independently from the explicit hourly SKU/levels.
+        item = listing()
+        item["gpu_idle_num"] = -3
+        for online in (2, 3):
+            item["on_line"] = online
+            ordinary, member = parse(item)
+            self.assertEqual((ordinary["amount"], member["amount"]), ("1.66", "1.58"))
+            for quote in (ordinary, member):
+                self.assertEqual(quote["availability"], "out_of_stock")
+                self.assertEqual(quote["available_gpu_count"], 0)
+                self.assertEqual(quote["inventory_label"], "已租完")
+                self.assertTrue(market_eligible_quote(quote))
+        for invalid in (None, True, "-3", -3.0):
+            item["gpu_idle_num"] = invalid
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                parse(item)
+
     def test_wrong_units_tiers_and_configurations_cannot_create_prices(self):
         for change in ("monthly", "missing_member", "duplicate_level", "inconsistent_normal", "zero_price", "bad_ram"):
             item = listing()
@@ -102,7 +121,7 @@ class AutoDLMarketApiTests(TestCase):
     def test_api_policy_collects_full_batch_with_country_evidence_and_no_browser(self, request, _token):
         request.side_effect = [body([listing(), listing("synthetic-gpu-2", "west-B")]), directory()]
         result = collect_prices(["autodl"], settings=Settings(autodl_source="market", source_policy="api_only"))
-        self.assertEqual(result["status"], "partial")  # The west-B country remains unverified.
+        self.assertEqual(result["status"], "success")
         self.assertEqual(len(result["prices"]), 4)
         source = result["provider_results"][0]
         self.assertEqual(source["source_type"], "official_internal_api")
@@ -114,9 +133,32 @@ class AutoDLMarketApiTests(TestCase):
         self.assertEqual(rows[0]["source_url"], api.PRICING_PAGE)
         self.assertEqual(result["prices"][0]["source_url"], api.SOURCE_URL)  # JSON retains the actual API.
         self.assertTrue(all(q["compute_countries"] == ["CN"] for q in result["prices"][:2]))
-        self.assertTrue(all(q["compute_countries"] == [] for q in result["prices"][2:]))
+        self.assertTrue(all(q["compute_countries"] == ["CN"] for q in result["prices"][2:]))
+        self.assertTrue(all(q["location_source"]["country_basis"] == "operator_reviewed_provider_region_country_mapping"
+                            for q in result["prices"][2:]))
         self.assertEqual(request.call_args_list[0].kwargs["data"], json.dumps(browser.market_query(1, page_size=5000)).encode())
         self.assertTrue(request.call_args_list[0].kwargs["authenticated"])
+
+    @patch.object(api, "_token", return_value="synthetic-token-only")
+    @patch.object(api, "request_json")
+    def test_changed_identity_and_future_region_keep_native_prices_without_country_guess(self, request, _token):
+        for changed in ("data_center", "new_region"):
+            with self.subTest(changed=changed):
+                regions = directory()
+                region = "west-B"
+                if changed == "data_center":
+                    regions["data"][1]["data_center"] = "westFutureDC"
+                else:
+                    region = "west-future"
+                    regions["data"].append({"region_sign": region, "region_name": "西北B区", "data_center": "westDC3"})
+                request.side_effect = [body([listing(), listing("synthetic-gpu-2", region)]), regions]
+                result = collect_prices(["autodl"], settings=Settings(autodl_source="market", source_policy="api_only"))
+                self.assertEqual(result["status"], "partial")
+                self.assertEqual([q["amount"] for q in result["prices"]], ["1.66", "1.58", "1.66", "1.58"])
+                self.assertTrue(all(q["compute_countries"] == [] and q["regions"] == [region]
+                                    for q in result["prices"][2:]))
+                self.assertEqual(result["prices"][2]["location"]["region_name"], "西北B区")
+                self.assertFalse(result["prices"][2]["location_source"]["country_field_provided_by_api"])
 
     @patch.object(api, "_token", return_value="synthetic-token-only")
     @patch.object(api, "request_json")

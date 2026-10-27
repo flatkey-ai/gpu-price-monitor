@@ -1,0 +1,28 @@
+{
+  "source_url": "https://cloud.lambda.ai/static/cloud-app/assets/main-Bqe423_X.js",
+  "source_sha256": "dcdf86c8907b3ff9bd862b5070f80fdb295125e9a34d5649fb569fba9f26acb9",
+  "source_bytes": 1079756,
+  "verified_on": "2026-10-27",
+  "reviewed_scope": "currently_selectable_standard_regions",
+  "independent_region_quotes": false,
+  "final_checkout_verified": false,
+  "does_not_establish": [
+    "nationwide_uniform_price",
+    "worldwide_uniform_price",
+    "final_checkout_price"
+  ],
+  "common_source_url": "https://cloud.lambda.ai/static/cloud-app/assets/common-DirxWaW8.js",
+  "reviewed_fragments": {
+    "instance_catalog_loader": "e.getInstanceTypes(i)",
+    "instance_total_price": "d(e.instance_type.price_cents_per_hour)",
+    "instance_per_gpu_price": "d(e.instance_type.price_cents_per_hour/e.instance_type.specs.gpus)",
+    "instance_regions": "b.instanceType?.regions_with_capacity_available.find(t=>t.name===e.region)!==void 0",
+    "dedicated_workspace": "H=!!t.dedicated_region",
+    "hide_dedicated_standard_price": "showPrices:!H",
+    "cluster_per_gpu_price": "function JF(e){return e.price_cents_per_gpu_hour}",
+    "cluster_regions": "regionItems:l.clusterType.regions_available.map(e=>({name:e.name,description:e.description,available:!0}))",
+    "disabled_unavailable_region": "disabled:!e.available,selected:e.name===i,onClick:()=>r(e)",
+    "instance_region_selection": "U=()=>Se((0,J.jsx)(HF,{selectedRegionName:b.region?.name,regionItems:De(),onSelectRegion:e=>{if(b.region=e,e.name!==b.fileSystem?.region.name&&(b.fileSystem=void 0),R&&b.instanceType&&!b.imageFamily){let e=m.images.filter(e=>e.region.name===b.region?.name);b.imageFamily=PU(e,b.instanceType)}x({...b}),_e(R?`base_image`:le())}}))",
+    "cluster_region_selection": "onSelectRegion:e=>{l.region=e,e.name!==l.fileSystem?.region.name&&(l.fileSystem=void 0),u({...l}),!j||TI(l.gpuType,e.name)?(l.fileSystem=null,u({...l}),R()):L(`select_file_system`)}})"
+  }
+}

@@ -23,6 +23,7 @@ REGIONS_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/reliability
 GOVERNMENT_REGIONS_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/azure-government/documentation-government-welcome"
 SENTINEL_GEOGRAPHY_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/sentinel/geographical-availability-data-residency"
 REGION_NAMES_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/defender-for-cloud/concept-data-security-posture-prepare"
+PIPELINES_GEOGRAPHY_DOCUMENTATION_URL = "https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/hosted?view=azure-devops-2022"
 # The MEC documentation was archived in 2024. Pin the Microsoft-owned source to
 # its last commit before archival so the exact Edge Zone ID remains reviewable.
 MEC_REGIONS_DOCUMENTATION_URL = "https://github.com/MicrosoftDocs/azure-docs/blob/b18b0e4c79b722bb6da2d86c654376dd45eba817/articles/public-multi-access-edge-compute-mec/key-concepts.md"
@@ -51,6 +52,7 @@ _REGION_COUNTRIES = {
     'eastasia': 'HK',
     'eastus': 'US',
     'eastus2': 'US',
+    'eastus3': 'US',
     'francecentral': 'FR',
     'francesouth': 'FR',
     'germanynorth': 'DE',
@@ -102,6 +104,11 @@ _REGION_COUNTRY_SOURCES = {
              "verified_on": "2026-10-21", "region_field": "Programmatic name",
              "country_basis": "explicit_region_geography_or_physical_location"}
     for region in _REGION_COUNTRIES
+}
+_REGION_COUNTRY_SOURCES["eastus3"] = {
+    "url": PIPELINES_GEOGRAPHY_DOCUMENTATION_URL, "source_type": "official_geography_document",
+    "verified_on": "2026-10-27", "region_field": "USGeographyRegions",
+    "country_basis": "explicit_programmatic_region_in_united_states_geography",
 }
 for _region in ("usgovarizona", "usgovvirginia"):
     _REGION_COUNTRY_SOURCES[_region] = {
@@ -236,6 +243,60 @@ _SPECS = {
         "product": "Virtual Machines NVadsA10v5 Series", "meter": "NV72ads A10 v5",
         "sku": "Standard_NV72ads_A10_v5", "included_license": "NVIDIA GRID",
         "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsa10v5-series",
+    },
+    "Standard_ND96isr_H200_v5": {
+        "gpu_model": "H200", "gpu_count": 8, "vram_gb": 141,
+        "vcpus": 96, "memory_gib": 1850,
+        "product": "Virtual Machines NDsrH200v5 Series", "meter": "ND96isrH200v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nd-h200-v5-series",
+    },
+    "Standard_NCC40ads_H100_v5": {
+        "gpu_model": "H100", "gpu_variant": "NVL", "gpu_count": 1, "vram_gb": 94,
+        "vcpus": 40, "memory_gib": 320, "confidential_vm": True,
+        "product": "Virtual Machines NCCadsv5 Srs", "meter": "NCC40adsH100v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nccadsh100v5-series",
+    },
+    "Standard_ND40rs_v2": {
+        "gpu_model": "V100", "gpu_variant": "NVLink", "gpu_count": 8, "vram_gb": 32,
+        "vcpus": 40, "memory_gib": 672,
+        "product": "Virtual Machines NDrSv2 Series", "meter": "ND40rs v2",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ndv2-series",
+    },
+    "Standard_NC144ds_xl_RTXPRO6000BSE_v6": {
+        "gpu_model": "RTX PRO 6000", "gpu_variant": "Blackwell Server Edition",
+        "gpu_count": 1, "vram_gb": 96, "vcpus": 144, "memory_gib": 516,
+        "product": "Virtual Machines NCdsxlRTX6kv6", "meter": "NC144dsxlRTX6kv6",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nc-rtxpro6000-bse-v6-series",
+    },
+    "Standard_NC288ds_xl_RTXPRO6000BSE_v6": {
+        "gpu_model": "RTX PRO 6000", "gpu_variant": "Blackwell Server Edition",
+        "gpu_count": 2, "vram_gb": 96, "vcpus": 288, "memory_gib": 1032,
+        "product": "Virtual Machines NCdsxlRTX6kv6", "meter": "NC288dsxlRTX6kv6",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nc-rtxpro6000-bse-v6-series",
+    },
+    "Standard_NC144lds_xl_RTXPRO6000BSE_v6": {
+        "gpu_model": "RTX PRO 6000", "gpu_variant": "Blackwell Server Edition",
+        "gpu_count": 1, "vram_gb": 96, "vcpus": 144, "memory_gib": 264,
+        "product": "Virtual Machines NCldsxlRTX6kv6", "meter": "NC144ldsxlRTX6kv6",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nc-rtxpro6000-bse-v6-series",
+    },
+    "Standard_NC288lds_xl_RTXPRO6000BSE_v6": {
+        "gpu_model": "RTX PRO 6000", "gpu_variant": "Blackwell Server Edition",
+        "gpu_count": 2, "vram_gb": 96, "vcpus": 288, "memory_gib": 516,
+        "product": "Virtual Machines NCldsxlRTX6kv6", "meter": "NC288ldsxlRTX6kv6",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nc-rtxpro6000-bse-v6-series",
+    },
+    "Standard_NV24ads_V710_v5": {
+        "gpu_model": "RADEON PRO V710", "gpu_vendor": "AMD", "gpu_count": 1, "vram_gb": 24,
+        "vcpus": 24, "memory_gib": 128,
+        "product": "Virtual Machines NVadsV710v5 Series", "meter": "NV24adsV710v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsv710-v5-series",
+    },
+    "Standard_NV28adms_V710_v5": {
+        "gpu_model": "RADEON PRO V710", "gpu_vendor": "AMD", "gpu_count": 1, "vram_gb": 24,
+        "vcpus": 28, "memory_gib": 160,
+        "product": "Virtual Machines NVadsV710v5 Series", "meter": "NV28admsV710v5",
+        "source": "https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/nvadsv710-v5-series",
     },
 }
 
@@ -412,6 +473,8 @@ def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[di
         }
         if spec.get("included_license"):
             quote["conditions"]["included_license"] = spec["included_license"]
+        if spec.get("confidential_vm"):
+            quote["conditions"]["confidential_vm"] = True
         selected[identity] = (effective, quote)
     return [selected[key][1] for key in sorted(selected)]
 

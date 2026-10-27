@@ -183,24 +183,39 @@ class AutoDLMarketTests(unittest.TestCase):
                 market.project_region_response(invalid)
 
     @patch.object(market, "_render_market_pages")
-    def test_collection_enriches_exact_country_and_retains_unknown_region_prices_with_deduplicated_gap(self, render):
+    def test_collection_enriches_official_and_operator_reviewed_country_without_price_changes(self, render):
         render.return_value = [{"metadata": metadata(), "html": HTML,
                                 "region_directory_payload": market.project_region_response(public_region_payload())}]
         result = market.collect_result(settings=SimpleNamespace(), observed_at=OBSERVED)
-        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["status"], "ok")
         self.assertEqual(len(result["prices"]), 3)
         self.assertEqual([q["amount"] for q in result["prices"]], ["1.98", "10.00", "9.50"])
         self.assertEqual(result["prices"][0]["compute_countries"], ["CN"])
         self.assertEqual(result["prices"][0]["location_source"]["directory_observed_at"], OBSERVED)
-        self.assertEqual([q["compute_countries"] for q in result["prices"][1:]], [[], []])
-        self.assertEqual(len(result["gaps"]), 1)
-        self.assertEqual(result["gaps"][0]["region"], "west-B")
+        self.assertEqual([q["compute_countries"] for q in result["prices"][1:]], [["CN"], ["CN"]])
+        self.assertTrue(all(q["location_source"]["country_basis"] == "operator_reviewed_provider_region_country_mapping"
+                            for q in result["prices"][1:]))
+        self.assertEqual(result["gaps"], [])
         self.assertEqual(result["coverage"]["market_listing_count"], 2)
         self.assertEqual(result["coverage"]["gpu_listing_count"], 2)
         self.assertEqual(result["coverage"]["returned_price_count"], 3)
-        self.assertEqual(result["coverage"]["country_verified_price_count"], 1)
+        self.assertEqual(result["coverage"]["country_verified_price_count"], 3)
         self.assertEqual(result["errors"], [])
         self.assertTrue(all(q["currency"] == "CNY" and q["unit"] == "gpu_hour" for q in result["prices"]))
+
+    @patch.object(market, "_render_market_pages")
+    def test_changed_operator_reviewed_dc_keeps_prices_and_one_country_gap(self, render):
+        body = public_region_payload()
+        body["data"][2]["data_center"] = "westFutureDC"
+        render.return_value = [{"metadata": metadata(), "html": HTML,
+                                "region_directory_payload": market.project_region_response(body)}]
+        result = market.collect_result(settings=SimpleNamespace(), observed_at=OBSERVED)
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual([q["amount"] for q in result["prices"]], ["1.98", "10.00", "9.50"])
+        self.assertEqual([q["compute_countries"] for q in result["prices"]], [["CN"], [], []])
+        self.assertEqual(len(result["gaps"]), 1)
+        self.assertEqual(result["gaps"][0]["region"], "west-B")
+        self.assertEqual(result["coverage"]["country_verified_price_count"], 1)
 
     @patch.object(market, "_render_market_pages")
     def test_directory_request_or_schema_failure_keeps_real_native_prices_and_explicit_country_gap(self, render):

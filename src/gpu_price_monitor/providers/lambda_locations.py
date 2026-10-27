@@ -11,9 +11,16 @@ from __future__ import annotations
 from copy import deepcopy
 
 
-FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js"
-FRONTEND_SOURCE_SHA256 = "becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c"
-VERIFIED_ON = "2026-10-23"
+FRONTEND_SOURCE_URL = "https://cloud.lambda.ai/static/cloud-app/assets/main-Bqe423_X.js"
+FRONTEND_SOURCE_SHA256 = "dcdf86c8907b3ff9bd862b5070f80fdb295125e9a34d5649fb569fba9f26acb9"
+VERIFIED_ON = "2026-10-27"
+# Historical records keep only their exact, independently reviewed evidence.
+# Runtime collection still requires the current fingerprint in lambda_frontend.
+_REVIEWED_FRONTENDS = (
+    (FRONTEND_SOURCE_URL, FRONTEND_SOURCE_SHA256, VERIFIED_ON),
+    ("https://cloud.lambda.ai/static/cloud-app/assets/main-BdOFEme8.js",
+     "becc45eec9df69c8089947297b2958c047a618fedf8dbb6787806c46c346fa6c", "2026-10-23"),
+)
 _CONSOLE_CATALOG_URLS = (
     "https://cloud.lambda.ai/api/internal/dashboard/v1/instance-types",
     "https://cloud.lambda.ai/api/internal/dashboard/v1/cluster-types/reserved",
@@ -95,9 +102,9 @@ def enrich_price_applicability(quote: dict) -> dict:
 
     product = quote.get("product_type")
     display_basis = (
-        "The cluster frontend GF selects price_cents_per_gpu_hour; region selection only updates selected-region state."
+        "The cluster frontend JF selects price_cents_per_gpu_hour; DI region selection only updates selected-region state."
         if product == "gpu_cluster" else
-        "The standard instance frontend rW displays the SKU price loaded by lW; uW's region selector only changes selected-region state without requesting a new regional price."
+        "The standard instance frontend oW displays the SKU price loaded by fW; pW's region selector only changes selected-region state without requesting a new regional price."
     )
     result = deepcopy(quote)
     result["price_applicability"] = {
@@ -155,9 +162,9 @@ def validated_applicability_locations(quote: dict, *, require_country: bool = Tr
             or metadata.get("final_checkout_verified") is not False):
         return None
     evidence = metadata.get("evidence")
-    if (not isinstance(evidence, dict) or evidence.get("source_url") != FRONTEND_SOURCE_URL
-            or evidence.get("source_sha256") != FRONTEND_SOURCE_SHA256
-            or evidence.get("verified_on") != VERIFIED_ON
+    if (not isinstance(evidence, dict)
+            or (evidence.get("source_url"), evidence.get("source_sha256"), evidence.get("verified_on"))
+            not in _REVIEWED_FRONTENDS
             or not isinstance(evidence.get("price_display_basis"), str)
             or not evidence["price_display_basis"].strip()):
         return None

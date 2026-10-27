@@ -81,11 +81,11 @@ class VastTests(unittest.TestCase):
                              ("dph_total", 1.2), ("dph_total", "1.2"),
                              ("dph_total", Decimal("0.0000001")),
                              ("num_gpus", Decimal("0.5")), ("num_gpus", True),
-                             ("cpu_cores_effective", None), ("cpu_ram", 0),
+                             ("cpu_cores_effective", -1), ("cpu_ram", 0),
                              ("storage_cost", Decimal("0e-100000")),
                              ("disk_space", 7), ("gpu_frac", Decimal("1.5")),
-                             ("is_bid", True), ("rentable", False), ("rented", True),
-                             ("verification", "unverified"), ("gpu_name", "A100 MIG")):
+                             ("is_bid", True), ("rentable", None), ("rented", None),
+                             ("verification", "ambiguous"), ("gpu_name", "A100 MIG")):
             payload = source()
             payload["offers"][0][field] = value
             result = vast.parse_result(payload, observed_at=OBSERVED)
@@ -123,14 +123,20 @@ class VastTests(unittest.TestCase):
         self.assertEqual(result["status"], "partial")
 
     @patch("gpu_price_monitor.providers.vast.request_json")
-    def test_one_bounded_read_only_anonymous_request_has_explicit_storage(self, request):
-        request.return_value = source()
+    def test_directory_and_per_model_read_only_anonymous_requests_have_explicit_storage(self, request):
+        names = sorted({r["gpu_name"] for r in source()["offers"]})
+        def respond(url, settings, **kwargs):
+            if url == vast.GPU_DIRECTORY_URL:
+                return {"success": True, "gpu_names": names}
+            model = json.loads(kwargs["data"])["gpu_name"]["eq"]
+            return {"offers": [r for r in source()["offers"] if r["gpu_name"] == model], "truncated": False}
+        request.side_effect = respond
         result = vast.collect_result(settings=Settings(timeout_seconds=300, max_retries=10,
                                                        lambda_api_key="must-never-leave-local-settings"),
                                      observed_at=OBSERVED)
         self.assertEqual(len(result["prices"]), 3)
-        request.assert_called_once()
-        args, kwargs = request.call_args
+        self.assertEqual(request.call_count, len(names) + 1)
+        args, kwargs = request.call_args_list[-1]
         self.assertEqual(args[0], vast.API_URL)
         self.assertEqual(args[1].timeout_seconds, 20)
         self.assertEqual(args[1].max_retries, 0)
@@ -141,7 +147,59 @@ class VastTests(unittest.TestCase):
         self.assertEqual(body["allocated_storage"], 8)
         self.assertEqual(body["type"], "on-demand")
         self.assertEqual(body["limit"], 1000)
+        self.assertIn("gpu_name", body)
+        self.assertNotIn("rentable", body)
+        self.assertNotIn("rented", body)
+        self.assertNotIn("verified", body)
         self.assertNotIn("must-never-leave", str(kwargs))
+        self.assertEqual(result["coverage"]["directory_model_count"], len(names))
+        self.assertEqual(result["coverage"]["models_queried"], len(names))
+        self.assertFalse(result["coverage"]["complete"])
+
+    def test_unavailable_and_unverified_prices_are_retained_without_claiming_stock(self):
+        payload = source()
+        payload["offers"][0].update(rentable=False, rented=True, verification="unverified", gpu_name="Tesla T4")
+        quote = vast.parse_result(payload, observed_at=OBSERVED)["prices"][0]
+        self.assertEqual(quote["gpu_model"], "T4")
+        self.assertEqual(quote["availability"], "unavailable")
+        self.assertEqual(quote["conditions"]["verification"], "unverified")
+        self.assertEqual(quote["instance_price"]["amount"], str(payload["offers"][0]["dph_total"]))
+
+    def test_missing_optional_cpu_metadata_does_not_hide_a_real_price(self):
+        for cpu in (None, 0, Decimal("0")):
+            payload = source()
+            payload["offers"][0].update(cpu_cores_effective=cpu, cpu_name="")
+            quote = vast.parse_result(payload, observed_at=OBSERVED)["prices"][0]
+            self.assertIsNone(quote["resources"]["vcpus"])
+            self.assertIsNone(quote["resources"]["cpu_name"])
+            self.assertEqual(quote["conditions"]["missing_resource_fields"], ["cpu_cores_effective", "cpu_name"])
+            self.assertEqual(quote["instance_price"]["amount"], str(payload["offers"][0]["dph_total"]))
+
+    @patch("gpu_price_monitor.providers.vast.request_json")
+    def test_model_search_failure_is_explicit_and_other_model_prices_survive(self, request):
+        row = source()["offers"][0]
+        def respond(url, settings, **kwargs):
+            if url == vast.GPU_DIRECTORY_URL:
+                return {"success": True, "gpu_names": [row["gpu_name"], "Tesla T4"]}
+            if json.loads(kwargs["data"])["gpu_name"]["eq"] == "Tesla T4":
+                raise FetchError("http_error", "pricing request rejected")
+            return {"offers": [row], "truncated": False}
+        request.side_effect = respond
+        result = vast.collect_result(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual(len(result["prices"]), 1)
+        self.assertEqual(result["coverage"]["models_queried"], 1)
+        self.assertEqual(result["errors"][0]["gpu_name"], "Tesla T4")
+
+    @patch("gpu_price_monitor.providers.vast.request_json")
+    def test_directory_invalid_or_cross_model_response_never_claims_coverage(self, request):
+        for directory in ({"gpu_names": ["Tesla T4", "Tesla T4"]}, {"gpu_names": []}, {"success": False, "gpu_names": ["T4"]}):
+            request.return_value = directory
+            with self.assertRaises(ValueError):
+                vast.collect_result(settings=Settings(), observed_at=OBSERVED)
+        request.side_effect = [{"gpu_names": ["Tesla T4"]}, source()]
+        result = vast.collect_result(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual(result["prices"], [])
+        self.assertEqual(result["errors"][0]["code"], "invalid_model_response")
 
     @patch("gpu_price_monitor.providers.vast.request_json")
     def test_denied_anonymous_access_surfaces_without_auth_or_cache_fallback(self, request):

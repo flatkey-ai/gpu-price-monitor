@@ -1,9 +1,11 @@
-"""Opt-in country evidence for exact AutoDL market-region records.
+"""Reviewed country evidence for exact AutoDL market-region records.
 
 The public region API does not provide a country field. Eleven reviewed region
 identities explicitly name Beijing, Inner Mongolia, Chongqing or Foshan and
-match the official data-center appendix. Only those exact triples can receive
-CN here. ``west*``, ``nm-*`` and ``shanghai*`` prefixes are never geocoded.
+match the official data-center appendix. Eight additional current identities
+have an operator-confirmed China mapping, recorded separately from that official
+place-name evidence. All rules require an exact code/name/DC triple; prefixes
+and GPU-specific zone labels are never automatically geocoded or renamed.
 
 This module performs no HTTP, browser, authentication or file operations. It
 does not change a price, price scope, source region, tier or availability.
@@ -37,6 +39,21 @@ _VERIFIED_IDENTITIES = {
     "cq-A1": ("重庆A区", "chongqingDC1"),
     "foshan-A": ("佛山区", "foshanDC1"),
 }
+# The operator explicitly confirmed CN for these exact currently published
+# region identities on 2026-10-27. This is a reviewed provider-region mapping,
+# not a country field returned by the API or an appendix naming their cities.
+# Preserve special-zone labels verbatim rather than inventing a city from a DC.
+_OPERATOR_REVIEWED_IDENTITIES = {
+    "west-B": ("西北B区", "westDC3"),
+    "west-C": ("西北B区", "westDC3"),
+    "west-D": ("西北B区", "westDC3"),
+    "west-E": ("西北B区", "westDC3"),
+    "west-X": ("西北企业区", "westDC2"),
+    "sh-A1": ("摩尔线程专区", "shanghaiDC1"),
+    "beijing-C": ("V100专区", "beijingDC3"),
+    "nm-A1": ("A800专区", "neimengDC2"),
+}
+_OPERATOR_REVIEWED_ON = "2026-10-27"
 _CODE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}\Z")
 _COUNTRY_FIELDS = ("country_code", "country_name", "country_name_zh", "country_source")
 
@@ -113,27 +130,35 @@ def enrich_market_quote(quote: dict, *, region_directory: dict[str, dict]) -> di
                 "country_field_provided_by_api": False,
                 "country_basis": "unverified_country", "country_status": "not_verified"}
     directory_row = region_directory.get(code)
-    expected = _VERIFIED_IDENTITIES.get(code)
+    official_identity = _VERIFIED_IDENTITIES.get(code)
+    expected = official_identity or _OPERATOR_REVIEWED_IDENTITIES.get(code)
     if directory_row is None:
         evidence["reason"] = "The quoted region is absent from the supplied current public directory."
     elif (not isinstance(directory_row, dict) or directory_row.get("region_sign") != code
           or directory_row.get("source_url") != REGIONS_URL):
         raise _invalid()
     elif expected is None:
-        evidence["reason"] = "No reviewed explicit country evidence exists for this region; code/DC prefixes and old zone names are not geocoded."
+        evidence["reason"] = "No reviewed country mapping exists for this exact region identity; code/DC prefixes and old zone names are not geocoded."
     elif (directory_row.get("region_name"), directory_row.get("data_center")) != expected:
-        evidence["reason"] = "The current region name/data center no longer matches the reviewed official place-name mapping."
+        evidence["reason"] = "The current region name/data center no longer matches the reviewed exact region identity."
     elif location["region_name"] != directory_row["region_name"]:
         evidence["reason"] = "The market quote and current directory disagree on the region name."
     else:
         _timestamp(directory_row.get("observed_at"))
         result["compute_countries"] = ["CN"]
         result["location"].update(country_code="CN", country_name="China", country_name_zh="中国")
-        evidence.update(country_basis="official_named_place_and_data_center_crossreference",
-                        country_status="verified", region_sign=code,
+        evidence.update(country_status="verified", region_sign=code,
                         region_name=directory_row["region_name"], data_center=directory_row["data_center"],
-                        directory_observed_at=directory_row["observed_at"],
-                        explanation="The current API code/name/DC triple matches the reviewed official appendix for an explicit Chinese place; the API itself has no country field.")
+                        directory_observed_at=directory_row["observed_at"])
+        if official_identity:
+            evidence.update(country_basis="official_named_place_and_data_center_crossreference",
+                            explanation="The current API code/name/DC triple matches the reviewed official appendix for an explicit Chinese place; the API itself has no country field.")
+        else:
+            evidence.update(source_type="operator_reviewed_region_country_mapping",
+                            country_basis="operator_reviewed_provider_region_country_mapping",
+                            documentation_url=None, documentation_verified_on=None,
+                            verified_on=_OPERATOR_REVIEWED_ON,
+                            explanation="The operator confirmed China for this exact current provider code/name/DC triple. The API itself has no country field; no city or country-wide price was inferred, and the provider region label is preserved verbatim.")
     result["location_source"] = evidence
     return result
 

@@ -122,7 +122,12 @@ def parse_listing(item: dict, *, identity: dict, observed_at: str) -> list[dict]
         raise _invalid()
     ram = Decimal(_int(item.get("mem_per_gpu"), positive=True)) / (2**30)
     online = _int(item.get("on_line"))
-    idle = _int(item.get("gpu_idle_num"))
+    # The official market can report a negative native idle counter. Its
+    # frontend still displays the hourly tariff and disables rent for <= 0;
+    # that inventory anomaly must not discard an otherwise verified price.
+    idle = item.get("gpu_idle_num")
+    if type(idle) is not int:
+        raise _invalid()
     maximum = _int(item.get("max_instance_num"))
     bound = _int(item.get("binding_instance_num"))
     available = online not in {3, 4, 5, 6} and idle > 0 and maximum > bound

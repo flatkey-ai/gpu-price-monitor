@@ -116,6 +116,51 @@ class VerdaTests(unittest.TestCase):
         with self.assertRaises(FetchError):
             verda.collect_quotes(settings=Settings(), observed_at=OBSERVED)
 
+    def test_all_public_gpu_sections_and_explicit_cluster_sizes(self):
+        for currency in ("usd", "eur"):
+            content = (FIXTURES / f"verda-full-{currency}-pricing-20261027.html").read_text()
+            quotes = parse(content, expected_currency=currency.upper())
+            self.assertEqual(len(quotes), 88)
+            cc = [q for q in quotes if q.get("cloud_tier") == "confidential_computing"]
+            clusters = [q for q in quotes if q.get("cloud_tier") == "instant_cluster"]
+            self.assertEqual(len(cc), 6)
+            self.assertEqual(len(clusters), 56)
+            self.assertEqual({q["gpu_model"] for q in cc}, {"B300", "B200", "RTX PRO 6000"})
+            self.assertEqual({q["gpu_count"] for q in clusters if q["gpu_model"] == "GB300"}, set(range(8, 73, 4)))
+            self.assertTrue(all(q["product_type"] == "gpu_cluster" and q["gpu_count"] > 1 for q in clusters))
+            self.assertTrue(all(not q["regions"] and q["geographic_scope"] == "unspecified" for q in quotes))
+            self.assertEqual(len({(q["raw_sku"], q["billing_mode"]) for q in quotes}), 88)
+
+    def test_visible_cluster_tariff_is_not_overwritten_by_conflicting_metadata(self):
+        content = (FIXTURES / "verda-full-usd-pricing-20261027.html").read_text()
+        quote = next(q for q in parse(content) if q.get("cloud_tier") == "instant_cluster"
+                     and q["gpu_model"] == "B200" and q["gpu_count"] == 32)
+        self.assertEqual(quote["amount"], "8.525")
+        self.assertEqual(quote["price_basis"], "advertised_per_gpu")
+        self.assertNotIn("instance_price", quote)
+        self.assertTrue(quote["conditions"]["pricing_conflict"])
+        self.assertEqual(quote["conditions"]["published_structured_total"]["amount"], "272.7")
+        self.assertEqual(quote["resources"]["cpu_count"], 30 * 32)
+        self.assertEqual(quote["resources"]["ram_gb"], 170 * 32)
+
+    def test_confidential_computing_display_rounding_and_product_identity(self):
+        content = (FIXTURES / "verda-full-usd-pricing-20261027.html").read_text()
+        quote = next(q for q in parse(content) if q.get("cloud_tier") == "confidential_computing"
+                     and q["gpu_model"] == "B300" and q["billing_mode"] == "on_demand")
+        self.assertEqual(quote["amount"], "11.13")
+        self.assertIn("CC", quote["raw_sku"])
+        self.assertTrue(quote["conditions"]["confidential_computing"])
+        with self.assertRaises(ValueError):
+            parse(content.replace("$11.13/h", "$11.14/h"))
+
+    def test_clusters_require_explicit_sizes_and_hourly_metadata(self):
+        content = (FIXTURES / "verda-full-usd-pricing-20261027.html").read_text()
+        for changed in (content.replace("Hourly instant cluster price", "Monthly instant cluster price"),
+                        content.replace("Price (1x GPU)", "Price"),
+                        content.replace("8x GB300 SXM6 288GB instant cluster", "1x GB300 SXM6 288GB instant cluster")):
+            with self.assertRaises(ValueError):
+                parse(changed)
+
 
 if __name__ == "__main__":
     unittest.main()

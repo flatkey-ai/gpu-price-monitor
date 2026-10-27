@@ -1,0 +1,624 @@
+{
+  "source": "https://prices.azure.com/api/retail/prices",
+  "captured_at": "2026-10-27T02:35:42.934346+00:00",
+  "scope": "Reduced unmodified public API rows for one explicitly returned region per newly supported whole-GPU SKU; no fallback prices.",
+  "skus": {
+    "Standard_ND96isr_H200_v5": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 122.96,
+          "unitPrice": 122.96,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2025-04-01T00:00:00Z",
+          "meterId": "632de074-ad9a-5ef9-8394-c9be67f0aecb",
+          "meterName": "ND96isrH200v5 Spot",
+          "productId": "DZH318Z0LFX8",
+          "skuId": "DZH318Z0LFX8/001D",
+          "productName": "Virtual Machines NDsrH200v5 Series",
+          "skuName": "ND96isrH200v5 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND96isr_H200_v5"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 122.96,
+          "unitPrice": 122.96,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2025-04-01T00:00:00Z",
+          "meterId": "b36676ba-39f9-5e09-953e-d4e671b71560",
+          "meterName": "ND96isrH200v5",
+          "productId": "DZH318Z0LFX8",
+          "skuId": "DZH318Z0LFX8/001B",
+          "productName": "Virtual Machines NDsrH200v5 Series",
+          "skuName": "ND96isrH200v5",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND96isr_H200_v5"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 24.592,
+          "unitPrice": 24.592,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2025-04-01T00:00:00Z",
+          "meterId": "db5984d6-a237-5b6d-a6d4-0395bc8484e3",
+          "meterName": "ND96isrH200v5 Low Priority",
+          "productId": "DZH318Z0LFX8",
+          "skuId": "DZH318Z0LFX8/001C",
+          "productName": "Virtual Machines NDsrH200v5 Series",
+          "skuName": "ND96isrH200v5 Low Priority",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND96isr_H200_v5"
+        }
+      ],
+      "Count": 3,
+      "NextPageLink": null
+    },
+    "Standard_NCC40ads_H100_v5": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 1.458072,
+          "unitPrice": 1.458072,
+          "armRegionName": "centralus",
+          "location": "US Central",
+          "effectiveStartDate": "2026-01-01T00:00:00Z",
+          "meterId": "5e5ac597-6011-59f6-a006-02db03ab8291",
+          "meterName": "NCC40adsH100v5 Spot",
+          "productId": "DZH318Z0FNJV",
+          "skuId": "DZH318Z0FNJV/001H",
+          "productName": "Virtual Machines NCCadsv5 Srs",
+          "skuName": "NCC40adsH100v5 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NCC40ads_H100_v5"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 7.89,
+          "unitPrice": 7.89,
+          "armRegionName": "centralus",
+          "location": "US Central",
+          "effectiveStartDate": "2025-01-01T00:00:00Z",
+          "meterId": "c2f6d439-5978-53b3-964e-d1c62c53069f",
+          "meterName": "NCC40adsH100v5",
+          "productId": "DZH318Z0FNJV",
+          "skuId": "DZH318Z0FNJV/001F",
+          "productName": "Virtual Machines NCCadsv5 Srs",
+          "skuName": "NCC40adsH100v5",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NCC40ads_H100_v5",
+          "savingsPlan": [
+            {
+              "unitPrice": 4.867341,
+              "retailPrice": 4.867341,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 6.563691,
+              "retailPrice": 6.563691,
+              "term": "1 Year"
+            }
+          ]
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_ND40rs_v2": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 4.406,
+          "unitPrice": 4.406,
+          "armRegionName": "eastus",
+          "location": "US East",
+          "effectiveStartDate": "2020-04-01T00:00:00Z",
+          "meterId": "4fbaa038-79b1-41d7-bee0-d75156534834",
+          "meterName": "ND40rs v2 Low Priority",
+          "productId": "DZH318Z0CGPC",
+          "skuId": "DZH318Z0CGPC/0004",
+          "productName": "Virtual Machines NDrSv2 Series",
+          "skuName": "ND40rs v2 Low Priority",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND40rs_v2"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 22.032,
+          "unitPrice": 22.032,
+          "armRegionName": "eastus",
+          "location": "US East",
+          "effectiveStartDate": "2020-04-01T00:00:00Z",
+          "meterId": "bf96a56a-1837-4a71-905b-6291b29877f4",
+          "meterName": "ND40rs v2",
+          "productId": "DZH318Z0CGPC",
+          "skuId": "DZH318Z0CGPC/0002",
+          "productName": "Virtual Machines NDrSv2 Series",
+          "skuName": "ND40rs v2",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND40rs_v2",
+          "savingsPlan": [
+            {
+              "unitPrice": 13.5915408,
+              "retailPrice": 13.5915408,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 18.3394368,
+              "retailPrice": 18.3394368,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 4.071514,
+          "unitPrice": 4.071514,
+          "armRegionName": "eastus",
+          "location": "US East",
+          "effectiveStartDate": "2025-09-01T00:00:00Z",
+          "meterId": "d0ef68a7-6943-5e41-a6a8-ddf0805c9b15",
+          "meterName": "ND40rs v2 Spot",
+          "productId": "DZH318Z0CGPC",
+          "skuId": "DZH318Z0CGPC/0008",
+          "productName": "Virtual Machines NDrSv2 Series",
+          "skuName": "ND40rs v2 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_ND40rs_v2"
+        }
+      ],
+      "Count": 3,
+      "NextPageLink": null
+    },
+    "Standard_NC144ds_xl_RTXPRO6000BSE_v6": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 1.710694,
+          "unitPrice": 1.710694,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-08-01T00:00:00Z",
+          "meterId": "0379378f-1179-589c-9d1c-852602195027",
+          "meterName": "NC144dsxlRTX6kv6 Spot",
+          "productId": "DZH318Z0R67V",
+          "skuId": "DZH318Z0R67V/00X4",
+          "productName": "Virtual Machines NCdsxlRTX6kv6",
+          "skuName": "NC144dsxlRTX6kv6 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 9.257,
+          "unitPrice": 9.257,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-08-01T00:00:00Z",
+          "meterId": "698e6786-db14-5b5f-a6b7-d8dce46ec8fb",
+          "meterName": "NC144dsxlRTX6kv6",
+          "productId": "DZH318Z0R67V",
+          "skuId": "DZH318Z0R67V/00X1",
+          "productName": "Virtual Machines NCdsxlRTX6kv6",
+          "skuName": "NC144dsxlRTX6kv6",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC144ds_xl_RTXPRO6000BSE_v6",
+          "savingsPlan": [
+            {
+              "unitPrice": 5.73934,
+              "retailPrice": 5.73934,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 7.77588,
+              "retailPrice": 7.77588,
+              "term": "1 Year"
+            }
+          ]
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_NC288ds_xl_RTXPRO6000BSE_v6": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 15.96,
+          "unitPrice": 15.96,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-06-01T00:00:00Z",
+          "meterId": "a6834097-72aa-54a9-94af-d18646ed16d0",
+          "meterName": "NC288dsxlRTX6kv6",
+          "productId": "DZH318Z0R67V",
+          "skuId": "DZH318Z0R67V/00X5",
+          "productName": "Virtual Machines NCdsxlRTX6kv6",
+          "skuName": "NC288dsxlRTX6kv6",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC288ds_xl_RTXPRO6000BSE_v6",
+          "savingsPlan": [
+            {
+              "unitPrice": 9.8952,
+              "retailPrice": 9.8952,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 13.4064,
+              "retailPrice": 13.4064,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 2.949408,
+          "unitPrice": 2.949408,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-08-01T00:00:00Z",
+          "meterId": "acf70e45-75e4-55d8-b8c0-ac24711ace42",
+          "meterName": "NC288dsxlRTX6kv6 Spot",
+          "productId": "DZH318Z0R67V",
+          "skuId": "DZH318Z0R67V/00X8",
+          "productName": "Virtual Machines NCdsxlRTX6kv6",
+          "skuName": "NC288dsxlRTX6kv6 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC288ds_xl_RTXPRO6000BSE_v6"
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_NC144lds_xl_RTXPRO6000BSE_v6": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 7.98,
+          "unitPrice": 7.98,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-06-01T00:00:00Z",
+          "meterId": "8c79367f-ca60-55b0-9c75-547466b28be5",
+          "meterName": "NC144ldsxlRTX6kv6",
+          "productId": "DZH318Z0R685",
+          "skuId": "DZH318Z0R685/00PN",
+          "productName": "Virtual Machines NCldsxlRTX6kv6",
+          "skuName": "NC144ldsxlRTX6kv6",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC144lds_xl_RTXPRO6000BSE_v6",
+          "savingsPlan": [
+            {
+              "unitPrice": 4.9476,
+              "retailPrice": 4.9476,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 6.7032,
+              "retailPrice": 6.7032,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 1.474704,
+          "unitPrice": 1.474704,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-08-01T00:00:00Z",
+          "meterId": "e4bc681a-f0c9-55ce-8d0d-44ea3a478fad",
+          "meterName": "NC144ldsxlRTX6kv6 Spot",
+          "productId": "DZH318Z0R685",
+          "skuId": "DZH318Z0R685/00Q1",
+          "productName": "Virtual Machines NCldsxlRTX6kv6",
+          "skuName": "NC144ldsxlRTX6kv6 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC144lds_xl_RTXPRO6000BSE_v6"
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_NC288lds_xl_RTXPRO6000BSE_v6": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 2.949408,
+          "unitPrice": 2.949408,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-08-01T00:00:00Z",
+          "meterId": "8cd8d91e-abc8-5304-afe7-c5485e451487",
+          "meterName": "NC288ldsxlRTX6kv6 Spot",
+          "productId": "DZH318Z0R685",
+          "skuId": "DZH318Z0R685/00Q3",
+          "productName": "Virtual Machines NCldsxlRTX6kv6",
+          "skuName": "NC288ldsxlRTX6kv6 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC288lds_xl_RTXPRO6000BSE_v6"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 15.96,
+          "unitPrice": 15.96,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-06-01T00:00:00Z",
+          "meterId": "f4308633-14b1-5dd9-88bb-c1371a93deed",
+          "meterName": "NC288ldsxlRTX6kv6",
+          "productId": "DZH318Z0R685",
+          "skuId": "DZH318Z0R685/00PR",
+          "productName": "Virtual Machines NCldsxlRTX6kv6",
+          "skuName": "NC288ldsxlRTX6kv6",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NC288lds_xl_RTXPRO6000BSE_v6",
+          "savingsPlan": [
+            {
+              "unitPrice": 9.8952,
+              "retailPrice": 9.8952,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 13.4064,
+              "retailPrice": 13.4064,
+              "term": "1 Year"
+            }
+          ]
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_NV24ads_V710_v5": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 2.9,
+          "unitPrice": 2.9,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-05-01T00:00:00Z",
+          "meterId": "2c8cba65-e690-5d37-952f-8112a717358a",
+          "meterName": "NV24adsV710v5",
+          "productId": "DZH318Z0LM94",
+          "skuId": "DZH318Z0LM94/00CF",
+          "productName": "Virtual Machines NVadsV710v5 Series",
+          "skuName": "NV24adsV710v5",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NV24ads_V710_v5",
+          "savingsPlan": [
+            {
+              "unitPrice": 1.856,
+              "retailPrice": 1.856,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 2.378,
+              "retailPrice": 2.378,
+              "term": "1 Year"
+            }
+          ]
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.53592,
+          "unitPrice": 0.53592,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-06-01T00:00:00Z",
+          "meterId": "7828bc26-a95e-59d1-aad1-0e718b92218a",
+          "meterName": "NV24adsV710v5 Spot",
+          "productId": "DZH318Z0LM94",
+          "skuId": "DZH318Z0LM94/00C9",
+          "productName": "Virtual Machines NVadsV710v5 Series",
+          "skuName": "NV24adsV710v5 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NV24ads_V710_v5"
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    },
+    "Standard_NV28adms_V710_v5": {
+      "BillingCurrency": "USD",
+      "CustomerEntityId": "Default",
+      "CustomerEntityType": "Retail",
+      "Items": [
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 0.643104,
+          "unitPrice": 0.643104,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-06-01T00:00:00Z",
+          "meterId": "20fd22b0-364b-5fdc-9489-d7cf11be73d0",
+          "meterName": "NV28admsV710v5 Spot",
+          "productId": "DZH318Z0LM94",
+          "skuId": "DZH318Z0LM94/00CL",
+          "productName": "Virtual Machines NVadsV710v5 Series",
+          "skuName": "NV28admsV710v5 Spot",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NV28adms_V710_v5"
+        },
+        {
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "retailPrice": 3.48,
+          "unitPrice": 3.48,
+          "armRegionName": "australiaeast",
+          "location": "AU East",
+          "effectiveStartDate": "2026-05-01T00:00:00Z",
+          "meterId": "79982300-4db7-5bba-a87a-8bfcb90a8969",
+          "meterName": "NV28admsV710v5",
+          "productId": "DZH318Z0LM94",
+          "skuId": "DZH318Z0LM94/00CD",
+          "productName": "Virtual Machines NVadsV710v5 Series",
+          "skuName": "NV28admsV710v5",
+          "serviceName": "Virtual Machines",
+          "serviceId": "DZH313Z7MMC8",
+          "serviceFamily": "Compute",
+          "unitOfMeasure": "1 Hour",
+          "type": "Consumption",
+          "isPrimaryMeterRegion": true,
+          "armSkuName": "Standard_NV28adms_V710_v5",
+          "savingsPlan": [
+            {
+              "unitPrice": 2.2272,
+              "retailPrice": 2.2272,
+              "term": "3 Years"
+            },
+            {
+              "unitPrice": 2.8536,
+              "retailPrice": 2.8536,
+              "term": "1 Year"
+            }
+          ]
+        }
+      ],
+      "Count": 2,
+      "NextPageLink": null
+    }
+  }
+}
