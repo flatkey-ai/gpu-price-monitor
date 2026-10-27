@@ -78,11 +78,12 @@ class SignedCatalogReader:
             self.request_counts[action] += 1
         payload = request_json(API_URL, settings, method="POST", authenticated=True,
                                headers={"Content-Type": "application/x-www-form-urlencoded"}, data=body)
-        if (not isinstance(payload, dict) or type(payload.get("RetCode")) is not int
-                or payload.get("Action") != action + "Response"):
+        if not isinstance(payload, dict) or type(payload.get("RetCode")) is not int:
             raise FetchError("invalid_api_response", "The signed UCloud API response structure changed.")
         if payload["RetCode"] != 0:
             raise SignedAPIError(action, payload["RetCode"])
+        if payload.get("Action") != action + "Response":
+            raise FetchError("invalid_api_response", "The signed UCloud API response structure changed.")
         return payload
 
     def _geography(self, settings: Settings):

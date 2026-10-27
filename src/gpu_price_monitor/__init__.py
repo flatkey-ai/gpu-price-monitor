@@ -1,6 +1,6 @@
 """Reusable GPU price collection with JSON results and CSV serialization."""
 
-__version__ = "0.26.0"
+__version__ = "0.26.1"
 
 from .member_prices import prefer_member_quotes
 from .provider_csv import (prices_to_provider_csvs, provider_csv_coverage,

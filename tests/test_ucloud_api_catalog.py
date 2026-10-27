@@ -180,6 +180,26 @@ class UCloudSignedCatalogTests(unittest.TestCase):
         self.assertEqual(result["gaps"][0]["provider_retcode"], 299)
         self.assertNotIn(PRIVATE_MESSAGE, json.dumps(result))
 
+    def test_official_error_envelope_without_action_preserves_safe_permission_code(self):
+        settings = Settings(ucloud_public_key=PUBLIC_KEY, ucloud_private_key=PRIVATE_KEY)
+        reader = provider.SignedCatalogReader(settings)
+        with patch.object(provider, "request_json", return_value={"RetCode": 299, "Message": PRIVATE_MESSAGE,
+                                                                  "Details": {"private": PRIVATE_MESSAGE}}):
+            with self.assertRaises(provider.SignedAPIError) as caught:
+                reader.request("DescribeImage", {"Region": "region-cn"}, settings=settings)
+        self.assertEqual(caught.exception.code, "permission_denied")
+        self.assertEqual(caught.exception.provider_retcode, 299)
+        self.assertNotIn(PRIVATE_MESSAGE, str(caught.exception))
+
+    def test_success_envelope_still_requires_exact_response_action(self):
+        settings = Settings(ucloud_public_key=PUBLIC_KEY, ucloud_private_key=PRIVATE_KEY)
+        reader = provider.SignedCatalogReader(settings)
+        for action in (None, "OtherResponse"):
+            with patch.object(provider, "request_json", return_value={"RetCode": 0, "Action": action}):
+                with self.assertRaises(FetchError) as caught:
+                    reader.request("GetRegion", settings=settings)
+                self.assertEqual(caught.exception.code, "invalid_api_response")
+
     def test_failed_price_preserves_other_exact_zone_prices_and_protocol_diagnostic(self):
         api = FakeAPI()
         api.fail_price_zones.add("region-cn-02")
