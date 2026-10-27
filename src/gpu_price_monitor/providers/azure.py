@@ -7,9 +7,12 @@ this scope. A regional retail meter is not a current capacity assertion.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Context, Decimal, localcontext
+import math
 import re
+from time import monotonic, sleep
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from ..settings import Settings
@@ -145,6 +148,12 @@ def _location_source(region: str) -> dict:
 
 MAX_PAGES_PER_SKU = 5
 MAX_ITEMS_PER_PAGE = 1000
+# Collection budget is separate from Settings.timeout_seconds, which is a
+# per-HTTP timeout. A 429 never restarts already accepted SKUs or pages.
+MAX_COLLECTION_SECONDS = 300.0
+SKU_INTERVAL_SECONDS = 1.0
+RATE_LIMIT_COOLDOWN_SECONDS = 60.0
+MAX_RATE_LIMIT_RETRIES = 2
 _SPECS = {
     "Standard_NC4as_T4_v3": {
         "gpu_model": "T4", "gpu_count": 1, "vram_gb": 16, "vcpus": 4, "memory_gib": 28,
@@ -479,12 +488,58 @@ def parse_items(items: list[dict], *, arm_sku: str, observed_at: str) -> list[di
     return [selected[key][1] for key in sorted(selected)]
 
 
-def _fetch_items(arm_sku: str, settings: Settings) -> list[dict]:
+def _remaining_seconds(deadline: float) -> float:
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        raise FetchError("timeout", "Azure retail-price collection exceeded its bounded time budget.", True)
+    return remaining
+
+
+def _wait_within_budget(seconds: float, deadline: float) -> None:
+    # Do not shorten a rate-limit cooldown to fit a budget and then request
+    # again too early. Fail closed instead of returning a partial catalog.
+    if seconds >= _remaining_seconds(deadline):
+        raise FetchError("timeout", "Azure retail-price collection has insufficient time for the required retry delay.", True)
+    sleep(seconds)
+    _remaining_seconds(deadline)
+
+
+def _request_page(url: str, settings: Settings, *, deadline: float) -> dict:
+    rate_retries = network_retries = 0
+    while True:
+        request_settings = replace(settings, max_retries=0,
+                                   timeout_seconds=min(settings.timeout_seconds, _remaining_seconds(deadline)))
+        try:
+            # Own retries here: transport's rapid retry loop would otherwise
+            # make extra 429 requests before the one-minute cooldown.
+            payload = request_json(url, request_settings, authenticated=False)
+            _remaining_seconds(deadline)
+            return payload
+        except FetchError as exc:
+            if exc.code == "rate_limited":
+                if rate_retries >= min(MAX_RATE_LIMIT_RETRIES, settings.max_retries):
+                    raise
+                rate_retries += 1
+                delay = RATE_LIMIT_COOLDOWN_SECONDS
+            elif (exc.retryable and exc.code in {"timeout", "network_error", "http_error", "response_incomplete"}
+                  and network_retries < settings.max_retries):
+                delay = min(2 ** network_retries, 8)
+                network_retries += 1
+            else:
+                # JSON/schema/monetary and pagination errors are not healed
+                # by retrying. Keep their original failure diagnostics.
+                raise
+            _wait_within_budget(delay, deadline)
+
+
+def _fetch_items(arm_sku: str, settings: Settings, *, deadline: float | None = None) -> list[dict]:
+    if deadline is None:
+        deadline = monotonic() + MAX_COLLECTION_SECONDS
     items, skip = [], 0
     for page in range(MAX_PAGES_PER_SKU):
         # Rebuild every URL from fixed scope and a validated monotonic offset.
         # No URL supplied by the response is ever requested directly.
-        payload = request_json(query_url(arm_sku, skip=skip), settings, authenticated=False)
+        payload = _request_page(query_url(arm_sku, skip=skip), settings, deadline=deadline)
         if (payload.get("BillingCurrency") != "USD" or payload.get("CustomerEntityType") != "Retail"
                 or not isinstance(payload.get("Items"), list) or type(payload.get("Count")) is not int
                 or payload["Count"] != len(payload["Items"]) or payload["Count"] > MAX_ITEMS_PER_PAGE
@@ -502,12 +557,20 @@ def _fetch_items(arm_sku: str, settings: Settings) -> list[dict]:
     raise FetchError("pagination_limit", "Azure retail-price pagination did not complete within the collection limit.")
 
 
-def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:
+def collect_quotes(*, settings: Settings, observed_at: str,
+                   budget_seconds: float = MAX_COLLECTION_SECONDS) -> list[dict]:
     """Read fixed GPU sizes without credentials or resource operations."""
+    if (type(budget_seconds) not in (int, float) or not 0 < budget_seconds <= MAX_COLLECTION_SECONDS
+            or not math.isfinite(budget_seconds)):
+        raise FetchError("invalid_request", "Azure collection budget must be positive and at most five minutes.")
+    deadline = monotonic() + budget_seconds
     quotes = []
-    for arm_sku in _SPECS:
-        prices = parse_items(_fetch_items(arm_sku, settings), arm_sku=arm_sku, observed_at=observed_at)
+    for index, arm_sku in enumerate(_SPECS):
+        if index:
+            _wait_within_budget(SKU_INTERVAL_SECONDS, deadline)
+        prices = parse_items(_fetch_items(arm_sku, settings, deadline=deadline), arm_sku=arm_sku, observed_at=observed_at)
         if not prices:
             raise FetchError("empty_public_catalog", "Azure returned no already-effective rates for a configured GPU size.")
         quotes.extend(prices)
+        _remaining_seconds(deadline)
     return quotes

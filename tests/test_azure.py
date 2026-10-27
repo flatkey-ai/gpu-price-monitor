@@ -42,6 +42,18 @@ def page(items, next_page=None):
 
 
 class AzureTests(unittest.TestCase):
+    def setUp(self):
+        self.elapsed = 0.0
+        self.delays = []
+        for name, effect in (("monotonic", lambda: self.elapsed), ("sleep", self.advance)):
+            replacement = patch.object(azure, name, side_effect=effect)
+            replacement.start()
+            self.addCleanup(replacement.stop)
+
+    def advance(self, seconds):
+        self.delays.append(seconds)
+        self.elapsed += seconds
+
     def test_t4_and_gb200_retail_instance_allocation_region_and_conditions(self):
         t4, gb200 = parse(), parse(arm_sku=GB200)
         self.assertEqual([q["billing_mode"] for q in t4], ["on_demand", "spot"])
@@ -318,6 +330,8 @@ class AzureTests(unittest.TestCase):
         pages = source()
         def respond(url, settings, **kwargs):
             self.assertEqual(kwargs, {"authenticated": False})
+            self.assertEqual(settings.max_retries, 0)
+            self.assertLessEqual(settings.timeout_seconds, 30)
             self.assertEqual(urlsplit(url).netloc, "prices.azure.com")
             query = parse_qs(urlsplit(url).query)
             self.assertEqual(query["currencyCode"], ["USD"])
@@ -336,6 +350,131 @@ class AzureTests(unittest.TestCase):
         self.assertEqual(len(result), 52)
         self.assertEqual({q["raw_sku"] for q in result}, set(pages))
         self.assertNotIn("unused-private-test-key", json.dumps(result))
+        self.assertEqual(self.delays, [1.0] * 25)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_default_http_timeout_does_not_become_the_whole_collection_budget(self, request):
+        pages = source()
+        def respond(url, settings, **kwargs):
+            self.assertEqual(settings.timeout_seconds, 30)
+            # Simulate a one-second response for every SKU. Together with the
+            # 25 inter-SKU waits, the batch legitimately takes >30 seconds.
+            self.elapsed += 1
+            return next(pages[sku] for sku in pages if url == azure.query_url(sku))
+        request.side_effect = respond
+        result = azure.collect_quotes(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual(len(result), 52)
+        self.assertEqual(self.elapsed, 51)
+        self.assertEqual(request.call_count, 26)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_rate_limit_cools_down_and_retries_only_failed_page_without_replaying_successful_skus(self, request):
+        pages = source()
+        items = pages[GB200]["Items"]
+        retry_url = azure.query_url(GB200, skip=1)
+        request.side_effect = [pages[T4], page(items[:1], retry_url),
+                               FetchError("rate_limited", "HTTP 429", True),
+                               FetchError("rate_limited", "HTTP 429", True),
+                               page(items[1:]), pages[H100]]
+        with patch.object(azure, "_SPECS", {sku: azure._SPECS[sku] for sku in (T4, GB200, H100)}):
+            result = azure.collect_quotes(settings=Settings(max_retries=5), observed_at=OBSERVED)
+        self.assertEqual([call.args[0] for call in request.call_args_list],
+                         [azure.query_url(T4), azure.query_url(GB200), retry_url, retry_url,
+                          retry_url, azure.query_url(H100)])
+        self.assertEqual(self.delays, [1.0, 60.0, 60.0, 1.0])
+        self.assertEqual(len(result), 6)
+        self.assertEqual(len({(q["raw_sku"], q["billing_mode"]) for q in result}), 6)
+        self.assertTrue(all(call.args[1].max_retries == 0 for call in request.call_args_list))
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_rate_limit_retries_are_capped_and_respect_disabled_caller_retries(self, request):
+        for configured_retries, calls, waits in ((5, 3, [60.0, 60.0]), (0, 1, [])):
+            with self.subTest(configured_retries=configured_retries):
+                self.elapsed, self.delays = 0.0, []
+                request.reset_mock()
+                request.side_effect = FetchError("rate_limited", "HTTP 429", True)
+                with self.assertRaises(FetchError) as captured:
+                    azure._fetch_items(T4, Settings(max_retries=configured_retries))
+                self.assertEqual(captured.exception.code, "rate_limited")
+                self.assertEqual(request.call_count, calls)
+                self.assertEqual(self.delays, waits)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_short_batch_budget_does_not_shorten_cooldown_or_return_partial_catalog(self, request):
+        pages = source()
+        request.side_effect = [pages[T4], FetchError("rate_limited", "HTTP 429", True)]
+        with patch.object(azure, "_SPECS", {sku: azure._SPECS[sku] for sku in (T4, GB200)}):
+            with self.assertRaises(FetchError) as captured:
+                azure.collect_quotes(settings=Settings(), observed_at=OBSERVED, budget_seconds=61)
+        self.assertEqual(captured.exception.code, "timeout")
+        self.assertTrue(captured.exception.retryable)
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(self.delays, [1.0])
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_http_timeout_is_capped_by_explicit_remaining_batch_budget(self, request):
+        request.return_value = source()[T4]
+        with patch.object(azure, "_SPECS", {T4: azure._SPECS[T4]}):
+            result = azure.collect_quotes(settings=Settings(), observed_at=OBSERVED, budget_seconds=5)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(request.call_args.args[1].timeout_seconds, 5)
+        self.assertEqual(request.call_args.args[1].max_retries, 0)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_budget_failure_remains_provider_failure_for_snapshot_hold(self, request):
+        pages = source()
+        def respond(url, settings, **kwargs):
+            if url == azure.query_url(T4):
+                return pages[T4]
+            self.elapsed = azure.MAX_COLLECTION_SECONDS
+            return pages[GB200]
+        request.side_effect = respond
+        result = collect_prices(["azure"], settings=Settings())
+        self.assertEqual(result["prices"], [])
+        self.assertEqual(result["provider_results"][0]["status"], "failed")
+        self.assertEqual(result["provider_results"][0]["error"]["code"], "timeout")
+        self.assertEqual(request.call_count, 2)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_network_retries_keep_short_backoff_and_http_timeout_without_hidden_transport_retries(self, request):
+        request.side_effect = [FetchError("timeout", "timeout", True),
+                               FetchError("network_error", "network", True), source()[T4]]
+        result = azure._fetch_items(T4, Settings(timeout_seconds=5, max_retries=2))
+        self.assertEqual(result, source()[T4]["Items"])
+        self.assertEqual(self.delays, [1, 2])
+        self.assertEqual(request.call_count, 3)
+        for call in request.call_args_list:
+            self.assertEqual(call.args[1].max_retries, 0)
+            self.assertEqual(call.args[1].timeout_seconds, 5)
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_schema_and_price_failures_are_not_retried_after_cooldown(self, request):
+        request.side_effect = [FetchError("rate_limited", "HTTP 429", True),
+                               {**source()[T4], "Count": True}]
+        with self.assertRaises(FetchError) as captured:
+            azure._fetch_items(T4, Settings())
+        self.assertEqual(captured.exception.code, "invalid_public_catalog")
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(self.delays, [60.0])
+        self.elapsed, self.delays = 0.0, []
+        request.reset_mock()
+        invalid = deepcopy(source()[T4])
+        invalid["Items"][0]["retailPrice"] = -1
+        request.side_effect = None
+        request.return_value = invalid
+        with self.assertRaises(ValueError):
+            azure.collect_quotes(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(self.delays, [])
+
+    @patch("gpu_price_monitor.providers.azure.request_json")
+    def test_invalid_batch_budgets_fail_before_network_or_sleep(self, request):
+        for value in (0, -1, 301, 10 ** 400, True, "60", float("nan"), float("inf")):
+            with self.subTest(value=value), self.assertRaises(FetchError) as captured:
+                azure.collect_quotes(settings=Settings(), observed_at=OBSERVED, budget_seconds=value)
+            self.assertEqual(captured.exception.code, "invalid_request")
+        request.assert_not_called()
+        self.assertEqual(self.delays, [])
 
     @patch("gpu_price_monitor.providers.azure.request_json")
     def test_contiguous_pagination_finishes_before_parsing_and_preserves_fixed_scope(self, request):
