@@ -27,6 +27,8 @@ _TAB_RE = re.compile(
     r'<Tab\s+title=["\']([A-Z]{3})["\']\s*>(.*?)</Tab>', re.DOTALL
 )
 _CURRENCY_HEADING_RE = re.compile(r"^[ \t]*\*\*([A-Z]{3})\*\*[ \t]*$", re.MULTILINE)
+# A quoted block per currency: "> [tab] USD", then its table on "> " lines.
+_QUOTED_TAB_RE = re.compile(r"^> \[tab\] ([A-Z]{3})[ \t]*\n((?:>[^\n]*(?:\n|\Z))*)", re.MULTILINE)
 
 
 def _plain(value: str) -> str:
@@ -74,14 +76,26 @@ def _currency_tables(body: str) -> tuple[str, list[tuple[str, str]]]:
     """Accept the documentation's MDX tabs or its expanded Markdown export.
 
     The official Markdown export can flatten ``<Tab title="USD">`` wrappers
-    into standalone ``**USD**`` headings. Currency boundaries must remain
-    explicit; neither position nor a price symbol is used to guess them.
+    into standalone ``**USD**`` headings, or (as served on 2026-11-02) into
+    ``> [tab] USD`` blockquotes. Currency boundaries must remain explicit;
+    neither position nor a price symbol is used to guess them.
     """
     tabs = list(_TAB_RE.finditer(body))
     headings = list(_CURRENCY_HEADING_RE.finditer(body))
-    if tabs and headings:
+    quoted = list(_QUOTED_TAB_RE.finditer(body))
+    if sum(map(bool, (tabs, headings, quoted))) > 1:
         raise ValueError("Nebius GPU currency table formats are ambiguous")
-    if tabs:
+    if quoted:
+        if len(quoted) != len(re.findall(r"\[tab\]", body)):
+            raise ValueError("Nebius GPU currency tab structure changed")
+        preamble = body[:quoted[0].start()]
+        # Every line between and after the blocks must be blank, so a table
+        # outside a currency block cannot be read without its currency.
+        gaps = [body[block.end():following.start()] for block, following in zip(quoted, quoted[1:])]
+        if any(gap.strip() for gap in gaps + [body[quoted[-1].end():]]):
+            raise ValueError("Nebius GPU currency tab structure changed")
+        tables = [(block[1], re.sub(r"^> ?", "", block[2], flags=re.MULTILINE)) for block in quoted]
+    elif tabs:
         if len(tabs) != len(re.findall(r"<Tab\b", body)):
             raise ValueError("Nebius GPU currency tab structure changed")
         preamble = body[:tabs[0].start()]

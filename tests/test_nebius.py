@@ -10,6 +10,7 @@ from gpu_price_monitor.providers.nebius import parse_prices
 OBSERVED = "2026-10-15T00:00:00+00:00"
 FIXTURE = Path(__file__).parent / "fixtures" / "nebius-pricing.md"
 EXPANDED_FIXTURE = Path(__file__).parent / "fixtures" / "nebius-pricing-expanded.md"
+QUOTED_FIXTURE = Path(__file__).parent / "fixtures" / "nebius-pricing-quoted-tabs-20261102.md"
 
 
 class NebiusParserTests(unittest.TestCase):
@@ -166,6 +167,39 @@ class NebiusParserTests(unittest.TestCase):
             with self.subTest(content=changed[:100]):
                 with self.assertRaises(ValueError):
                     self.parse(content=changed)
+
+    def test_live_markdown_export_with_quoted_currency_tabs(self):
+        # docs.nebius.com as served on 2026-11-02: "> [tab] USD" blockquotes per currency.
+        content = QUOTED_FIXTURE.read_text(encoding="utf-8")
+        rows = self.parse(content=content, as_of=date(2026, 11, 2))
+        self.assertEqual(len(rows), 36)
+        self.assertEqual({row["gpu_model"] for row in rows}, {"B300", "B200", "H200", "H100", "RTX PRO 6000", "L40S"})
+        self.assertEqual({row["currency"] for row in rows}, {"USD", "ILS"})
+        h100 = self.rate(rows)
+        self.assertEqual((h100["amount"], h100["regions"], h100["tax_scope"]), ("4.50", ["eu-north1"], "excluded"))
+        self.assertEqual(self.rate(rows, currency="ILS")["amount"], "13.95")
+        b300 = self.rate(rows, model="B300")
+        self.assertEqual((b300["amount"], b300["raw_sku"]), ("9.50", "gpu-b300-sxm"))
+        self.assertEqual(self.rate(rows, model="B300", mode="spot")["quote_status"], "starting_at")
+        l40s = self.rate(rows, model="L40S")
+        self.assertEqual(l40s["price_basis"], "gpu_component")
+        self.assertEqual([component["amount"] for component in l40s["components"]], ["0.012", "0.0032"])
+
+    def test_quoted_currency_tabs_fail_closed_on_ambiguous_or_broken_structure(self):
+        content = QUOTED_FIXTURE.read_text(encoding="utf-8")
+        cases = [
+            content.replace("> [tab] ILS", "> [tab] USD", 1),
+            content.replace("> [tab] ILS", "> [tab] EUR", 1),
+            content.replace("> [tab] USD", "**USD**", 1),
+            # A currency label that is not a quoted block start.
+            content.replace("> [tab] USD", "Prices [tab] USD", 1),
+            # A table between blocks that belongs to no currency.
+            content.replace("\n> [tab] ILS", "\n| Item | Price | Per |\n| - | - | - |\n\n> [tab] ILS", 1),
+        ]
+        for changed in cases:
+            with self.subTest(content=changed[:100]):
+                with self.assertRaises(ValueError):
+                    self.parse(content=changed, as_of=date(2026, 11, 2))
 
 
 if __name__ == "__main__":
