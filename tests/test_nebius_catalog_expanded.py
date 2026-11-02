@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from decimal import Decimal
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from gpu_price_monitor.transport import FetchError
 
 
 OBSERVED = "2026-10-21T12:00:00+00:00"
+FIXTURES = Path(__file__).parent / "fixtures"
 H = ("1gpu-16vcpu-200gb", "8gpu-128vcpu-1600gb")
 B = ("1gpu-20vcpu-224gb", "8gpu-160vcpu-1792gb")
 R = ("1gpu-24vcpu-218gb", "8gpu-192vcpu-1744gb")
@@ -145,6 +147,29 @@ class ExpandedNebiusTests(unittest.TestCase):
         self.assertIn("USD适用于以色列公司以外客户", " ".join(b200["conditions"]))
         h200 = next(q for q in prices if q["gpu_model"] == "H200")
         self.assertIn("私有地区", " ".join(h200["conditions"]))
+
+    def test_live_documents_with_quoted_tabs_and_ram_footnote_are_calculated(self):
+        # docs.nebius.com as of 2026-11-02: currency tables in "> [tab] USD"
+        # blockquotes and a footnoted "RAM, GiB (...)" preset column.
+        live = {name: (FIXTURES / name).read_text(encoding="utf-8") for name in (
+            "nebius-pricing-quoted-tabs-20261102.md", "nebius-types-ram-footnote-20261102.md", "nebius-regions-20261102.md")}
+        data = expanded.calculate_catalog(*live.values(), observed_at="2026-11-02T00:00:00+00:00")
+        self.assertEqual(len(data["platforms"]), 9)
+        self.assertEqual(sum(len(p["presets"]) for p in data["platforms"].values()), 26)
+        self.assertEqual(len(data["prices"]), 76)
+        self.assertEqual(data["platforms"]["gpu-b300-sxm"]["presets"][0]["memory_gib"], 346)
+        h100 = [q for q in data["prices"] if q["raw_sku"] == "gpu-h100-sxm" and q["currency"] == "USD" and q["billing_mode"] == "on_demand"]
+        self.assertEqual(sorted((q["gpu_count"], q["amount"]) for q in h100), [(1, "4.5"), (8, "4.5")])
+
+    def test_footnoted_ram_column_still_requires_gib(self):
+        footnote = "RAM, GiB (Nebius uses binary units.)"
+        for column in (footnote, "RAM, GiB (a (nested) note)"):
+            with self.subTest(column=column):
+                self.assertEqual(len(expanded.calculate_catalog(pricing(), types().replace("RAM, GiB", column, 1), REGIONS,
+                                                                observed_at=OBSERVED)["platforms"]), 9)
+        for column in ("RAM, GB (Nebius uses binary units.)", "RAM, GiB note", "RAM, GiB (unclosed"):
+            with self.subTest(column=column), self.assertRaises(ValueError):
+                expanded.calculate_catalog(pricing(), types().replace("RAM, GiB", column, 1), REGIONS, observed_at=OBSERVED)
 
     def test_presets_quantities_units_and_country_evidence_are_required(self):
         for changed_types, changed_regions in ((types().replace("| 1 | 20 | 224 |", "| 8 | 20 | 224 |", 1), REGIONS),

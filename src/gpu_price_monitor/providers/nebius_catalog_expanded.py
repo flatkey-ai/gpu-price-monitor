@@ -43,11 +43,18 @@ def _section(content, heading, end):
     return match[1]
 
 
+def _header(cell):
+    # The docs may footnote the RAM column, e.g. "RAM, GiB (Nebius uses binary
+    # units. ...)"; the unit itself must still read exactly "RAM, GiB".
+    return re.sub(r"^RAM, GiB \([^()]*(?:\([^()]*\)[^()]*)*\)$", "RAM, GiB", _plain(cell))
+
+
 def _table(content, expected):
     lines = [line.strip() for line in content.splitlines() if line.strip().startswith("|")]
     if len(lines) < 3:
         raise _invalid()
     rows = [[_plain(cell) for cell in line.strip("|").split("|")] for line in lines]
+    rows[0] = [_header(cell) for cell in lines[0].strip("|").split("|")]
     if tuple(rows[0]) != expected or any(len(row) != len(expected) for row in rows):
         raise _invalid()
     if not all(re.fullmatch(r"[-: ]+", cell) for cell in rows[1]):
@@ -100,7 +107,7 @@ def parse_platforms(content: str, regions: dict) -> dict[str, dict]:
         lines = [line.strip() for line in body.splitlines() if line.strip().startswith("|")]
         if not lines:
             raise _invalid()
-        header = tuple(_plain(cell) for cell in lines[0].strip("|").split("|"))
+        header = tuple(_header(cell) for cell in lines[0].strip("|").split("|"))
         expected = ("Preset name", "Number of GPUs", "Number of vCPUs", "RAM, GiB")
         if header not in (expected, expected + ("Regions",)) or not ids:
             raise _invalid()
