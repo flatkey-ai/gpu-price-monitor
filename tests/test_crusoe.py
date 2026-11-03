@@ -191,6 +191,41 @@ class CrusoeParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse(content.replace("GPU-hr", "GPU-month", 1))
 
+    def test_november_3_announced_price_table_keeps_current_quotes_and_notes_the_change(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261103.html").read_text(encoding="utf-8")
+        prices = parse(content)
+        # The spot column is gone: 12 rows, one on-demand entry each.
+        self.assertEqual(len(prices), 12)
+        self.assertTrue(all(q["billing_mode"] == "on_demand" for q in prices))
+        self.assertEqual(
+            [(q["gpu_model"], q["gpu_variant"], q["amount"]) for q in prices if q["amount"] is not None],
+            [("B300", "HGX", "8.96"), ("H200", "HGX", "4.29"), ("H100", "HGX", "3.90"),
+             ("A100", "SXM", "2.30"), ("A100", "PCIe", "2.00"), ("L40S", None, "1.50"),
+             ("MI300X", None, "3.45")],
+        )
+        self.assertEqual(sum(q["quote_status"] == "contact_sales" for q in prices), 5)
+        # The announced column never becomes a second price; it is a note on the current one.
+        announced = {q["gpu_model"]: [n for n in q["notes"] if "announces a new on-demand price" in n] for q in prices}
+        self.assertEqual(announced["B300"], ["The source announces a new on-demand price of $9.90 / GPU-hr starting Dec 1, 2026; the quoted amount is the current price."])
+        self.assertEqual(announced["H200"][0].split("$")[1].split(" ")[0], "5.40")
+        self.assertEqual(announced["H100"][0].split("$")[1].split(" ")[0], "4.50")
+        self.assertEqual(sum(bool(v) for v in announced.values()), 3)
+        self.assertTrue(all(q["observed_at"] == OBSERVED_AT and q["regions"] == [] for q in prices))
+
+    def test_announced_price_table_still_fails_closed_on_structure_changes(self):
+        content = (FIXTURE.parent / "crusoe-pricing-20261103.html").read_text(encoding="utf-8")
+        cases = [
+            content.replace("Current on-demand", "Reserved"),
+            content.replace("New on-demand", "Current spot"),
+            # A live price column may not contain a "No change" cell.
+            content.replace("Current on-demand", "TEMP").replace("New on-demand", "Current on-demand").replace("TEMP", "New on-demand"),
+            content.replace("No change", "Unknown", 1),
+        ]
+        for case in cases:
+            with self.subTest(case=case[:80]):
+                with self.assertRaises(ValueError):
+                    parse(case)
+
     def test_missing_or_ambiguous_memory_still_rejected_for_numeric_quotes(self):
         variants = [
             self.content.replace("141GB", ""),

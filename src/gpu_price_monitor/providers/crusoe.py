@@ -19,6 +19,12 @@ _PRICE = re.compile(
     re.IGNORECASE,
 )
 _BILLING_MODES = {"on-demand": "on_demand", "current spot": "spot"}
+# Since 2026-11-03 the table announces a price change instead of a spot column.
+# The current column is the live on-demand quote; the future column is kept as
+# a note on that quote and never published as a second price. Rows without an
+# announced change read "No change" and carry no price cell.
+_ANNOUNCED_COLUMNS = {"current on-demand": "on_demand", "new on-demand": None}
+_NO_CHANGE = "no change"
 _VARIANT = re.compile(r"\b(?:HGX|NVL\d+|SXM\d*|PCIe)\b", re.IGNORECASE)
 
 
@@ -64,7 +70,7 @@ def _table_rows(section) -> list[tuple]:
             result.append((row, prices))
         return result
     if len(columns) != 3:
-        raise ValueError("Crusoe GPU CMS table must have model, on-demand and spot columns")
+        raise ValueError("Crusoe GPU CMS table must have model and two price columns")
     lists = []
     for column in columns:
         containers = column.select(":scope > .w-dyn-items")
@@ -95,14 +101,18 @@ def _table_rows(section) -> list[tuple]:
         cells = []
         for item in items:
             prices = item.select(".pricing-rich")
-            if (len(prices) != 1 or item.select(".pricing-item-heading")
-                    or item.has_attr("data-sort-order") or item.has_attr("data-sort-name")):
+            # A "No change" cell (announced-price column only) has no price;
+            # parse_prices rejects it in a live price column.
+            if (len(prices) > 1 or item.select(".pricing-item-heading")
+                    or item.has_attr("data-sort-order") or item.has_attr("data-sort-name")
+                    or not prices and _text(item).casefold() != _NO_CHANGE):
                 raise ValueError("Crusoe GPU CMS price column identity or ordering changed")
-            cells.append(prices[0])
+            cells.append(prices[0] if prices else None)
         price_cells.append(cells)
     # Also reject additional cells outside the validated three lists.
+    bound = sum(cell is not None for cells in price_cells for cell in cells)
     if (len(section.select(".pricing-item-heading")) != len(models)
-            or len(section.select(".pricing-rich")) != 2 * len(models)):
+            or len(section.select(".pricing-rich")) != bound):
         raise ValueError("Crusoe GPU CMS table contains unbound model or price cells")
     return [(model, [price_cells[0][index], price_cells[1][index]])
             for index, (_, model) in enumerate(sorted(ordered_models, key=lambda pair: pair[0]))]
@@ -131,8 +141,11 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
     if len(header_rows) != 1:
         raise ValueError("Crusoe GPU instances pricing columns were not uniquely identified")
     columns = [_text(cell).casefold() for cell in header_rows[0].select(".pricing-heading")]
-    if len(columns) != 3 or columns[0] != "gpu model" or set(columns[1:]) != set(_BILLING_MODES):
+    modes = _BILLING_MODES if set(columns[1:]) == set(_BILLING_MODES) else _ANNOUNCED_COLUMNS
+    if len(columns) != 3 or columns[0] != "gpu model" or set(columns[1:]) != set(modes):
         raise ValueError("Crusoe GPU instances pricing columns changed")
+    # "starting Dec 1, 2026" under the announced column; kept verbatim in notes.
+    announced_since = [_text(cell) for cell in header_rows[0].select(".pricing_up")]
     result = []
     seen = set()
     for row, prices in _table_rows(section):
@@ -144,7 +157,7 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
         if not gpu_model:
             raise ValueError("Crusoe GPU instance row is missing its model")
         tags = [_text(tag) for tag in row.select(".pricing-tag")]
-        parsed_prices = [_price(_text(price)) for price in prices]
+        parsed_prices = [_price(_text(price)) if price is not None else None for price in prices]
         memories = [match for tag in tags if (match := _MEMORY.fullmatch(tag))]
         # Contact-sales products can omit memory or publish an NVL system-level
         # TB label. Retain the label, but never infer per-GPU GB from it; numeric
@@ -153,7 +166,7 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
         empty_contact_listing = (
             not memories
             and bool(tags)
-            and all(status == "contact_sales" for _, status, _ in parsed_prices)
+            and all(parsed is None or parsed[1] == "contact_sales" for parsed in parsed_prices)
             and len(unpriced_memory_description) <= 1
             and all(not tag or _VARIANT.fullmatch(tag) or _OTHER_MEMORY.fullmatch(tag) for tag in tags)
         )
@@ -170,8 +183,19 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
                 variant_parts.append(canonical)
         variant = " ".join(variant_parts) or None
 
-        for column, (amount, status, basis) in zip(columns[1:], parsed_prices):
-            billing_mode = _BILLING_MODES[column]
+        announced = None
+        for column, parsed in zip(columns[1:], parsed_prices):
+            if modes[column] is None and parsed is not None and parsed[0] is not None:
+                announced = (f"The source announces a new on-demand price of ${parsed[0]} / GPU-hr"
+                             + (f" {announced_since[0]}" if len(announced_since) == 1 else "")
+                             + "; the quoted amount is the current price.")
+        for column, parsed in zip(columns[1:], parsed_prices):
+            billing_mode = modes[column]
+            if billing_mode is None:
+                continue
+            if parsed is None:
+                raise ValueError("Crusoe GPU instance price column has no quote")
+            amount, status, basis = parsed
             identity = (gpu_model, variant, vram_gb, billing_mode)
             if identity in seen:
                 raise ValueError("Crusoe GPU instance table contains ambiguous duplicate rows")
@@ -182,6 +206,8 @@ def parse_prices(content: str, *, observed_at: str, as_of: date) -> list[dict]:
             ]
             if status == "contact_sales":
                 notes.append("The source requests contacting sales and provides no numeric price.")
+            if announced:
+                notes.append(announced)
             if vram_gb is None:
                 notes.append("The source does not specify GPU memory capacity in per-GPU GB for this contact-sales listing.")
                 if unpriced_memory_description:
