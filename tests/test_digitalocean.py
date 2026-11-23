@@ -239,6 +239,7 @@ class DigitalOceanTests(unittest.TestCase):
             result = collect_prices(["digitalocean"], settings=Settings())
         self.assertEqual(result["status"], "partial")
         self.assertEqual(len(result["prices"]), 19)
+        self.assertEqual(sum(q["raw_sku"] is not None for q in result["prices"]), 9)
         provider = result["provider_results"][0]
         self.assertEqual(provider["status"], "partial")
         self.assertEqual(provider["catalog_coverage"]["matched_sku_count"], 9)
