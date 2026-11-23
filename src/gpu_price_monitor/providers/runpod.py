@@ -22,12 +22,19 @@ API_URL = "https://api.runpod.io/graphql"
 DOCUMENTATION_URL = "https://graphql-spec.runpod.io/"
 PRICE_BASIS_URL = "https://www.runpod.io/articles/comparison/runpod-vs-replicate"
 
-# Only GPU Pods on-demand prices. No mutations, account queries, serverless,
-# spot, reserved plans, or datacenter inventory fields are requested.
+# Only GPU Pods on-demand prices and one-GPU resource minima. The two cloud
+# tiers are queried in the same response as their catalog rates. No mutations,
+# account queries, serverless, spot, reserved plans or datacenter reads.
 GPU_TYPES_QUERY = """query PublicGpuPodPrices {
   gpuTypes {
     id displayName memoryInGb
     secureCloud communityCloud securePrice communityPrice
+    secureOneGpu: lowestPrice(input: {gpuCount: 1, secureCloud: true}) {
+      uninterruptablePrice stockStatus minMemory minVcpu
+    }
+    communityOneGpu: lowestPrice(input: {gpuCount: 1, secureCloud: false}) {
+      uninterruptablePrice stockStatus minMemory minVcpu
+    }
   }
 }"""
 _TIERS = (("secure", "secureCloud", "securePrice"),
@@ -129,7 +136,10 @@ def parse_region_prices(payload: dict, *, center: dict, catalog: list[dict],
             if stock not in (None, "Low", "Medium", "High", "None"):
                 raise ValueError("RunPod regional stock status changed")
             request = {"dataCenterId": center["id"], "gpuCount": 1, "secureCloud": tier == "secure"}
-            quotes.append({**template, "gpu_count": 1, "amount": format(amount, "f"),
+            # A caller may pass enriched catalog quotes. Global resource
+            # minima are bound to their own price/request, not this region.
+            regional_template = {key: value for key, value in template.items() if key != "resources"}
+            quotes.append({**regional_template, "gpu_count": 1, "amount": format(amount, "f"),
                            "quote_status": "starting_at", "price_basis": "starting_price",
                            "regions": [center["id"]], "zones": [center["id"]],
                            "geographic_scope": "requested_zone", "price_scope": "requested_zone_quote",
@@ -283,9 +293,56 @@ def _catalog_prices(entries: list[tuple[dict, Decimal | None]], *, allow_empty: 
     return quotes
 
 
+def _catalog_resource_references(quotes: list[dict], payload: dict) -> list[dict]:
+    """Attach same-response, same-price minima without changing catalog rates.
+
+    A global lowest price does not identify a selected machine or location. Its
+    resource minima only describe the exact one-GPU/cloud request; they cannot
+    be borrowed by another tier, catalog amount, or a multi-GPU request.
+    """
+    source = {_name(row["id"]): row for row in payload["data"]["gpuTypes"]}
+    result = []
+    for quote in quotes:
+        value = source[quote["raw_sku"]].get(quote["cloud_tier"] + "OneGpu")
+        if value is None:
+            result.append(quote)
+            continue
+        if not isinstance(value, dict):
+            raise ValueError("RunPod one-GPU resource reference structure changed")
+        amount = _price(value.get("uninterruptablePrice"))
+        if (amount is None or amount <= 0 or amount != Decimal(quote["amount"])
+                or value.get("stockStatus") not in ("Low", "Medium", "High")):
+            result.append(quote)
+            continue
+        resources = {"resource_basis": "minimum"}
+        for native, field in (("minVcpu", "vcpus"), ("minMemory", "memory_gb")):
+            minimum = value.get(native)
+            if minimum is not None:
+                if type(minimum) is not int or minimum <= 0:
+                    raise ValueError("RunPod one-GPU minimum resources are invalid")
+                resources[field] = minimum
+        if len(resources) == 1:
+            result.append(quote)
+            continue
+        result.append({**quote, "gpu_count": 1, "resources": resources,
+                       "conditions": {**quote["conditions"],
+                                      "quote_request": {"gpuCount": 1, "secureCloud": quote["cloud_tier"] == "secure"},
+                                      "minimum_vcpus": value.get("minVcpu"),
+                                      "minimum_ram_gb": value.get("minMemory"),
+                                      "stock_status": value["stockStatus"]},
+                       "notes": [
+                           "Public GPU Pods catalog rate; storage is charged separately and its capacity is not provided.",
+                           "The same response quotes the identical positive rate for one available GPU in this cloud tier; CPU/RAM are independent aggregate minima for that request, not exact machine specifications.",
+                           "The resource reference applies to one GPU only; no multi-GPU configuration is inferred.",
+                           "Datacenter, selected host and checkout orderability remain unverified; catalog availability stays unknown.",
+                       ]})
+    return result
+
+
 def parse_catalog(payload: dict, *, observed_at: str) -> list[dict]:
     """Return only positive catalog rates, excluding inactive/MIG/vGPU entries."""
-    return _catalog_prices(_catalog_entries(payload, observed_at=observed_at))
+    quotes = _catalog_prices(_catalog_entries(payload, observed_at=observed_at))
+    return _catalog_resource_references(quotes, payload)
 
 
 def collect_quotes(*, settings: Settings, observed_at: str) -> list[dict]:
@@ -310,7 +367,7 @@ def collect_result(*, settings: Settings, observed_at: str) -> dict:
     if settings.catalog_scope == "complete":
         payload = _request(GPU_TYPES_QUERY, bounded)
         entries = _catalog_entries(payload, observed_at=observed_at)
-        catalog = _catalog_prices(entries, allow_empty=True)
+        catalog = _catalog_resource_references(_catalog_prices(entries, allow_empty=True), payload)
         regional_metadata = [metadata for metadata, _amount in entries]
     else:
         catalog = collect_quotes(settings=settings, observed_at=observed_at)

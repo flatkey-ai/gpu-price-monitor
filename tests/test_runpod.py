@@ -145,8 +145,11 @@ class RunPodTests(unittest.TestCase):
         payload = json.loads(kwargs["data"])
         self.assertEqual(payload, {"query": runpod.GPU_TYPES_QUERY})
         self.assertTrue(payload["query"].startswith("query "))
-        for forbidden in ("mutation", "myself", "lowestPrice", "SpotPrice", "clusterPrice", "api_key"):
+        for forbidden in ("mutation", "myself", "SpotPrice", "clusterPrice", "api_key"):
             self.assertNotIn(forbidden, payload["query"])
+        self.assertEqual(payload["query"].count("lowestPrice("), 2)
+        self.assertIn("secureOneGpu: lowestPrice(input: {gpuCount: 1, secureCloud: true})", payload["query"])
+        self.assertIn("communityOneGpu: lowestPrice(input: {gpuCount: 1, secureCloud: false})", payload["query"])
         self.assertNotIn("unused-", json.dumps(quotes))
 
 
