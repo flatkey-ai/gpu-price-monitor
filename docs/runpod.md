@@ -9,6 +9,12 @@
 - `standard`：读取 GPU Pods 的 Secure / Community 按需目录。只保留启用云档位、正数费率和整卡，地区与库存保持未知。
 - `complete`：保留目录，并为国家已经核实的每个数据中心查询 **1 GPU** 的 `lowestPrice`。Secure 和 Community 独立查询，不把目录价格复制到机房。
 
+从 0.26.5 起，目录的同一次匿名请求还读取 Secure / Community 各自的全局单卡 `lowestPrice`。只有该档位返回正数价格、`Low` / `Medium` / `High` 库存，且价格与同一响应中的目录价精确相等时，才给该目录行附加 `resources.resource_basis=minimum`、已提供的 `vcpus` / `memory_gb`，并明确 `gpu_count=1`。`conditions.quote_request` 保存 `gpuCount=1` 和 `secureCloud`；CPU/RAM 是这个单卡请求的独立最低值，不是某台已选中机器的确定配置，也不代表可乘卡数。
+
+这项补充不替换目录价格，不提升目录的 `availability=unknown`，也不创建新的机器报价或地区绑定。差价、空价格、无货或缺最低硬件时，原目录行保持未知；不得把 Secure 的硬件填到 Community，或把新读取的硬件拼到历史价格上。存储不在该响应中，保持未提供；不采用创建默认容量。地区起价继续使用自己的请求与最低硬件，不能继承全局参考值。
+
+下游聚合必须保留同一原生 SKU 的云档位和卡数边界；例如不同档位同名 GPU 的最低价格与硬件不能拼成一台不存在的机器。只读取目录的页面无需新增逐行实时查询。
+
 Python 示例：
 
 ```python
