@@ -52,7 +52,7 @@ class AllCollectionTests(unittest.TestCase):
                           side_effect=lambda *, settings, observed_at: [spot_quote(observed_at)]).start()
         self.sources = {}
         for name, module in IMPLEMENTED_PROVIDERS.items():
-            if name == "vast":
+            if name in {"vast", "digitalocean"}:
                 self.sources[name] = patch.object(module, "collect_result", return_value={
                     "prices": [quote(name)], "status": "success", "errors": []}).start()
                 continue

@@ -94,7 +94,7 @@ CompShare 已取得真实匿名询价成功响应，不需要供应商 key、充
 
 | 扩展适配器 | 来源与边界 |
 | --- | --- |
-| DigitalOcean | [GPU Droplet 定价文档](https://docs.digitalocean.com/products/droplets/details/pricing/)，明确整实例卡数分摊；按需 / Spot 与硬件变体分开 |
+| DigitalOcean | [GPU Droplet 定价文档](https://docs.digitalocean.com/products/droplets/details/pricing/)强制请求 HTML，读取整实例小时价并按明确卡数分摊；再与[官方产品页](https://www.digitalocean.com/products/gpu-droplets)的描述、GPU 数、完整价格和内部一致的 slug/显存严格匹配，才附 `raw_sku`、CPU、GiB 内存、GiB boot / scratch 存储。Spot 不借用普通 SKU；产品页缺失或矛盾时保留原报价并报告部分缺口，不推断库存、地区或可下单性。 |
 | Verda | [USD](https://verda.com/pricing?currency=usd) / [EUR](https://verda.com/pricing?currency=eur)分别读取普通、机密实例与明确卡数的即时集群；保留页面价格及 JSON-LD 口径差异，不在库内换汇，不猜部署国家 |
 | Azure | [Retail Prices API](https://prices.azure.com/api/retail/prices)，26 个已核验整卡 GPU SKU，包含 T4、A10、A100、H100、H200、V100、RTX PRO 6000、V710、MI300X、GB200 的明确规格及地区费率；不代表全 SKU、订阅库存或配额，见[范围说明](azure.md) |
 

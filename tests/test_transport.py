@@ -25,6 +25,14 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(fetch_text("https://example.com", Settings(max_retries=1)), "public pricing")
         self.assertEqual(opener.call_count, 2)
 
+    def test_public_html_accept_can_be_requested_without_changing_other_sources(self):
+        with patch("gpu_price_monitor.transport.urlopen", return_value=self.response()) as opener:
+            fetch_text("https://example.com", Settings(max_retries=0), headers={"Accept": "text/html"})
+        self.assertEqual(opener.call_args.args[0].get_header("Accept"), "text/html")
+        with patch("gpu_price_monitor.transport.urlopen", return_value=self.response()) as opener:
+            fetch_text("https://example.com", Settings(max_retries=0))
+        self.assertEqual(opener.call_args.args[0].get_header("Accept"), "text/markdown,text/html,text/plain;q=0.9")
+
     def test_unauthorized_does_not_retry_or_leak_upstream_message(self):
         with patch("gpu_price_monitor.transport.urlopen", side_effect=HTTPError("https://example.com", 403, "private value", {}, None)) as opener:
             with self.assertRaises(FetchError) as raised:

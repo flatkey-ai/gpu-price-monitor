@@ -2,21 +2,27 @@
 
 import json
 import unittest
+from copy import deepcopy
 from datetime import date
 from decimal import Inexact, localcontext
 from pathlib import Path
+from unittest.mock import patch
 
 from bs4 import BeautifulSoup
 
 from gpu_price_monitor.providers import digitalocean
+from gpu_price_monitor import Settings, collect_prices
+from gpu_price_monitor.transport import FetchError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "digitalocean-pricing.html"
+PRODUCTS_FIXTURE = Path(__file__).parent / "fixtures" / "digitalocean-products-flight.html"
 OBSERVED = "2026-10-20T07:30:00+00:00"
 
 
 class DigitalOceanTests(unittest.TestCase):
     def setUp(self):
         self.content = FIXTURE.read_text()
+        self.products = PRODUCTS_FIXTURE.read_text()
 
     def parse(self, content=None):
         return digitalocean.parse_prices(self.content if content is None else content,
@@ -156,6 +162,88 @@ class DigitalOceanTests(unittest.TestCase):
             with self.subTest(length=len(content)), self.assertRaises(ValueError) as error:
                 self.parse(content)
             self.assertNotIn("private-secret", str(error.exception))
+
+    def collect(self, *, plans=None, product_content=None):
+        product_content = self.products if product_content is None else product_content
+        with patch.object(digitalocean, "fetch_text", side_effect=[self.content, product_content]) as fetch:
+            if plans is None:
+                outcome = digitalocean.collect_result(settings=Settings(), observed_at=OBSERVED)
+            else:
+                with patch.object(digitalocean, "parse_product_plans", return_value=plans):
+                    outcome = digitalocean.collect_result(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual([call.kwargs["headers"]["Accept"] for call in fetch.call_args_list],
+                         ["text/html", "text/html"])
+        return outcome
+
+    def test_official_product_catalog_matches_only_nine_exact_on_demand_plans(self):
+        outcome = self.collect()
+        self.assertEqual(outcome["status"], "partial")
+        self.assertEqual(outcome["catalog_coverage"], {
+            "priced_plan_count": 19, "on_demand_plan_count": 11,
+            "matched_sku_count": 9, "product_catalog_status": "available",
+        })
+        self.assertEqual(len(outcome["prices"]), 19)
+        self.assertEqual(len(outcome["gaps"]), 2)
+        self.assertEqual({gap["raw_name"] for gap in outcome["gaps"]},
+                         {"NVIDIA L40s", "NVIDIA H200 (8x)"})
+        self.assertEqual([(q["raw_name"], q["instance_price"], q["amount"])
+                          for q in outcome["prices"]],
+                         [(q["raw_name"], q["instance_price"], q["amount"])
+                          for q in self.parse()])
+        self.assertTrue(all(q["raw_sku"] is None and q["resources"] == {}
+                            for q in outcome["prices"] if q["billing_mode"] == "spot"))
+        h100 = next(q for q in outcome["prices"] if q["raw_name"] == "NVIDIA H100")
+        self.assertEqual(h100["raw_sku"], "gpu-h100x1-80gb")
+        self.assertEqual(h100["vram_gb"], 80)
+        self.assertEqual(h100["resources"], {
+            "vcpus": 20, "memory_gib": 240, "storage_gib": 720,
+            "scratch_storage_gib": 5120,
+        })
+        self.assertEqual(h100["hardware_source_url"], digitalocean.PRODUCTS_URL)
+        rtx = next(q for q in outcome["prices"] if q["raw_name"] == "NVIDIA RTX 4000")
+        self.assertEqual(rtx["raw_sku"], "gpu-rtx4000x1-20gb")
+        self.assertEqual(rtx["resources"], {"vcpus": 8, "memory_gib": 32, "storage_gib": 500})
+        self.assertEqual(json.loads(json.dumps(outcome)), outcome)
+
+    def test_product_conflicts_and_duplicates_cannot_assign_a_sku(self):
+        plans = digitalocean.parse_product_plans(self.products)
+        conflicting = deepcopy(plans)
+        conflicting[0]["slug"] = "gpu-h100x1-81gb"
+        h100 = next(q for q in self.collect(plans=conflicting)["prices"] if q["raw_name"] == "NVIDIA H100")
+        self.assertIsNone(h100["raw_sku"])
+        duplicate = deepcopy(plans)
+        duplicate.append(deepcopy(duplicate[0]))
+        h100 = next(q for q in self.collect(plans=duplicate)["prices"] if q["raw_name"] == "NVIDIA H100")
+        self.assertIsNone(h100["raw_sku"])
+
+    def test_missing_product_page_preserves_pricing_and_reports_partial(self):
+        with patch.object(digitalocean, "fetch_text", side_effect=[
+            self.content, FetchError("http_error", "The pricing source returned HTTP 503.", True),
+        ]):
+            outcome = digitalocean.collect_result(settings=Settings(), observed_at=OBSERVED)
+        self.assertEqual(outcome["status"], "partial")
+        self.assertEqual(len(outcome["prices"]), 19)
+        self.assertTrue(all(q["raw_sku"] is None for q in outcome["prices"]))
+        self.assertEqual(outcome["errors"][0]["source_url"], digitalocean.PRODUCTS_URL)
+        self.assertEqual(outcome["errors"][0]["code"], "http_error")
+
+    def test_product_payload_must_be_unique_and_well_formed(self):
+        for content in ("", "<main>private-secret</main>", self.products + self.products,
+                        self.products.replace("gpuDropletsData", "otherData")):
+            with self.subTest(length=len(content)), self.assertRaises(ValueError) as raised:
+                digitalocean.parse_product_plans(content)
+            self.assertNotIn("private-secret", str(raised.exception))
+
+    def test_collector_keeps_quoted_prices_and_surfaces_identity_gaps(self):
+        with patch.object(digitalocean, "fetch_text", side_effect=[self.content, self.products]):
+            result = collect_prices(["digitalocean"], settings=Settings())
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(len(result["prices"]), 19)
+        provider = result["provider_results"][0]
+        self.assertEqual(provider["status"], "partial")
+        self.assertEqual(provider["catalog_coverage"]["matched_sku_count"], 9)
+        self.assertEqual(provider["source_errors"][0]["code"], "catalog_identity_gap")
+        self.assertEqual(len(provider["gaps"]), 2)
 
 
 if __name__ == "__main__":

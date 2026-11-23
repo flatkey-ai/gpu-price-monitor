@@ -91,8 +91,8 @@ def _request_text(url: str, settings: Settings, *, method: str = "GET", headers:
     raise FetchError("network_error", "The pricing source could not be reached.", True)
 
 
-def fetch_text(url: str, settings: Settings) -> str:
-    return _request_text(url, settings)
+def fetch_text(url: str, settings: Settings, *, headers: dict | None = None) -> str:
+    return _request_text(url, settings, headers=headers)
 
 
 def request_json(url: str, settings: Settings, *, method: str = "GET", headers: dict | None = None,

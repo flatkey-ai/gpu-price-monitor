@@ -1,24 +1,28 @@
-"""Parse key-free DigitalOcean GPU Droplet list prices.
+"""Collect public GPU Droplet prices and strictly matched product specifications.
 
-The two GPU tables quote complete Droplet plans, not GPU components. The
-provider documents single-GPU and 8-GPU configurations; the ``(8x)`` suffix
-identifies the latter. Resource specifications and geography are deliberately
-not joined from unrelated availability or marketing pages.
+The price tables quote complete Droplet plans, not GPU components. The product
+page supplies plan slugs and hardware for a subset of those same priced plans.
+Neither page establishes account availability or a price location.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
-from decimal import Context, Decimal, localcontext
+from decimal import Context, Decimal, DecimalException, localcontext
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+
+from ..settings import Settings
+from ..transport import FetchError, fetch_text
 
 SOURCE_URL = "https://docs.digitalocean.com/products/droplets/details/pricing/"
 SOURCE_TYPE = "public_documentation"
 GPU_COUNT_SOURCE_URL = "https://docs.digitalocean.com/products/droplets/how-to/gpu/create/"
 CURRENCY_SOURCE_URL = "https://docs.digitalocean.com/reference/api/reference/sizes/"
+PRODUCTS_URL = "https://www.digitalocean.com/products/gpu-droplets"
 
 _SECTIONS = (
     ("on-demand-gpu-droplet-pricing", "on_demand"),
@@ -27,6 +31,16 @@ _SECTIONS = (
 _PRICE = re.compile(r"\$([0-9]+(?:\.[0-9]+)?) per hour")
 _GPU = re.compile(r"(AMD|NVIDIA) ([A-Za-z0-9][A-Za-z0-9 -]*?)(?:, (air-cooled|liquid-cooled))?(?: \((8)x\))?")
 _MONTHS = dict(zip("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), range(1, 13)))
+_PRODUCT_IDENTITIES = {
+    "AMD MI300X": ("AMD Instinct™ MI300X", "mi300"),
+    "AMD MI325X": ("AMD Instinct™ MI325X", "mi325"),
+    "NVIDIA H100": ("NVIDIA HGX H100", "h100"),
+    "NVIDIA H200": ("NVIDIA HGX H200", "h200"),
+    "NVIDIA L40s": ("NVIDIA L40S", "l40s"),
+    "NVIDIA RTX 4000": ("NVIDIA RTX 4000 Ada Generation", "rtx4000"),
+    "NVIDIA RTX 6000": ("NVIDIA RTX 6000 Ada Generation", "rtx6000"),
+}
+_SKU = re.compile(r"gpu-([a-z0-9]+?)x([1-9][0-9]*)-([1-9][0-9]*)gb")
 
 
 def _text(element) -> str:
@@ -165,3 +179,106 @@ def parse_prices(content: str, *, observed_at: str, as_of: date | None = None) -
                 "notes": notes,
             })
     return result
+
+
+def parse_product_plans(content: str) -> list[dict]:
+    """Read the official product page's single embedded GPU plan catalog.
+
+    The Next Flight script is JSON wrapped in a push call. Decode that wrapper
+    before reading its nested plan object; never use substring regexes as a
+    source of plan values.
+    """
+    soup = BeautifulSoup(content, "html.parser")
+    scripts = [script.get_text() for script in soup.find_all("script")
+               if "gpuDropletsData" in script.get_text()]
+    if len(scripts) != 1:
+        raise ValueError("DigitalOcean GPU product catalog was not uniquely identified")
+    script = scripts[0].strip()
+    prefix = "self.__next_f.push("
+    if not script.startswith(prefix):
+        raise ValueError("DigitalOcean GPU product catalog wrapper changed")
+    wrapper, offset = json.JSONDecoder().raw_decode(script[len(prefix):])
+    if script[len(prefix) + offset:].strip() != ")" or not isinstance(wrapper, list) or len(wrapper) != 2 or wrapper[0] != 1 or not isinstance(wrapper[1], str):
+        raise ValueError("DigitalOcean GPU product catalog wrapper changed")
+    payload = wrapper[1]
+    marker = '"gpuDropletsData":'
+    if payload.count(marker) != 1:
+        raise ValueError("DigitalOcean GPU product catalog was ambiguous")
+    catalog, _ = json.JSONDecoder(parse_float=Decimal).raw_decode(
+        payload[payload.index(marker) + len(marker):])
+    if not isinstance(catalog, dict) or not isinstance(catalog.get("plans"), list) or not catalog["plans"]:
+        raise ValueError("DigitalOcean GPU product plans were not found")
+    return catalog["plans"]
+
+
+def _positive_int(value) -> bool:
+    return type(value) is int and value > 0
+
+
+def _matched_hardware(quote: dict, plan: dict) -> dict | None:
+    identity = _PRODUCT_IDENTITIES.get(quote["raw_name"].replace(" (8x)", ""))
+    if identity is None or not isinstance(plan, dict):
+        return None
+    count = quote["gpu_count"]
+    description, sku_model = identity
+    if plan.get("description") != description + ("×8" if count == 8 else ""):
+        return None
+    slug = plan.get("slug")
+    sku = _SKU.fullmatch(slug) if isinstance(slug, str) else None
+    gpu, disk, price = plan.get("gpu"), plan.get("disk"), plan.get("price")
+    variant = gpu.get("variant", 1) if isinstance(gpu, dict) else None
+    if (sku is None or sku.group(1) != sku_model or int(sku.group(2)) != count
+            or not isinstance(gpu, dict) or not isinstance(disk, dict) or not isinstance(price, dict)
+            or not all(_positive_int(plan.get(field)) for field in ("cpus", "memory"))
+            or not _positive_int(gpu.get("memory")) or not _positive_int(disk.get("boot"))
+            or ("scratch" in disk and not _positive_int(disk["scratch"]))
+            or not _positive_int(variant) or variant != count
+            or gpu["memory"] != int(sku.group(3))
+            or gpu["memory"] % count != 0):
+        return None
+    hourly = price.get("hourly")
+    if type(hourly) not in (int, Decimal) or Decimal(hourly) != Decimal(quote["instance_price"]["amount"]):
+        return None
+    resources = {"vcpus": plan["cpus"], "memory_gib": plan["memory"],
+                 "storage_gib": disk["boot"]}
+    if "scratch" in disk:
+        resources["scratch_storage_gib"] = disk["scratch"]
+    return {"raw_sku": slug, "vram_gb": gpu["memory"] // count,
+            "resources": resources, "hardware_source_url": PRODUCTS_URL}
+
+
+def collect_result(*, settings: Settings, observed_at: str) -> dict:
+    """Keep price evidence even when the separate product catalog is incomplete."""
+    pricing = fetch_text(SOURCE_URL, settings, headers={"Accept": "text/html"})
+    prices = parse_prices(pricing, observed_at=observed_at)
+    try:
+        products = fetch_text(PRODUCTS_URL, settings, headers={"Accept": "text/html"})
+        plans = parse_product_plans(products)
+    except (FetchError, ValueError, TypeError, KeyError, DecimalException) as exc:
+        error = ({"code": exc.code, "message": str(exc), "retryable": exc.retryable}
+                 if isinstance(exc, FetchError) else
+                 {"code": "parse_failed", "message": "The GPU product catalog structure was not recognized.", "retryable": False})
+        return {"prices": prices, "status": "partial", "errors": [{"source_url": PRODUCTS_URL, **error}],
+                "catalog_coverage": {"priced_plan_count": len(prices), "matched_sku_count": 0,
+                                     "product_catalog_status": "unavailable"}}
+    gaps = []
+    for quote in prices:
+        if quote["billing_mode"] != "on_demand":
+            continue  # Spot prices are not ordinary on-demand size identities.
+        matches = [hardware for plan in plans
+                   if (hardware := _matched_hardware(quote, plan)) is not None]
+        if len(matches) == 1:
+            quote.update(matches[0])
+            quote["notes"].append("The separate official product catalog identifies this exact on-demand plan's SKU, CPU, RAM, per-GPU VRAM, boot disk and optional scratch disk; RAM and disk values are GiB.")
+        else:
+            gaps.append({"scope": "on_demand_gpu_plan_sku", "status": "unverified",
+                         "raw_name": quote["raw_name"], "gpu_count": quote["gpu_count"],
+                         "reason": "No unique product plan matched description, GPU count, exact hourly total and internally consistent SKU hardware."})
+    matched = sum(q["raw_sku"] is not None for q in prices)
+    errors = ([{"source_url": PRODUCTS_URL, "code": "catalog_identity_gap",
+                "message": "Some priced GPU plans have no uniquely verified product SKU.", "retryable": False}]
+              if gaps else [])
+    return {"prices": prices, "status": "partial" if gaps else "ok", "errors": errors, "gaps": gaps,
+            "catalog_coverage": {"priced_plan_count": len(prices), "on_demand_plan_count": sum(
+                q["billing_mode"] == "on_demand" for q in prices), "matched_sku_count": matched,
+                "product_catalog_status": "available"}}
